@@ -636,19 +636,27 @@ export function useCoachControlCenter({
       try {
         setError(null);
         const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
-        const safeSims = Array.isArray(simulados) && simulados.length > 0
-          ? simulados
-          : safeCats.flatMap((cat) => {
-            const hist = (Array.isArray(cat?.simuladoStats?.history)
-              ? cat.simuladoStats.history
-              : Object.values(cat?.simuladoStats?.history || {})
-            ).filter((entry) => entry && entry.valid !== false);
-            return hist.map((entry) => ({
-              ...entry,
-              categoryId: entry?.categoryId ?? cat?.id,
-              subject: entry?.subject || entry?.categoryName || cat?.name || '',
-            }));
-          });
+        const rawSims = Array.isArray(simulados) ? simulados : [];
+        const hasOnlyGenericSims = rawSims.length > 0 && rawSims.every((s) => {
+          if (!s || typeof s !== 'object') return true;
+          if (s.categoryId != null && String(s.categoryId).trim() !== '') return false;
+          const subj = String(s.subject || s.categoryName || s.materia || '').trim().toLowerCase();
+          return !subj || subj === 'simulado geral' || subj === 'geral' || subj === 'global';
+        });
+        const catHistorySims = safeCats.flatMap((cat) => {
+          const hist = (Array.isArray(cat?.simuladoStats?.history)
+            ? cat.simuladoStats.history
+            : Object.values(cat?.simuladoStats?.history || {})
+          ).filter((entry) => entry && entry.valid !== false && entry.validated !== false);
+          return hist.map((entry) => ({
+            ...entry,
+            categoryId: entry?.categoryId ?? cat?.id,
+            subject: entry?.subject || entry?.categoryName || cat?.name || '',
+          }));
+        });
+        const safeSims = (rawSims.length > 0 && !(hasOnlyGenericSims && catHistorySims.length > 0))
+          ? rawSims
+          : (catHistorySims.length > 0 ? catHistorySims : rawSims);
         const report = runGranularCoachBacktest(safeCats, safeSims, studyLogs, {
           maxScore,
           minScore,
@@ -669,7 +677,7 @@ export function useCoachControlCenter({
               if (!summary || (summary.count || 0) <= 0) return;
               const scored = scoreStrategyEvaluation(summary, null, { maxScore, minScore });
               if (Number.isFinite(scored?.final)) {
-                recordStrategyOutcome(stratId, scored.final, resolvedContestId);
+                recordStrategyOutcome(stratId, scored.final, { contestId: resolvedContestId });
               }
             });
           } catch {
@@ -709,19 +717,27 @@ export function useCoachControlCenter({
       try {
         setError(null);
         const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
-        const safeSims = Array.isArray(simulados) && simulados.length > 0
-          ? simulados
-          : safeCats.flatMap((cat) => {
-            const hist = (Array.isArray(cat?.simuladoStats?.history)
-              ? cat.simuladoStats.history
-              : Object.values(cat?.simuladoStats?.history || {})
-            ).filter((entry) => entry && entry.valid !== false);
-            return hist.map((entry) => ({
-              ...entry,
-              categoryId: entry?.categoryId ?? cat?.id,
-              subject: entry?.subject || entry?.categoryName || cat?.name || '',
-            }));
-          });
+        const rawSims = Array.isArray(simulados) ? simulados : [];
+        const hasOnlyGenericSims = rawSims.length > 0 && rawSims.every((s) => {
+          if (!s || typeof s !== 'object') return true;
+          if (s.categoryId != null && String(s.categoryId).trim() !== '') return false;
+          const subj = String(s.subject || s.categoryName || s.materia || '').trim().toLowerCase();
+          return !subj || subj === 'simulado geral' || subj === 'geral' || subj === 'global';
+        });
+        const catHistorySims = safeCats.flatMap((cat) => {
+          const hist = (Array.isArray(cat?.simuladoStats?.history)
+            ? cat.simuladoStats.history
+            : Object.values(cat?.simuladoStats?.history || {})
+          ).filter((entry) => entry && entry.valid !== false && entry.validated !== false);
+          return hist.map((entry) => ({
+            ...entry,
+            categoryId: entry?.categoryId ?? cat?.id,
+            subject: entry?.subject || entry?.categoryName || cat?.name || '',
+          }));
+        });
+        const safeSims = (rawSims.length > 0 && !(hasOnlyGenericSims && catHistorySims.length > 0))
+          ? rawSims
+          : (catHistorySims.length > 0 ? catHistorySims : rawSims);
         const events = buildCausalEventsFromHistory(safeCats, safeSims, studyLogs, {
           maxScore,
           minScore,
@@ -764,49 +780,49 @@ export function useCoachControlCenter({
   const strategySpace = useMemo(() => getStrategySpace(), []);
 
   const latestHealth = useMemo(() => {
-  if (healthSnapshots.length > 0) return healthSnapshots[healthSnapshots.length - 1];
-  return orchestratorResult?.health || null;
-}, [healthSnapshots, orchestratorResult]);
+    if (healthSnapshots.length > 0) return healthSnapshots[healthSnapshots.length - 1];
+    return orchestratorResult?.health || null;
+  }, [healthSnapshots, orchestratorResult]);
 
-const hasError = error !== null;
-const isSkipped = orchestratorResult?.skipped === true;
-const isReady = !loading && orchestratorResult !== null && !isSkipped;
+  const hasError = error !== null;
+  const isSkipped = orchestratorResult?.skipped === true;
+  const isReady = !loading && orchestratorResult !== null && !isSkipped;
 
-return {
-  // Estado
-  activeTab,
-  setActiveTab,
-  loading,
-  error,
-  hasError,
-  isReady,
-  lastRunTimestamp,
-  // Dados principais
-  orchestratorResult,
-  dashboard,
-  backtestReport,
-  tunerHistory,
-  tunerResult,
-  causalModel,
-  healthSnapshots,
-  latestHealth,
-  currentFlags,
-  flagOverrides,
-  strategySpace,
-  // Ações
-  runOrchestrator,
-  loadAuxiliaryData,
-  runAutoTuner,
-  runBacktest,
-  trainCausal,
-  applyRecommendation,
-  applyStrategyPreset,
-  rollbackToBaseline,
-  toggleFlag,
-  resetOverrides,
-  clearError,
-  handleClearCaches,
-};
+  return {
+    // Estado
+    activeTab,
+    setActiveTab,
+    loading,
+    error,
+    hasError,
+    isReady,
+    lastRunTimestamp,
+    // Dados principais
+    orchestratorResult,
+    dashboard,
+    backtestReport,
+    tunerHistory,
+    tunerResult,
+    causalModel,
+    healthSnapshots,
+    latestHealth,
+    currentFlags,
+    flagOverrides,
+    strategySpace,
+    // Ações
+    runOrchestrator,
+    loadAuxiliaryData,
+    runAutoTuner,
+    runBacktest,
+    trainCausal,
+    applyRecommendation,
+    applyStrategyPreset,
+    rollbackToBaseline,
+    toggleFlag,
+    resetOverrides,
+    clearError,
+    handleClearCaches,
+  };
 }
 
 export default useCoachControlCenter;

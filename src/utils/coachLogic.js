@@ -1630,9 +1630,11 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
                     return {
                         confidenceAdjusted: calibPenalty > 0 || shrinkTotal > 0.01,
                         confidenceAdjustmentPct: safeFixedNumber(effectiveShrink * 100),
-                        calibrationQuality: (mcResult?.avgBrier != null && mcResult?.avgBrier <= cfg.MC_CALIBRATION_BRIER_BASELINE)
-                            ? 'good'
-                            : (mcResult?.avgBrier != null && mcResult?.avgBrier <= (cfg.MC_CALIBRATION_BRIER_BASELINE + 0.07)) ? 'moderate' : 'low',
+                        calibrationQuality: mcResult?.avgBrier == null
+                            ? 'low'
+                            : (mcResult.avgBrier <= cfg.MC_CALIBRATION_BRIER_BASELINE
+                                ? 'good'
+                                : (mcResult.avgBrier <= (cfg.MC_CALIBRATION_BRIER_BASELINE + 0.07) ? 'moderate' : 'degraded')),
                         note: calibPenalty > 0
                             ? (mcResult?.explainability?.note || 'Probabilidade ajustada para reduzir overconfidence após backtest interno.')
                             : (shrinkTotal > 0.01

@@ -137,11 +137,12 @@ function AICoachCard({ task, idx, onStartPomodoro, categories, maxScore = 100, m
             </div>
 
             {/* Exposição Visual dos KPIs Matemáticos */}
-            {task.analysis?.monteCarlo && Number.isFinite(Number(task.analysis.monteCarlo.probability ?? task.analysis.monteCarlo.probabilityRaw)) && (() => {
-                // VIS-FIX: probability/volatility ausentes geravam "NaN%" no card.
+            {task.analysis?.monteCarlo && (() => {
                 const rawVal = task.analysis.monteCarlo.probability ?? task.analysis.monteCarlo.probabilityRaw;
+                if (rawVal === null || rawVal === undefined || rawVal === '' || typeof rawVal === 'boolean' || !Number.isFinite(Number(rawVal))) return null;
                 const mcProb = Math.max(0, Math.min(100, Number(rawVal)));
-                const mcVol = Number.isFinite(Number(task.analysis.monteCarlo.volatility)) ? Number(task.analysis.monteCarlo.volatility) : 0;
+                const rawVol = task.analysis.monteCarlo.volatility;
+                const mcVol = (rawVol !== null && rawVol !== undefined && rawVol !== '' && typeof rawVol !== 'boolean' && Number.isFinite(Number(rawVol))) ? Number(rawVol) : 0;
                 const scaleDomain = Math.max(1, (Number(maxScore) || 100) - (Number(minScore) || 0));
                 const mcVolPct = (mcVol / scaleDomain) * 100;
                 const highVol = mcVolPct > 8;

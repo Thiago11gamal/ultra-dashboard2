@@ -32,19 +32,26 @@ export const mapRetentionData = (categories = [], options = {}) => {
     const data = [];
     const now = options.now ?? Date.now();
     const limit = options.limit ?? 8;
+    const studyLogs = options.studyLogs || [];
+    const contestMinScore = options.minScore;
+    const contestMaxScore = options.maxScore;
     const safeCategories = normalizeArray(categories);
 
     safeCategories.forEach(cat => {
         if (!cat || !(cat.id || cat.name)) return;
 
-        const latestStudyMs = getLatestStudyMs(cat, cat.tasks);
+        const latestStudyMs = getLatestStudyMs(cat, cat.tasks, studyLogs);
         if (latestStudyMs == null) return;
 
         const days = Math.max(0, (now - latestStudyMs) / CORE_MS_PER_DAY);
         if (!Number.isFinite(days)) return;
 
-        const mastery = getMasterySignal(cat);
-        const empirical = estimateEmpiricalHalfLife(cat);
+        const scaleOpts = {
+            ...(contestMinScore != null ? { minScore: contestMinScore } : {}),
+            ...(contestMaxScore != null ? { maxScore: contestMaxScore } : {}),
+        };
+        const mastery = getMasterySignal(cat, null, scaleOpts);
+        const empirical = estimateEmpiricalHalfLife(cat, { ...scaleOpts, studyLogs });
         const halfLife = empirical.effectiveHalfLife;
         const retention = retentionFromHalfLife(days, halfLife);
 

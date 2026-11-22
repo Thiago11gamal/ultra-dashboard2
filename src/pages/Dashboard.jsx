@@ -16,6 +16,7 @@ import { toArray } from '../utils/normalize';
 import { normalizePriority } from '../utils/colorHelper';
 import { clearUrgencyCache, clearTopicsCache } from '../utils/coachCaches';
 import { clearMcCache } from '../utils/coachAdaptive';
+import { resolveUserTargetScorePoints } from '../utils/scoreHelper';
 
 export default function Dashboard() {
     // P06 PERF FIX: Group store actions with useShallow to prevent re-rendering Dashboard on every store mutation
@@ -362,13 +363,25 @@ return (
                 </div>
             )}
 
-            <AdaptivePulseStrip
-                categories={data.categories}
-                studyLogs={data.studyLogs}
-                flashcardDecks={data.flashcardDecks}
-                targetScore={Number(data.user?.targetScore) || 80}
-                onOpenSyllabusImporter={() => setShowSyllabusImporter(true)}
-            />
+            {(() => {
+                const dashMin = Number.isFinite(Number(data.minScore ?? data.settings?.minScore))
+                    ? Number(data.minScore ?? data.settings?.minScore)
+                    : 0;
+                const rawDashMax = Number(data.maxScore ?? data.settings?.maxScore);
+                const dashMax = Number.isFinite(rawDashMax) && rawDashMax > dashMin ? rawDashMax : Math.max(dashMin + 1, 100);
+                const dashTarget = resolveUserTargetScorePoints(data.user, dashMin, dashMax, 0.8);
+                return (
+                    <AdaptivePulseStrip
+                        categories={data.categories}
+                        studyLogs={data.studyLogs}
+                        flashcardDecks={data.flashcardDecks}
+                        targetScore={dashTarget}
+                        minScore={dashMin}
+                        maxScore={dashMax}
+                        onOpenSyllabusImporter={() => setShowSyllabusImporter(true)}
+                    />
+                );
+            })()}
 
             <div className="tour-step-4">
                 <StatsCards data={data} onUpdateGoalDate={setGoalDate} />

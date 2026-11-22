@@ -28,7 +28,7 @@ export function estimateEmpiricalHalfLife(category, options = {}) {
   const maxScore = Math.max(minScore + 1, rawMax);
   const range = Math.max(1e-6, maxScore - minScore);
 
-  const mastery = getMasterySignal(category);
+  const mastery = getMasterySignal(category, null, { minScore, maxScore });
   const priorHalfLife = halfLifeFromMastery(mastery.masterySignal);
 
   const history = safeArr(category?.simuladoStats?.history)

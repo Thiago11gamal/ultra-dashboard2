@@ -6,9 +6,9 @@ import { useCategoryLevels } from "../hooks/useCategoryLevels";
 import { useSubjectAggData } from "../hooks/useSubjectAggData";
 import { EvolutionHeatmap } from "./charts/EvolutionHeatmap";
 import { getDateKey, toDateMs, normalizeDate } from "../utils/dateHelper";
-import { parseNoonLocal } from "../utils/parseNoonLocal";
+import { parseNoonLocal, addDaysNoon } from "../utils/parseNoonLocal";
 import { normalize, aliases } from "../utils/normalization";
-import { getSafeScore, extractTopicsTotals, getSyntheticTotal } from "../utils/scoreHelper";
+import { getSafeScore, extractTopicsTotals, getSyntheticTotal, computeEffectiveScoreRatio, resolveEffectiveCorrect } from "../utils/scoreHelper";
 import { normalizeProbability } from "../utils/evolutionGuards";
 import { exportComponentAsPDF } from "../utils/pdfExport";
 import { pointsToRatio, ratioToPoints } from "../utils/scoreHelper.conversions";
@@ -111,7 +111,9 @@ function hydrateCategoriesWithSimuladoRows(baseCategories, simuladoRows, globalM
     const existingByDateKey = new Map();
     existingHistory.forEach((h) => {
       const dk = getDateKey(h.date || h.createdAt);
-      if (dk && !existingByDateKey.has(dk)) existingByDateKey.set(dk, h);
+      if (!dk) return;
+      if (!existingByDateKey.has(dk)) existingByDateKey.set(dk, []);
+      existingByDateKey.get(dk).push(h);
     });
 
     const myRowsByDate = new Map();
@@ -124,16 +126,18 @@ function hydrateCategoriesWithSimuladoRows(baseCategories, simuladoRows, globalM
 
     const datesToRehydrate = new Set();
     myRowsByDate.forEach((dayRows, dk) => {
-      const existingEntry = existingByDateKey.get(dk);
-      if (!existingEntry) {
+      const existingEntries = existingByDateKey.get(dk) || [];
+      if (existingEntries.length === 0) {
         if (dayRows.some(r => !r.id || !existingIds.has(r.id))) {
           datesToRehydrate.add(dk);
         }
         return;
       }
-      // Se já existe entrada para o dia, reidrata todas as rows daquele dia caso novas rows
-      // tenham sido adicionadas no mesmo dia com volume maior que o snapshot existente.
-      const existingTotal = Number(existingEntry.total ?? existingEntry.questoes ?? existingEntry.questions) || 0;
+      // Soma o volume de TODAS as entradas existentes naquele dia (evita reidratação falsa em dias com múltiplos simulados)
+      const existingTotal = existingEntries.reduce(
+        (sum, entry) => sum + Math.max(0, Number(entry.total ?? entry.questoes ?? entry.totalQuestoes ?? entry.questions) || 0),
+        0
+      );
       const rowsTotal = dayRows.reduce(
         (sum, r) => sum + Math.max(0, Number(r.total ?? r.questoes ?? r.totalQuestoes ?? r.questions) || 0),
         0
@@ -162,12 +166,18 @@ function hydrateCategoriesWithSimuladoRows(baseCategories, simuladoRows, globalM
           date: dk,
           createdAt: r.createdAt || r.date,
           correct: 0,
+          effCorrect: 0,
           total: 0,
+          blanks: 0,
+          penaltyPerWrong: 0,
           scoreSum: 0,
           scoreCount: 0,
           timeSpent: 0,
           timedQuestoes: 0,
-          hasExplicitTotal: false
+          hasExplicitTotal: false,
+          topics: [],
+          difficulty: r.difficulty || null,
+          questionTelemetry: [],
         });
       }
       const bucket = byDay.get(dk);
@@ -176,6 +186,8 @@ function hydrateCategoriesWithSimuladoRows(baseCategories, simuladoRows, globalM
       const hasExplicitCorr = !r.isPercentage && rawCorr !== undefined && rawCorr !== null && String(rawCorr).trim() !== '' && Number.isFinite(Number(rawCorr));
       let rowCorr = hasExplicitCorr ? Math.max(0, Number(rawCorr)) : NaN;
       let rowScore = getSafeScore(r, catMax, catMin);
+      const rowBlanks = Math.max(0, Number(r.blanks) || 0);
+      const rowPenalty = Math.max(0, Number(r.penaltyPerWrong) || 0);
 
       if (rowTot <= 0 && r.topics != null) {
         const tf = extractTopicsTotals(r, catMax, catMin);
@@ -190,18 +202,23 @@ function hydrateCategoriesWithSimuladoRows(baseCategories, simuladoRows, globalM
 
       if (rowTot > 0) {
         bucket.hasExplicitTotal = true;
-        if (!Number.isFinite(rowCorr)) {
-          rowCorr = Number.isFinite(rowScore)
+        const physicalCorr = Number.isFinite(rowCorr)
+          ? Math.max(0, Math.min(rowTot, rowCorr))
+          : (Number.isFinite(rowScore)
             ? Math.round(Math.max(0, Math.min(1, (rowScore - catMin) / catRange)) * rowTot)
-            : 0;
-        }
+            : 0);
+        const effCorr = resolveEffectiveCorrect(r, rowScore, rowTot, hasExplicitCorr, physicalCorr, catMax, catMin);
         bucket.total += rowTot;
-        bucket.correct += Math.max(0, Math.min(rowTot, rowCorr));
+        bucket.correct += physicalCorr;
+        bucket.effCorrect += effCorr;
+        bucket.blanks += Math.min(Math.max(0, rowTot - physicalCorr), rowBlanks);
+        bucket.penaltyPerWrong = Math.max(bucket.penaltyPerWrong, rowPenalty);
       } else if (Number.isFinite(rowScore)) {
         const synTot = getSyntheticTotal(catMax);
         const ratio = Math.max(0, Math.min(1, (rowScore - catMin) / catRange));
         bucket.total += synTot;
         bucket.correct += Math.round(ratio * synTot);
+        bucket.effCorrect += ratio * synTot;
         bucket.scoreSum += rowScore;
         bucket.scoreCount += 1;
       }
@@ -212,20 +229,72 @@ function hydrateCategoriesWithSimuladoRows(baseCategories, simuladoRows, globalM
         bucket.timeSpent += ts;
         bucket.timedQuestoes += tq;
       }
+
+      if (r.difficulty && !bucket.difficulty) bucket.difficulty = r.difficulty;
+      if (Array.isArray(r.questionTelemetry) && r.questionTelemetry.length > 0) {
+        bucket.questionTelemetry.push(...r.questionTelemetry);
+      }
+      const rowTopics = Array.isArray(r.topics) ? r.topics : (r.topics && typeof r.topics === 'object' ? Object.values(r.topics) : []);
+      if (rowTopics.length > 0) {
+        bucket.topics.push(...rowTopics.filter(Boolean));
+      } else if (r.topic || r.assunto) {
+        bucket.topics.push({
+          name: r.topic || r.assunto,
+          total: rowTot,
+          correct: Number.isFinite(rowCorr) ? Math.max(0, Math.min(rowTot, rowCorr)) : undefined,
+          ...(rowBlanks > 0 ? { blanks: rowBlanks } : {}),
+          ...(rowPenalty > 0 ? { penaltyPerWrong: rowPenalty } : {}),
+          ...(Number.isFinite(rowScore) ? { score: rowScore } : {}),
+          ...(Number.isFinite(ts) && ts > 0 ? { timeSpent: ts, timedQuestoes: Number(r.timedQuestoes) > 0 ? Number(r.timedQuestoes) : rowTot } : {}),
+        });
+      }
     });
 
     const reconstructed = Array.from(byDay.values()).map((b) => {
-      const score = (!b.hasExplicitTotal && b.scoreCount > 0)
-        ? b.scoreSum / b.scoreCount
-        : (b.total > 0 ? catMin + (b.correct / b.total) * catRange : catMin);
+      // Preserve metadata from existing entries on the same day if rows lacked topics/telemetry/difficulty
+      const prevDayEntries = existingByDateKey.get(b.date) || [];
+      const preservedTopics = b.topics.length > 0
+        ? b.topics
+        : prevDayEntries.flatMap((e) => Array.isArray(e.topics) ? e.topics : Object.values(e.topics || {})).filter(Boolean);
+      const preservedTelemetry = b.questionTelemetry.length > 0
+        ? b.questionTelemetry
+        : prevDayEntries.flatMap((e) => Array.isArray(e.questionTelemetry) ? e.questionTelemetry : []).filter(Boolean);
+      const preservedDifficulty = b.difficulty || prevDayEntries.find((e) => e.difficulty)?.difficulty || null;
+
+      let score;
+      let netPoints;
+      if (!b.hasExplicitTotal && b.scoreCount > 0) {
+        score = b.scoreSum / b.scoreCount;
+      } else if (b.total > 0) {
+        if (b.penaltyPerWrong > 0) {
+          const eff = computeEffectiveScoreRatio(b.correct, b.total, {
+            blanks: b.blanks,
+            penaltyPerWrong: b.penaltyPerWrong,
+            minScore: catMin,
+            maxScore: catMax,
+          });
+          score = catMin + eff.ratio * catRange;
+          netPoints = eff.netPoints;
+        } else {
+          score = catMin + (b.effCorrect / b.total) * catRange;
+        }
+      } else {
+        score = catMin;
+      }
+
       return {
         date: b.date,
         ...(b.createdAt ? { createdAt: b.createdAt } : {}),
         total: b.total,
         correct: b.correct,
+        ...(b.blanks > 0 ? { blanks: b.blanks } : {}),
+        ...(b.penaltyPerWrong > 0 ? { penaltyPerWrong: b.penaltyPerWrong, ...(netPoints !== undefined ? { netPoints } : {}) } : {}),
         score: Number(Math.max(catMin, Math.min(catMax, score)).toFixed(2)),
         syntheticVolume: !b.hasExplicitTotal && b.scoreCount > 0,
-        ...(b.timeSpent > 0 ? { timeSpent: b.timeSpent, timedQuestoes: b.timedQuestoes } : {})
+        ...(b.timeSpent > 0 ? { timeSpent: b.timeSpent, timedQuestoes: b.timedQuestoes } : {}),
+        ...(preservedTopics.length > 0 ? { topics: preservedTopics } : {}),
+        ...(preservedDifficulty ? { difficulty: preservedDifficulty } : {}),
+        ...(preservedTelemetry.length > 0 ? { questionTelemetry: preservedTelemetry } : {}),
       };
     });
 
@@ -359,9 +428,9 @@ function buildPredictiveCompareData(
       return Math.max(safeMin, Math.min(safeMax, n));
     };
 
-    // Parse a data base UMA VEZ antes do loop
-    const baseParsed = normalizeDate(pts[lastIdx]?.date) || new Date();
-    const baseMs = new Date(baseParsed.getFullYear(), baseParsed.getMonth(), baseParsed.getDate(), 12, 0, 0, 0).getTime();
+    // Parse a data base UMA VEZ antes do loop em APP_TIMEZONE
+    const baseKey = getDateKey(pts[lastIdx]?.date) || getDateKey(new Date());
+    const baseNoon = (baseKey ? parseNoonLocal(baseKey) : null) || normalizeDate(pts[lastIdx]?.date) || new Date();
 
     const futurePoints = [];
     const totalDays = Math.max(1, projectDays || 30);
@@ -377,8 +446,8 @@ function buildPredictiveCompareData(
       const bandLow = bounded(currentLevel + (bandMin - currentLevel) * weight);
       const bandHigh = bounded(currentLevel + (bandMax - currentLevel) * weight);
 
-      const dt = new Date(baseMs + forwardDays * 24 * 60 * 60 * 1000);
-      const iso = getDateKey(dt);
+      const dt = addDaysNoon(baseNoon, forwardDays);
+      const iso = dt ? getDateKey(dt) : null;
 
       if (iso && !seenDates.has(iso)) {
         seenDates.add(iso);
@@ -407,28 +476,17 @@ function buildPredictiveCompareData(
   return pts;
 }
 
-// M3 FIX: Função pura extraída para fora do componente — evita recriação a cada render.
+// M3 FIX: Função pura extraída para fora do componente — evita recriação a cada render (ancorada em APP_TIMEZONE).
 function parseGoalDateLocal(input) {
     if (!input) return null;
     try {
-        let raw = input;
-        if (typeof raw === 'number' && Number.isFinite(raw)) {
-            const d = new Date(raw);
-            raw = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-        } else if (typeof raw === 'object' && raw !== null && Number.isFinite(raw.seconds)) {
-            const d = new Date(raw.seconds * 1000);
-            raw = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-        } else {
-            raw = String(raw).trim().split('T')[0];
+        const key = getDateKey(input);
+        if (key && /^\d{4}-\d{2}-\d{2}$/.test(key)) {
+            const parsed = parseNoonLocal(key);
+            if (parsed && !Number.isNaN(parsed.getTime())) return parsed;
         }
-
-        const p = String(raw).split('-');
-        const date = p.length === 3
-            ? new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10), 12, 0, 0, 0)
-            : new Date(raw);
-        if (Number.isNaN(date.getTime())) return null;
-        date.setHours(12, 0, 0, 0);
-        return date;
+        const fallback = parseNoonLocal(input);
+        return (fallback && !Number.isNaN(fallback.getTime())) ? fallback : null;
     } catch {
         return null;
     }
@@ -735,15 +793,14 @@ export default React.memo(function EvolutionChart({
 
     const projectDays = useMemo(() => {
         if (!goalDate) return 30;
-        const now = new Date();
-        now.setHours(12, 0, 0, 0);
+        const todayKey = getDateKey(new Date());
+        const now = (todayKey ? parseNoonLocal(todayKey) : null) || new Date();
         const goal = parseGoalDateLocal(goalDate);
         if (!goal) return 30;
         // FIX-GOAL-01: Invalid Date sobrevivia ao guard e produzia NaN -> safeDays=1,
         // exibindo "1 dia para a prova" para data corrompida.
         if (Number.isNaN(goal.getTime())) return 30;
-        goal.setHours(12, 0, 0, 0);
-        const diffDays = Math.ceil((goal - now) / (1000 * 60 * 60 * 24));
+        const diffDays = Math.ceil((goal.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
         if (!Number.isFinite(diffDays)) return 30;
         const safeDays = diffDays > 0 ? diffDays : 1;
         return Math.min(3650, safeDays);
@@ -991,10 +1048,10 @@ export default React.memo(function EvolutionChart({
                     const ms = toDateMs(item.date);
                     return Number.isNaN(ms) ? Number.NaN : ms;
                 };
-                const cutoffDate = new Date();
-                cutoffDate.setHours(12, 0, 0, 0);
-                cutoffDate.setDate(cutoffDate.getDate() - days);
-                const limit = toDateMs(getDateKey(cutoffDate));
+                const todayKey = getDateKey(new Date());
+                const todayNoon = todayKey ? parseNoonLocal(todayKey) : new Date();
+                const cutoffDate = todayNoon ? addDaysNoon(todayNoon, -days) : null;
+                const limit = cutoffDate ? toDateMs(getDateKey(cutoffDate)) : NaN;
                 result = historical.filter((d) => {
                     const ms = getDateMs(d);
                     return Number.isFinite(ms) && ms >= limit;
@@ -1180,7 +1237,7 @@ export default React.memo(function EvolutionChart({
                 val = Number(Math.max(globalMin, Math.min(globalMax, normalizedVal)).toFixed(2));
             }
             const fullName = String(cat.name || 'Sem nome');
-            const rawMeta = hasValidNumber(cat?.minCutoff)
+            const rawMeta = hasValidNumber(cat?.minCutoff) && Number(cat.minCutoff) > catMin
                 ? ratioToPoints(pointsToRatio(Number(cat.minCutoff), catMax, catMin), globalMax, globalMin)
                 : (hasValidNumber(targetScore) ? Number(targetScore) : globalMin + (globalMax - globalMin) * 0.8);
             const meta = Number(Math.max(globalMin, Math.min(globalMax, rawMeta)).toFixed(2));
@@ -1670,7 +1727,11 @@ export default React.memo(function EvolutionChart({
                         onMouseLeave={handleCarouselMouseUpOrLeave}
                         className="flex overflow-x-auto snap-x gap-3 px-1 py-3 no-scrollbar scroll-smooth cursor-grab active:cursor-grabbing select-none"
                     >
-                        {activeCategories.map(cat => (
+                        {activeCategories.map(cat => {
+                            const cardCatMax = hasValidNumber(cat?.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : maxScore;
+                            const cardCatMin = hasValidNumber(cat?.minScore) ? Math.min(Number(cat.minScore), cardCatMax) : minScore;
+                            const cardUnit = resolveUnitForScale(unit, cardCatMin, cardCatMax);
+                            return (
                             <div key={cat.id} className={`snap-center shrink-0 w-[210px] sm:w-[240px] flex flex-col transition-all duration-500 ${showOnlyFocus && focusCategory?.id !== cat.id ? 'opacity-85 hover:opacity-100 grayscale-[10%] scale-[0.96]' : 'opacity-100 scale-100'}`}>
                                 <DisciplinaCard
                                     cat={cat}
@@ -1679,12 +1740,13 @@ export default React.memo(function EvolutionChart({
                                     target={targetScore}
                                     isFocused={focusCategory?.id === cat.id}
                                     onSelectCategory={handleSelectCategory}
-                                    unit={resolvedGlobalUnit}
+                                    unit={cardUnit}
                                     maxScore={maxScore}
                                     minScore={minScore}
                                 />
                             </div>
-                        ))}
+                            );
+                        })}
                     </div>
 
                     {/* Right Floating Arrow Button */}
@@ -1943,6 +2005,7 @@ export default React.memo(function EvolutionChart({
                         unit={resolvedActiveUnit} 
                         showOnlyFocus={showOnlyFocus}
                         focusSubjectId={focusSubjectId}
+                        timeWindow={timeWindow}
                         maxScore={showOnlyFocus ? focusMax : maxScore}
                         minScore={showOnlyFocus ? focusMin : minScore}
                     />
@@ -2062,6 +2125,7 @@ export default React.memo(function EvolutionChart({
                         maxScore={maxScore}
                         unit={resolvedGlobalUnit}
                         focusSubjectId={focusSubjectId}
+                        timeWindow={timeWindow}
                     />
                     </React.Suspense>
                 ) : activeEngine === "irt_psychometric" ? (
@@ -2071,6 +2135,7 @@ export default React.memo(function EvolutionChart({
                         simuladoRows={simuladoRowsArray}
                         focusCategory={focusCategory}
                         showOnlyFocus={showOnlyFocus}
+                        timeWindow={timeWindow}
                         minScore={showOnlyFocus ? focusMin : minScore}
                         maxScore={showOnlyFocus ? focusMax : maxScore}
                         examBoard={examBoard}
@@ -2104,7 +2169,7 @@ export default React.memo(function EvolutionChart({
                         timeWindow={timeWindow}
                         maxScore={maxScore}
                         minScore={minScore}
-                        unit={resolvedGlobalUnit}
+                        unit={resolvedActiveUnit}
                     />
                 ) : activeEngine === "today_vs_general" ? (
                     <TodayVsGeneralChart
@@ -2115,7 +2180,7 @@ export default React.memo(function EvolutionChart({
                         timeWindow={timeWindow}
                         maxScore={maxScore}
                         minScore={minScore}   // ✅ LOTE-01
-                        unit={resolvedGlobalUnit}
+                        unit={resolvedActiveUnit}
                         simuladoRows={simuladoRowsArray}
                     />
                 ) : !accountHasData ? (

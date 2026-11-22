@@ -231,7 +231,8 @@ export const GaussianPlot = React.memo(function GaussianPlot({
         const failPath = failPoints.length > 2 ? `M ${failPoints.map(p => `${p.x},${p.y}`).join(' L ')} Z` : '';
 
         const calculateCurveY = (x) => {
-            const safeXVal = Math.max(domainMin, Math.min(domainMax, Number(x) || domainMin));
+            const numX = (x !== null && x !== undefined && x !== '' && typeof x !== 'boolean') ? Number(x) : NaN;
+            const safeXVal = Math.max(domainMin, Math.min(domainMax, Number.isFinite(numX) ? numX : domainMin));
             if (pointsForArea && pointsForArea.length > 0) return getYAtX(pointsForArea, xp(safeXVal));
             return yp(asymmetricGaussian(safeXVal, meanVal, vizSdLeft, vizSdRight, baseHeightFactor));
         };
@@ -246,19 +247,21 @@ export const GaussianPlot = React.memo(function GaussianPlot({
     const targetPos = xp(targetVal);
     const targetY = curveY(targetVal);
 
-    const rawMeanVal = projectedMean ?? mean ?? 0;
+    const parsedProjectedMean = (projectedMean !== null && projectedMean !== undefined && projectedMean !== '' && typeof projectedMean !== 'boolean') ? Number(projectedMean) : NaN;
+    const parsedMean = (mean !== null && mean !== undefined && mean !== '' && typeof mean !== 'boolean') ? Number(mean) : NaN;
+    const rawMeanVal = Number.isFinite(parsedProjectedMean) ? parsedProjectedMean : (Number.isFinite(parsedMean) ? parsedMean : domainMin);
     const safeMean = Math.max(domainMin, Math.min(domainMax, rawMeanVal));
     const meanPos = xp(safeMean);
     const meanY = curveY(safeMean);
 
-    const boundedCurrent = currentMean != null && Number.isFinite(Number(currentMean))
+    const boundedCurrent = currentMean != null && currentMean !== '' && typeof currentMean !== 'boolean' && Number.isFinite(Number(currentMean))
         ? Math.max(domainMin, Math.min(domainMax, Number(currentMean)))
         : null;
     const currentPos = boundedCurrent != null ? xp(boundedCurrent) : 0;
     const currentY = boundedCurrent != null ? curveY(boundedCurrent) : 100;
 
-    const safeLow95 = Number.isFinite(Number(low95)) ? Number(low95) : (mean ?? 0);
-    const safeHigh95 = Number.isFinite(Number(high95)) ? Number(high95) : (mean ?? 0);
+    const safeLow95 = (low95 !== null && low95 !== undefined && low95 !== '' && typeof low95 !== 'boolean' && Number.isFinite(Number(low95))) ? Number(low95) : safeMean;
+    const safeHigh95 = (high95 !== null && high95 !== undefined && high95 !== '' && typeof high95 !== 'boolean' && Number.isFinite(Number(high95))) ? Number(high95) : safeMean;
     const ciLowBound = Math.max(domainMin, Math.min(domainMax, Math.min(safeLow95, safeHigh95)));
     const ciHighBound = Math.max(domainMin, Math.min(domainMax, Math.max(safeLow95, safeHigh95)));
     const ciHighPx = xp(ciHighBound);
@@ -429,7 +432,7 @@ export const GaussianPlot = React.memo(function GaussianPlot({
                         <div className="absolute flex flex-col items-center transition-all duration-500 group-hover/chart:opacity-25"
                             style={{ left: `${getLabelLeft(meanPos, 'mean')}%`, top: getLabelTop(meanY, resolvedLabels.mean || 0), transform: 'translateX(-50%)', zIndex: 30 }}>
                             <div className="flex flex-col items-center bg-blue-500/10 backdrop-blur-md px-2 py-0.5 rounded-xl border border-blue-500/30 shadow-lg">
-                                <span className="text-[11px] font-black text-blue-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">{formatUnitValue(projectedMean ?? mean ?? 0, unit)}</span>
+                                <span className="text-[11px] font-black text-blue-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">{formatUnitValue(safeMean, unit)}</span>
                                 <span className="text-[7px] font-black text-blue-300 uppercase tracking-widest opacity-80">Projeção</span>
                             </div>
                             <div className="w-px bg-blue-500/40 absolute top-full mt-0.5" style={{ height: `${6 + (resolvedLabels.mean || 0) * 18}px` }} />
@@ -451,7 +454,7 @@ export const GaussianPlot = React.memo(function GaussianPlot({
                         <div className="absolute flex flex-col items-center transition-all duration-500 group-hover/chart:opacity-25"
                             style={{ left: `${getLabelLeft(currentPos, 'today')}%`, top: getLabelTop(currentY, resolvedLabels.today || 0), transform: 'translateX(-50%)', zIndex: 40 }}>
                             <div className="flex flex-col items-center px-2 py-1 rounded-xl bg-slate-900/95 backdrop-blur-xl border border-white/20 shadow-xl">
-                                <span className="text-[11px] leading-none font-black text-white">{formatUnitValue(currentMean ?? 0, unit)}</span>
+                                <span className="text-[11px] leading-none font-black text-white">{formatUnitValue(boundedCurrent ?? domainMin, unit)}</span>
                                 {resolvedLabels.hideMean && <span className="text-[7px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Hoje/Projeção</span>}
                                 {!resolvedLabels.hideMean && <span className="text-[7px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Hoje</span>}
                             </div>

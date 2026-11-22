@@ -211,7 +211,7 @@ export function reconcileContestCategoriesHistory(
     const catNorm = normalize(cat.name);
     const catAliases = aliases[catNorm] || [];
     const myRows = simuladoRows.filter((r) => {
-      if (!r) return false;
+      if (!r || r.valid === false || r.validated === false) return false;
       if (r.categoryId) return r.categoryId === cat.id;
       const subNorm = normalize(r.subject);
       if (!subNorm) return false;
@@ -249,9 +249,16 @@ export function reconcileContestCategoriesHistory(
       ? existingHistoryRaw
       : Object.values(existingHistoryRaw || {});
 
+    const { maxScore: catMax, minScore: catMin, range: catRange } = resolveCategoryScoreDomain(
+      cat,
+      contestMaxScore,
+      contestMinScore
+    );
+
     const mergedHistoryMap = {};
     existingHistory.forEach((h) => {
-      const dateKey = safeDateKey(h?.date);
+      if (!h || h.valid === false || h.validated === false) return;
+      const dateKey = safeDateKey(h?.date || h?.createdAt);
       if (!dateKey) return;
       const existingBatches = Array.from(new Set([
         ...(h.batchId ? [String(h.batchId)] : []),
@@ -259,26 +266,72 @@ export function reconcileContestCategoriesHistory(
       ]));
       const hBlanks = Math.max(0, Number(h.blanks) || 0);
       const hPenalty = Math.max(0, Number(h.penaltyPerWrong) || 0);
-      mergedHistoryMap[dateKey] = {
-        ...(h.id ? { id: h.id } : {}),
-        ...(existingBatches.length > 0 ? { batchId: h.batchId || existingBatches[existingBatches.length - 1], batchIds: existingBatches } : {}),
-        date: dateKey,
-        correct: h.correct,
-        total: h.total,
-        ...(hBlanks > 0 ? { blanks: hBlanks } : {}),
-        ...(hPenalty > 0 ? { penaltyPerWrong: hPenalty } : {}),
-        ...(h.netPoints !== undefined ? { netPoints: h.netPoints } : {}),
-        score: h.score,
-        isPercentage: !!h.isPercentage,
-        topics: Array.isArray(h.topics) ? h.topics : Object.values(h.topics || {})
-      };
-    });
+      const hTopics = Array.isArray(h.topics) ? h.topics : Object.values(h.topics || {});
+      const hTotal = Math.max(0, Number(h.total) || 0);
+      const hCorrect = Math.min(hTotal > 0 ? hTotal : Infinity, Math.max(0, Number(h.correct) || 0));
 
-    const { maxScore: catMax, minScore: catMin, range: catRange } = resolveCategoryScoreDomain(
-      cat,
-      contestMaxScore,
-      contestMinScore
-    );
+      const prev = mergedHistoryMap[dateKey];
+      if (!prev) {
+        mergedHistoryMap[dateKey] = {
+          ...(h.id ? { id: h.id } : {}),
+          ...(existingBatches.length > 0 ? { batchId: h.batchId || existingBatches[existingBatches.length - 1], batchIds: existingBatches } : {}),
+          date: dateKey,
+          correct: h.correct,
+          total: h.total,
+          ...(hBlanks > 0 ? { blanks: hBlanks } : {}),
+          ...(hPenalty > 0 ? { penaltyPerWrong: hPenalty } : {}),
+          ...(h.netPoints !== undefined ? { netPoints: h.netPoints } : {}),
+          score: h.score,
+          isPercentage: !!h.isPercentage,
+          valid: true,
+          validated: true,
+          topics: hTopics
+        };
+      } else {
+        const mergedBatches = Array.from(new Set([
+          ...(Array.isArray(prev.batchIds) ? prev.batchIds : []),
+          ...existingBatches
+        ]));
+        if (mergedBatches.length > 0) {
+          prev.batchId = prev.batchId || mergedBatches[mergedBatches.length - 1];
+          prev.batchIds = mergedBatches;
+        }
+        const prevTot = Math.max(0, Number(prev.total) || 0);
+        const prevCorr = Math.min(prevTot > 0 ? prevTot : Infinity, Math.max(0, Number(prev.correct) || 0));
+        const combTot = prevTot + hTotal;
+        const combCorr = prevCorr + hCorrect;
+        const combBlanks = (Math.max(0, Number(prev.blanks) || 0)) + hBlanks;
+        const combPenalty = Math.max(Number(prev.penaltyPerWrong) || 0, hPenalty, contestPenalty);
+        prev.topics = reconcileDayTopics(prev.topics, hTopics);
+        if (combTot > 0) {
+          const eff = computeEffectiveScoreRatio(combCorr, combTot, {
+            blanks: combBlanks,
+            penaltyPerWrong: combPenalty,
+            minScore: catMin,
+            maxScore: catMax,
+          });
+          prev.total = combTot;
+          prev.correct = combCorr;
+          if (eff.blanks > 0) prev.blanks = eff.blanks;
+          if (eff.penaltyApplied) {
+            prev.netPoints = eff.netPoints;
+            prev.penaltyPerWrong = combPenalty;
+          }
+          prev.score = catMin + eff.ratio * catRange;
+          prev.isPercentage = false;
+        } else {
+          const prevSc = getSafeScore(prev, catMax, catMin);
+          const nextSc = getSafeScore(h, catMax, catMin);
+          if (Number.isFinite(prevSc) && Number.isFinite(nextSc)) {
+            prev.score = (prevSc + nextSc) / 2;
+            prev.isPercentage = false;
+          } else if (Number.isFinite(nextSc)) {
+            prev.score = nextSc;
+            prev.isPercentage = false;
+          }
+        }
+      }
+    });
 
     Object.entries(rowsByDate).forEach(([dateKey, topics]) => {
       const totalC = topics.reduce((s, t) => s + t.correct, 0);

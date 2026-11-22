@@ -59,10 +59,12 @@ export function computeEvolutionStatuses({
   const focusScopeLabel = focusCategory?.name ? `Foco: ${focusCategory.name}` : 'Disciplina em foco';
   const windowLabel = timeWindow && timeWindow !== 'all' ? `últimos ${timeWindow}d` : 'histórico total';
 
-  const effectiveTimeline =
-    Array.isArray(filteredChartData) && filteredChartData.length > 0
+  const hasExplicitWindowFilter = Boolean(timeWindow && timeWindow !== 'all' && Array.isArray(filteredChartData));
+  const effectiveTimeline = hasExplicitWindowFilter
+    ? filteredChartData
+    : (Array.isArray(filteredChartData) && filteredChartData.length > 0
       ? filteredChartData
-      : (Array.isArray(timeline) ? timeline : []);
+      : (Array.isArray(timeline) ? timeline : []));
 
   const focusId = focusCategory?.id;
   const focusMin = focusId ? safeNum(focusCategory?.minScore, safeMin) : safeMin;
@@ -70,9 +72,11 @@ export function computeEvolutionStatuses({
   const focusRange = focusMax - focusMin;
   const focusScale = focusRange / 100;
   const globalTargetRatio = range > 0 ? (safeTarget - safeMin) / range : 0.8;
+  const rawFocusCutoff = focusId ? safeNum(focusCategory?.minCutoff, null) : null;
   const focusTarget = focusId
-    ? (safeNum(focusCategory?.minCutoff, null) ??
-      (focusMax === safeMax && focusMin === safeMin ? safeTarget : focusMin + globalTargetRatio * focusRange))
+    ? (rawFocusCutoff != null && rawFocusCutoff > focusMin
+      ? Math.min(focusMax, rawFocusCutoff)
+      : (focusMax === safeMax && focusMin === safeMin ? safeTarget : focusMin + globalTargetRatio * focusRange))
     : safeTarget;
 
   const getLastValidFrom = (series, key) => {
@@ -209,15 +213,18 @@ export function computeEvolutionStatuses({
   // Constância nos últimos 14 dias
   const rawHeatmapDates = Array.isArray(heatmapData?.dates) ? heatmapData.dates : [];
   const heatmapRows = Array.isArray(heatmapData?.rows) ? heatmapData.rows : [];
-  const focusRow = (showOnlyFocus && focusId)
+  const isFocusScoped = Boolean(showOnlyFocus && focusId);
+  const focusRow = isFocusScoped
     ? heatmapRows.find((r) => r?.cat?.id === focusId)
     : null;
-  const heatmapDates = rawHeatmapDates
-    .map((d, idx) => {
-      if (focusRow && !focusRow.cells?.[idx]) return null;
-      return typeof d === 'string' ? d : d?.key || getDateKey(d);
-    })
-    .filter(Boolean);
+  const heatmapDates = isFocusScoped && !focusRow
+    ? []
+    : rawHeatmapDates
+      .map((d, idx) => {
+        if (focusRow && !focusRow.cells?.[idx]) return null;
+        return typeof d === 'string' ? d : d?.key || getDateKey(d);
+      })
+      .filter(Boolean);
   const timelineDatesForConst = Array.isArray(timeline)
     ? timeline
       .filter((d) => {
@@ -369,8 +376,8 @@ export function computeEvolutionStatuses({
       if (lvl != null) evaluatedCount++;
 
       const customMinCutoff = safeNum(cat?.minCutoff, null);
-      const catTarget = customMinCutoff != null
-        ? customMinCutoff
+      const catTarget = customMinCutoff != null && customMinCutoff > catMin
+        ? Math.min(catMax, customMinCutoff)
         : (catMax === safeMax && catMin === safeMin
           ? safeTarget
           : catMin + globalTargetRatio * catRange);

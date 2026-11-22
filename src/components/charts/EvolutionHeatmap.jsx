@@ -1,7 +1,8 @@
 import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { aggregateHeatmap } from '../../utils/heatmapAggregation.js';
-import { parseNoonLocal } from '../../utils/dateHelper.js';
+import { parseNoonLocal, getDateKey } from '../../utils/dateHelper.js';
+import { addDaysNoon } from '../../utils/parseNoonLocal.js';
 
 // Worker singleton compartilhado entre todas as instâncias
 let sharedWorker = null;
@@ -157,6 +158,7 @@ export const EvolutionHeatmap = React.memo(({
     targetScore = 70,
     showOnlyFocus,
     focusSubjectId,
+    timeWindow = 'all',
     maxScore = 100,
     minScore = 0
 }) => {
@@ -219,6 +221,24 @@ export const EvolutionHeatmap = React.memo(({
                 : [];
         }
 
+        // Apply global timeWindow filter ('30' | '60' | '90' | 'all') before local windowSize
+        if (timeWindow && timeWindow !== 'all') {
+            const gDays = Number.parseInt(String(timeWindow), 10);
+            if (Number.isFinite(gDays) && gDays > 0 && activeIndices.length > 0) {
+                const todayKey = getDateKey(new Date());
+                const todayNoon = todayKey ? parseNoonLocal(todayKey) : null;
+                const cutoffNoon = todayNoon ? addDaysNoon(todayNoon, -gDays) : null;
+                const cutoffKey = cutoffNoon ? getDateKey(cutoffNoon) : null;
+                if (cutoffKey) {
+                    activeIndices = activeIndices.filter((idx) => {
+                        const dEntry = dates[idx];
+                        const dKey = typeof dEntry === 'string' ? dEntry : dEntry?.key;
+                        return dKey && /^\d{4}-\d{2}-\d{2}$/.test(dKey) ? dKey >= cutoffKey : true;
+                    });
+                }
+            }
+        }
+
         if (windowSize !== 'all') {
             const days = Number(windowSize);
             if (Number.isFinite(days) && days > 0 && activeIndices.length > 0) {
@@ -247,7 +267,7 @@ export const EvolutionHeatmap = React.memo(({
                 cells: Array.isArray(row.cells) ? activeIndices.map((idx) => row.cells[idx]) : []
             }))
         };
-    }, [dates, filteredRowsByFocus, windowSize, showOnlyFocus, focusSubjectId]);
+    }, [dates, filteredRowsByFocus, timeWindow, windowSize, showOnlyFocus, focusSubjectId]);
 
     const [aggregated, setAggregated] = useState(() => {
         return granularity === 'daily' ? null : aggregateHeatmap(filtered, granularity, safeMax, safeMin);

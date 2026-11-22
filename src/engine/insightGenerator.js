@@ -27,7 +27,7 @@ const sortByValidDate = (history) => {
     const maxAllowedMs = Date.now() + 86400000;
     return toHistoryArray(history)
         .filter(h => {
-            if (h?.valid === false) return false;
+            if (h?.valid === false || h?.validated === false) return false;
             const raw = h?.date || h?.createdAt;
             const ms = normalizeDate(raw)?.getTime();
             return raw && Number.isFinite(ms) && ms <= maxAllowedMs;
@@ -159,7 +159,7 @@ export function generateEvolutionInsights({
 
             const rawHistory = history
                 .filter(h => {
-                    if (h?.valid === false) return false;
+                    if (h?.valid === false || h?.validated === false) return false;
                     const d = normalizeDate(h?.date || h?.createdAt);
                     return d && Number.isFinite(d.getTime()) && d.getTime() <= now.getTime();
                 })
@@ -228,7 +228,7 @@ export function generateEvolutionInsights({
 
         const recentVolumeAlert = history
             .filter(h => {
-                if (h?.valid === false) return false;
+                if (h?.valid === false || h?.validated === false) return false;
                 const d = toDateMs(h?.date || h?.createdAt);
                 return Number.isFinite(d) && (nowMs - d) >= -86400000 && (nowMs - d) <= sevenDaysMs;
             })

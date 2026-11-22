@@ -1,7 +1,7 @@
 import { getDateKey, normalizeDate, toDateMs, getAppTimezone } from './dateHelper.js';
-import { parseNoonLocal } from './parseNoonLocal.js';
-import { getSafeScore, getSyntheticTotal, extractTopicsTotals } from './scoreHelper.js';
-import { normalize } from './normalization.js';
+import { parseNoonLocal, addDaysNoon } from './parseNoonLocal.js';
+import { getSafeScore, getSyntheticTotal, extractTopicsTotals, resolveEffectiveCorrect, isPhantomZeroTimeAttempt } from './scoreHelper.js';
+import { normalize, isSubjectMatch } from './normalization.js';
 import { kalmanAbilitySeries } from '../engine/probabilistic/stateSpace.js';
 import {
   computeTopicGraphMetrics,
@@ -35,10 +35,37 @@ function getCutoffMs(timeWindow) {
   if (!timeWindow || timeWindow === 'all') return null;
   const days = Number.parseInt(String(timeWindow), 10);
   if (!Number.isFinite(days) || days <= 0) return null;
-  const cutoff = new Date();
-  cutoff.setHours(12, 0, 0, 0);
-  cutoff.setDate(cutoff.getDate() - days);
-  return toDateMs(getDateKey(cutoff));
+  const todayKey = getDateKey(new Date());
+  const todayNoon = todayKey ? parseNoonLocal(todayKey) : new Date();
+  const cutoffNoon = todayNoon ? addDaysNoon(todayNoon, -days) : null;
+  const cutoffKey = cutoffNoon ? getDateKey(cutoffNoon) : null;
+  return cutoffKey ? toDateMs(cutoffKey) : null;
+}
+
+function getEntryDayMs(rawDate) {
+  const dk = getDateKey(rawDate);
+  if (!dk) return NaN;
+  return toDateMs(dk);
+}
+
+function filterDatedEntriesByWindow(entries, getDate, cutoffMs) {
+  const todayKey = getDateKey(new Date());
+  const todayMs = todayKey ? toDateMs(todayKey) : NaN;
+  const withMs = entries.map((item) => ({ item, ms: getEntryDayMs(getDate(item)) }));
+  const hasNonFuture = Number.isFinite(todayMs) && withMs.some((e) => Number.isFinite(e.ms) && e.ms <= todayMs);
+  return withMs
+    .filter((e) => {
+      if (!Number.isFinite(e.ms)) return false;
+      if (hasNonFuture && e.ms > todayMs) return false;
+      if (cutoffMs && e.ms < cutoffMs) return false;
+      return true;
+    })
+    .map((e) => e.item);
+}
+
+function matchesCategorySubject(cat, rawSubject) {
+  if (!cat || !rawSubject) return false;
+  return isSubjectMatch(cat.name, rawSubject);
 }
 
 function formatShortBrDate(isoKey) {
@@ -86,12 +113,11 @@ export function buildSpeedAccuracyData(categories = [], simuladoRows = [], optio
   if (mode === 'topic') {
     const topicBuckets = new Map();
     cats.forEach((cat) => {
-      const { min, max, range } = resolveScale(cat, gMax, gMin);
-      const history = safeArr(cat?.simuladoStats?.history);
+      const { min, max } = resolveScale(cat, gMax, gMin);
+      const validHistory = safeArr(cat?.simuladoStats?.history)
+        .filter((h) => h && h.valid !== false && h.validated !== false);
+      const history = filterDatedEntriesByWindow(validHistory, (h) => h.date || h.createdAt, cutoffMs);
       history.forEach((h) => {
-        if (!h || h.valid === false || h.validated === false) return;
-        const ms = toDateMs(h.date || h.createdAt);
-        if (cutoffMs && Number.isFinite(ms) && ms < cutoffMs) return;
         const topics = safeArr(h.topics);
         topics.forEach((t) => {
           const ts = toFinite(t.timeSpent ?? t.durationSeconds, 0);
@@ -99,9 +125,7 @@ export function buildSpeedAccuracyData(categories = [], simuladoRows = [], optio
           const rawCorr = toFinite(t.correct ?? t.acertos ?? t.correctCount, null);
           if (ts <= 0 || tot <= 0) return;
           const sc = getSafeScore(t, max, min);
-          const corr = rawCorr !== null
-            ? clamp(rawCorr, 0, tot)
-            : (Number.isFinite(sc) ? clamp((sc - min) / range, 0, 1) * tot : 0);
+          const corr = resolveEffectiveCorrect(t, sc, tot, rawCorr !== null, rawCorr, max, min);
           const label = String(t.name || t.topic || t.assunto || '').trim();
           if (!label) return;
           const key = `${cat.id || cat.name}::${normalize(label)}`;
@@ -128,30 +152,29 @@ export function buildSpeedAccuracyData(categories = [], simuladoRows = [], optio
 
     // Complement with simuladoRows that carry topic + timeSpent if history didn't have topic timings
     if (topicBuckets.size === 0) {
-      rows.forEach((r) => {
-        const ms = toDateMs(r.date || r.createdAt);
-        if (cutoffMs && Number.isFinite(ms) && ms < cutoffMs) return;
+      const windowedRows = filterDatedEntriesByWindow(rows, (r) => r.date || r.createdAt, cutoffMs);
+      windowedRows.forEach((r) => {
         const ts = toFinite(r.timeSpent ?? r.durationSeconds, 0);
         const tot = toFinite(r.total ?? r.questoes ?? r.totalQuestoes ?? r.questions, 0);
         if (ts <= 0 || tot <= 0) return;
         const matchedCat = cats.find(
-          (c) => (r.categoryId && String(c.id) === String(r.categoryId)) || normalize(c.name) === normalize(r.subject || r.materia || '')
+          (c) =>
+            (r.categoryId != null && String(c.id) === String(r.categoryId)) ||
+            matchesCategorySubject(c, r.subject || r.categoryName || r.materia || '')
         );
         if (showOnlyFocus && focusSubjectId && matchedCat?.id !== focusSubjectId) return;
         const topicLabel = String(r.topic || r.assunto || '').trim();
         if (!topicLabel) return;
-        const { min, max, range } = resolveScale(matchedCat, gMax, gMin);
+        const { min, max } = resolveScale(matchedCat, gMax, gMin);
         const rawCorr = toFinite(r.correct ?? r.acertos ?? r.correctCount, null);
         const sc = getSafeScore(r, max, min);
-        const corr = rawCorr !== null
-          ? clamp(rawCorr, 0, tot)
-          : (Number.isFinite(sc) ? clamp((sc - min) / range, 0, 1) * tot : 0);
-        const key = `${matchedCat?.id || r.subject || 'cat'}::${normalize(topicLabel)}`;
+        const corr = resolveEffectiveCorrect(r, sc, tot, rawCorr !== null, rawCorr, max, min);
+        const key = `${matchedCat?.id || r.subject || r.categoryName || 'cat'}::${normalize(topicLabel)}`;
         if (!topicBuckets.has(key)) {
           topicBuckets.set(key, {
             id: key,
             name: topicLabel,
-            categoryName: matchedCat?.name || r.subject || 'Disciplina',
+            categoryName: matchedCat?.name || r.subject || r.categoryName || 'Disciplina',
             color: matchedCat?.color || '#6366f1',
             totalQuestions: 0,
             correct: 0,
@@ -184,21 +207,27 @@ export function buildSpeedAccuracyData(categories = [], simuladoRows = [], optio
   } else {
     cats.forEach((cat) => {
       const { min, max, range } = resolveScale(cat, gMax, gMin);
-      const history = safeArr(cat?.simuladoStats?.history).filter((h) => {
-        if (!h || h.valid === false || h.validated === false) return false;
-        const ms = toDateMs(h.date || h.createdAt);
-        return !cutoffMs || !Number.isFinite(ms) || ms >= cutoffMs;
-      });
+      const validHistory = safeArr(cat?.simuladoStats?.history)
+        .filter((h) => h && h.valid !== false && h.validated !== false);
+      const history = filterDatedEntriesByWindow(validHistory, (h) => h.date || h.createdAt, cutoffMs);
 
       let timeSpent = 0;
       let timedQuestions = 0;
       let totalQuestions = 0;
       let correct = 0;
-      let scorePctSum = 0;
-      let scorePctCount = 0;
+      let weightedAccNum = 0;
+      let weightedAccDen = 0;
 
       history.forEach((h) => {
         let tot = toFinite(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions, 0);
+        let topicCorrFallback = null;
+        if (tot <= 0 && h.topics != null) {
+          const tf = extractTopicsTotals(h, max, min);
+          if (tf.total > 0) {
+            tot = tf.total;
+            topicCorrFallback = tf.correct;
+          }
+        }
         const topics = safeArr(h.topics);
         let topicsTs = 0;
         let topicsTq = 0;
@@ -221,37 +250,31 @@ export function buildSpeedAccuracyData(categories = [], simuladoRows = [], optio
             timedQuestions += tq;
           }
         }
-        let topicCorrFallback = null;
-        if (tot <= 0 && h.topics != null) {
-          const tf = extractTopicsTotals(h, max, min);
-          if (tf.total > 0) {
-            tot = tf.total;
-            topicCorrFallback = tf.correct;
-          }
-        }
         if (tot > 0) {
           const rawCorr = !h.isPercentage
             ? toFinite(h.correct ?? h.acertos ?? h.correctCount, topicCorrFallback)
             : topicCorrFallback;
           const sc = getSafeScore(h, max, min);
-          const corr = rawCorr !== null
-            ? clamp(rawCorr, 0, tot)
-            : (Number.isFinite(sc) ? clamp((sc - min) / range, 0, 1) * tot : 0);
+          const corr = resolveEffectiveCorrect(h, sc, tot, rawCorr !== null, rawCorr, max, min);
           totalQuestions += tot;
           correct += corr;
+          weightedAccNum += corr;
+          weightedAccDen += tot;
         } else {
           const sc = getSafeScore(h, max, min);
           if (Number.isFinite(sc)) {
-            scorePctSum += clamp(((sc - min) / range) * 100, 0, 100);
-            scorePctCount += 1;
+            const synTot = getSyntheticTotal(max);
+            const ratio = clamp((sc - min) / range, 0, 1);
+            weightedAccNum += ratio * synTot;
+            weightedAccDen += synTot;
           }
         }
       });
 
       if (timedQuestions <= 0) return;
-      const accuracyPct = totalQuestions > 0
-        ? clamp((correct / totalQuestions) * 100, 0, 100)
-        : (scorePctCount > 0 ? scorePctSum / scorePctCount : 0);
+      const accuracyPct = weightedAccDen > 0
+        ? clamp((weightedAccNum / weightedAccDen) * 100, 0, 100)
+        : 0;
 
       points.push({
         id: cat.id || cat.name,
@@ -436,14 +459,24 @@ export function buildSyllabusBurndownData(categories = [], user = {}, options = 
     }
   }
 
-  // Sample dates evenly (~24-35 points) including start, today, and end
+  // Sample dates evenly (~24-35 points) including start, today, and end — deduplicated by calendar date key (DST-safe)
   const totalSpanDays = Math.max(1, Math.round((endMs - startMs) / MS_PER_DAY));
   const stepDays = Math.max(1, Math.ceil(totalSpanDays / 28));
-  const sampleMsSet = new Set([startMs, todayMs, endMs]);
+  const sampleByKey = new Map();
+  const addSampleMs = (ms, priority = false) => {
+    const dk = getDateKey(new Date(ms));
+    if (!dk) return;
+    if (priority || !sampleByKey.has(dk)) {
+      sampleByKey.set(dk, ms);
+    }
+  };
   for (let m = startMs; m <= endMs; m += stepDays * MS_PER_DAY) {
-    sampleMsSet.add(m);
+    addSampleMs(m, false);
   }
-  const sortedSampleMs = Array.from(sampleMsSet).sort((a, b) => a - b);
+  addSampleMs(startMs, true);
+  addSampleMs(endMs, true);
+  addSampleMs(todayMs, true);
+  const sortedSampleMs = Array.from(sampleByKey.values()).sort((a, b) => a - b);
 
   const sortedDatedCompletions = Array.from(completionDateCounts.entries())
     .map(([k, count]) => ({ ms: parseNoonLocal(k)?.getTime() ?? NaN, count }))
@@ -462,7 +495,9 @@ export function buildSyllabusBurndownData(categories = [], user = {}, options = 
 
   const series = sortedSampleMs.map((ms) => {
     const key = getDateKey(new Date(ms)) || '';
-    const progressRatio = isGoalExpired ? 1 : clamp((ms - startMs) / idealDenominator, 0, 1);
+    const progressRatio = (isGoalExpired && goalParsedMs <= startMs)
+      ? 1
+      : clamp((ms - startMs) / idealDenominator, 0, 1);
     const idealCompleted = Number((totalTasks * progressRatio).toFixed(1));
     const idealRemaining = Number(Math.max(0, totalTasks - idealCompleted).toFixed(1));
 
@@ -542,8 +577,8 @@ const SLOT_LABELS = [
 
 function extractWeekdayAndHourInTz(rawTimestamp) {
   if (!rawTimestamp) return null;
-  // Ignore date-only strings like '2026-04-10' (no time of day -> would fake midnight!)
-  if (typeof rawTimestamp === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(rawTimestamp.trim())) {
+  // Ignore date-only strings like '2026-04-10' or '10/04/2026' (no time of day -> would fake midnight/noon!)
+  if (typeof rawTimestamp === 'string' && (/^\d{4}-\d{2}-\d{2}$/.test(rawTimestamp.trim()) || /^\d{2}\/\d{2}\/\d{4}$/.test(rawTimestamp.trim()))) {
     return null;
   }
   const d = normalizeDate(rawTimestamp);
@@ -682,6 +717,7 @@ export function buildCircadianHeatmapData(studyLogs = [], studySessions = [], si
     const tot = toFinite(row.total ?? row.questoes ?? row.totalQuestoes ?? row.questions, 0);
     const corr = toFinite(row.correct ?? row.acertos ?? row.correctCount, null);
     const sc = getSafeScore(row, rowMax, rowMin);
+    if (Number.isFinite(sc) && isPhantomZeroTimeAttempt(row, sc)) return;
 
     // D4 FIX: unificar registros com questões e registros somente-nota na mesma média ponderada
     // respeitando penalidades Cebraspe (getSafeScore) sem descartar nenhum registro da célula.
@@ -808,11 +844,9 @@ export function buildConsistencyBoxPlotData(categories = [], options = {}) {
   const rows = [];
   cats.forEach((cat) => {
     const { min: cMin, max: cMax, range: cRange } = resolveScale(cat, gMax, gMin);
-    const history = safeArr(cat?.simuladoStats?.history).filter((h) => {
-      if (!h || h.valid === false || h.validated === false) return false;
-      const ms = toDateMs(h.date || h.createdAt);
-      return !cutoffMs || !Number.isFinite(ms) || ms >= cutoffMs;
-    });
+    const validHist = safeArr(cat?.simuladoStats?.history)
+      .filter((h) => h && h.valid !== false && h.validated !== false);
+    const history = filterDatedEntriesByWindow(validHist, (h) => h.date || h.createdAt, cutoffMs);
 
     const scores = history
       .map((h) => {
@@ -898,11 +932,10 @@ export function buildExamPacingData(categories = [], options = {}) {
   let globalTimedQ = 0;
 
   cats.forEach((cat) => {
-    const history = safeArr(cat?.simuladoStats?.history).filter((h) => {
-      if (!h || h.valid === false || h.validated === false) return false;
-      const ms = toDateMs(h.date || h.createdAt);
-      return !cutoffMs || !Number.isFinite(ms) || ms >= cutoffMs;
-    });
+    const { min: catMin, max: catMax } = resolveScale(cat, 100, 0);
+    const validHistory = safeArr(cat?.simuladoStats?.history)
+      .filter((h) => h && h.valid !== false && h.validated !== false);
+    const history = filterDatedEntriesByWindow(validHistory, (h) => h.date || h.createdAt, cutoffMs);
     let timeSec = 0;
     let timedQ = 0;
     history.forEach((h) => {
@@ -922,7 +955,11 @@ export function buildExamPacingData(categories = [], options = {}) {
         timedQ += topicsTq;
       } else {
         const ts = toFinite(h.timeSpent ?? h.durationSeconds, 0);
-        const tot = toFinite(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions, 0);
+        let tot = toFinite(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions, 0);
+        if (tot <= 0 && h.topics != null) {
+          const tf = extractTopicsTotals(h, catMax, catMin);
+          if (tf.total > 0) tot = tf.total;
+        }
         const tq = toFinite(h.timedQuestoes, 0) || (ts > 0 ? tot : 0);
         if (ts > 0 && tq > 0) {
           timeSec += ts;
@@ -961,29 +998,41 @@ export function buildExamPacingData(categories = [], options = {}) {
   const totalWeight = rawEntries.reduce((acc, e) => acc + e.weight, 0) || 1;
 
   // Método dos Maiores Restos (Hamilton) para que sum(allocatedQuestions) === examTotalQuestions
-  // sempre que houver questões suficientes (>= número de disciplinas).
+  const minFloor = examTotalQuestions >= rawEntries.length ? 1 : 0;
   const allocations = rawEntries.map((e, idx) => {
     const exact = (e.weight / totalWeight) * examTotalQuestions;
-    const floorVal = examTotalQuestions >= rawEntries.length ? Math.max(1, Math.floor(exact)) : Math.max(1, Math.round(exact));
+    const floorVal = Math.max(minFloor, Math.floor(exact));
     return { idx, exact, allocated: floorVal, remainder: exact - Math.floor(exact) };
   });
 
-  if (examTotalQuestions >= rawEntries.length) {
-    let diff = examTotalQuestions - allocations.reduce((sum, a) => sum + a.allocated, 0);
-    if (diff > 0) {
-      const order = [...allocations].sort((a, b) => b.remainder - a.remainder);
+  let diff = examTotalQuestions - allocations.reduce((sum, a) => sum + a.allocated, 0);
+  if (diff > 0) {
+    const order = [...allocations].sort((a, b) => b.remainder - a.remainder);
+    let guard = 0;
+    while (diff > 0 && guard < examTotalQuestions + rawEntries.length) {
+      let progressed = false;
       for (let i = 0; i < order.length && diff > 0; i++) {
         order[i].allocated += 1;
         diff -= 1;
+        progressed = true;
       }
-    } else if (diff < 0) {
-      const order = [...allocations].sort((a, b) => a.remainder - b.remainder);
+      if (!progressed) break;
+      guard += 1;
+    }
+  } else if (diff < 0) {
+    const order = [...allocations].sort((a, b) => a.remainder - b.remainder);
+    let guard = 0;
+    while (diff < 0 && guard < examTotalQuestions + rawEntries.length * 2) {
+      let progressed = false;
       for (let i = 0; i < order.length && diff < 0; i++) {
-        if (order[i].allocated > 1) {
+        if (order[i].allocated > minFloor) {
           order[i].allocated -= 1;
           diff += 1;
+          progressed = true;
         }
       }
+      if (!progressed) break;
+      guard += 1;
     }
   }
 
@@ -1038,18 +1087,23 @@ export function buildProjectionFanData(focusCategory, timeline = [], options = {
   const maxScore = Math.max(minScore + 1, toFinite(options.maxScore, 100));
   const domain = Math.max(1e-9, maxScore - minScore);
   const targetScore = clamp(toFinite(options.targetScore, minScore + 0.8 * domain), minScore, maxScore);
-  const horizonDays = clamp(Math.round(toFinite(options.horizonDays, 60)), 7, 365);
+  const horizonDays = clamp(Math.round(toFinite(options.horizonDays, 60)), 1, 365);
   const historicalCutoffs = safeArr(options.historicalCutoffs)
     .map((v) => toFinite(v, NaN))
     .filter((n) => Number.isFinite(n) && n >= minScore && n <= maxScore);
 
-  const rawObs = [];
+  const now = options.now instanceof Date ? options.now : new Date();
+  const todayKey = getDateKey(now);
+
+  const allRawObs = [];
   if (focusCategory) {
     safeArr(focusCategory?.simuladoStats?.history).forEach((h) => {
       if (!h || h.valid === false || h.validated === false) return;
       const sc = getSafeScore(h, maxScore, minScore);
       const dk = getDateKey(h.date || h.createdAt);
-      if (Number.isFinite(sc) && dk) rawObs.push({ date: dk, score: sc });
+      const tot = toFinite(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions, 0);
+      const volWeight = tot > 0 ? tot : getSyntheticTotal(maxScore);
+      if (Number.isFinite(sc) && dk) allRawObs.push({ date: dk, score: sc, weight: volWeight });
     });
   } else {
     safeArr(timeline).forEach((row) => {
@@ -1057,11 +1111,16 @@ export function buildProjectionFanData(focusCategory, timeline = [], options = {
         row?.global_bayesian ?? row?.global_raw ?? row?.global_ema ?? row?.globalAvg ?? row?.bayGlobal ?? row?.score,
         NaN
       );
-      if (Number.isFinite(sc) && row?.date) rawObs.push({ date: row.date, score: sc });
+      const dk = getDateKey(row?.date);
+      const tot = toFinite(row?.global_total, 0);
+      const volWeight = tot > 0 ? tot : 1;
+      if (Number.isFinite(sc) && dk) allRawObs.push({ date: dk, score: sc, weight: volWeight });
     });
   }
 
-  rawObs.sort((a, b) => (toDateMs(a.date) || 0) - (toDateMs(b.date) || 0));
+  const hasNonFutureObs = todayKey ? allRawObs.some((o) => o.date <= todayKey) : false;
+  const rawObs = (hasNonFutureObs ? allRawObs.filter((o) => o.date <= todayKey) : allRawObs)
+    .sort((a, b) => (toDateMs(a.date) || 0) - (toDateMs(b.date) || 0));
 
   if (rawObs.length === 0) {
     return { series: [], cutoffBand: null, targetCrossingDate: null, summary: null };
@@ -1080,22 +1139,22 @@ export function buildProjectionFanData(focusCategory, timeline = [], options = {
     toFinite(options.activeMcResult?.sd, kalman?.summary?.abilitySd ?? domain * 0.06)
   );
 
-  // Agrega mesmo dia para evitar labels duplicados no eixo X do Recharts
+  // Agrega mesmo dia ponderado por volume de questões para evitar labels duplicados no eixo X do Recharts
   const byDay = new Map();
   rawObs.forEach((pt) => {
-    if (!byDay.has(pt.date)) byDay.set(pt.date, { date: pt.date, sum: 0, count: 0 });
+    if (!byDay.has(pt.date)) byDay.set(pt.date, { date: pt.date, weightedSum: 0, weightTotal: 0 });
     const entry = byDay.get(pt.date);
-    entry.sum += pt.score;
-    entry.count += 1;
+    const w = Math.max(1, Number(pt.weight) || 1);
+    entry.weightedSum += pt.score * w;
+    entry.weightTotal += w;
   });
   const uniqueDailyObs = Array.from(byDay.values()).map((d) => ({
     date: d.date,
-    score: d.sum / d.count,
+    score: d.weightTotal > 0 ? d.weightedSum / d.weightTotal : 0,
   }));
 
-  const now = options.now instanceof Date ? options.now : new Date();
-  const todayKey = getDateKey(now) || lastObs.date;
-  const effectiveTodayKey = lastObs.date > todayKey ? lastObs.date : todayKey;
+  const safeTodayKey = todayKey || lastObs.date;
+  const effectiveTodayKey = lastObs.date > safeTodayKey ? lastObs.date : safeTodayKey;
   const baseMs = (parseNoonLocal(effectiveTodayKey) || now).getTime();
 
   // Recent historical anchor (last 8 unique days before anchor)
@@ -1135,8 +1194,8 @@ export function buildProjectionFanData(focusCategory, timeline = [], options = {
 
   const historyClean = recentHistory;
 
-  const steps = Math.min(12, Math.max(4, Math.round(horizonDays / 7)));
-  const refHorizon = clamp(Math.round(toFinite(options.mcHorizonDays, 60)), 14, 365);
+  const steps = Math.min(12, Math.max(1, Math.min(horizonDays, Math.max(4, Math.round(horizonDays / 7)))));
+  const refHorizon = clamp(Math.round(toFinite(options.mcHorizonDays, 60)), 1, 365);
   const sigma0 = Math.min(
     baseSigma * 0.85,
     Math.max(domain * 0.015, toFinite(kalman?.summary?.abilitySd, baseSigma * 0.45))
@@ -1146,7 +1205,7 @@ export function buildProjectionFanData(focusCategory, timeline = [], options = {
   const DRIFT_TAU_DAYS = 90;
 
   const futurePoints = [];
-  const alreadyAtTarget = baseLevel >= targetScore && dailyDrift >= 0;
+  let alreadyAtTarget = baseLevel >= targetScore && dailyDrift >= 0;
   let targetCrossingDate = alreadyAtTarget ? effectiveTodayKey : null;
   let prevD = 0;
   let prevMean = clampedBase;
@@ -1193,6 +1252,12 @@ export function buildProjectionFanData(focusCategory, timeline = [], options = {
   }
 
   const finalPt = futurePoints[futurePoints.length - 1] || anchorPoint;
+  // Se o aluno já está acima da meta e a mediana projetada permanece acima da meta até o fim
+  // (mesmo com leve deriva negativa), nunca rotular como "Acima do prazo".
+  if (!alreadyAtTarget && baseLevel >= targetScore && finalPt.p50 >= targetScore) {
+    alreadyAtTarget = true;
+    targetCrossingDate = effectiveTodayKey;
+  }
   const cutoffBand = historicalCutoffs.length > 0
     ? {
       min: Math.min(...historicalCutoffs),
@@ -1228,18 +1293,12 @@ export function buildKalmanChartData(focusCategory, timeline = [], options = {})
 
   let observations = [];
   if (focusCategory) {
-    observations = safeArr(focusCategory?.simuladoStats?.history)
-      .filter((h) => {
-        if (!h || h.valid === false || h.validated === false) return false;
-        const ms = toDateMs(h.date || h.createdAt);
-        return !cutoffMs || !Number.isFinite(ms) || ms >= cutoffMs;
-      });
+    const validHist = safeArr(focusCategory?.simuladoStats?.history)
+      .filter((h) => h && h.valid !== false && h.validated !== false);
+    observations = filterDatedEntriesByWindow(validHist, (h) => h.date || h.createdAt, cutoffMs);
   } else {
-    observations = safeArr(timeline)
-      .filter((row) => {
-        const ms = toDateMs(row?.date);
-        return !cutoffMs || !Number.isFinite(ms) || ms >= cutoffMs;
-      })
+    const filteredTimeline = filterDatedEntriesByWindow(safeArr(timeline), (row) => row?.date, cutoffMs);
+    observations = filteredTimeline
       .map((row) => ({
         date: row.date,
         score: toFinite(
@@ -1260,9 +1319,11 @@ export function buildKnowledgeGraphLayout(category, options = {}) {
   if (!category || typeof category !== 'object') {
     return { nodes: [], edges: [], isAutoTopology: true, stats: { nodeCount: 0, edgeCount: 0, blockedCount: 0 } };
   }
-  const minScore = toFinite(options.minScore, 0);
-  const maxScore = Math.max(minScore + 1, toFinite(options.maxScore, 100));
-  const domain = Math.max(1e-9, maxScore - minScore);
+  const { min: minScore, max: maxScore, range: domain } = resolveScale(
+    category,
+    toFinite(options.maxScore, 100),
+    toFinite(options.minScore, 0)
+  );
 
   // Aggregate topic proficiency from simuladoStats.history + tasks
   const topicMap = new Map();
@@ -1276,6 +1337,9 @@ export function buildKnowledgeGraphLayout(category, options = {}) {
       order: idx,
       total: 0,
       correct: 0,
+      scoreSum: 0,
+      scoreCount: 0,
+      hasSimuladoData: false,
       completed: Boolean(t.completed),
       proficiency: t.completed ? 0.72 : 0.35,
     });
@@ -1287,8 +1351,10 @@ export function buildKnowledgeGraphLayout(category, options = {}) {
       const label = String(tp.name || tp.topic || '').trim();
       const key = normalizeGraphName(label);
       if (!key) return;
-      const tot = toFinite(tp.total ?? tp.questoes, 0);
-      const corr = toFinite(tp.correct ?? tp.acertos, 0);
+      const tot = toFinite(tp.total ?? tp.questoes ?? tp.totalQuestoes ?? tp.questions, 0);
+      const rawCorr = toFinite(tp.correct ?? tp.acertos ?? tp.correctCount, null);
+      const sc = getSafeScore(tp, maxScore, minScore);
+      if (tot <= 0 && !Number.isFinite(sc)) return;
       if (!topicMap.has(key)) {
         topicMap.set(key, {
           name: label,
@@ -1296,23 +1362,41 @@ export function buildKnowledgeGraphLayout(category, options = {}) {
           order: topicMap.size,
           total: 0,
           correct: 0,
+          scoreSum: 0,
+          scoreCount: 0,
+          hasSimuladoData: false,
           completed: false,
           proficiency: 0.5,
         });
       }
       const entry = topicMap.get(key);
-      entry.total += Math.max(0, tot);
-      entry.correct += clamp(corr, 0, Math.max(0, tot));
-      if (entry.total > 0) {
+      entry.hasSimuladoData = true;
+      if (tot > 0) {
+        const effCorr = resolveEffectiveCorrect(tp, sc, tot, rawCorr !== null, rawCorr, maxScore, minScore);
+        entry.total += tot;
+        entry.correct += clamp(effCorr, 0, tot);
         entry.proficiency = clamp(entry.correct / entry.total, 0, 1);
-      } else {
-        const sc = getSafeScore(tp, maxScore, minScore);
-        if (Number.isFinite(sc)) entry.proficiency = clamp((sc - minScore) / domain, 0, 1);
+      } else if (Number.isFinite(sc)) {
+        entry.scoreSum += clamp((sc - minScore) / domain, 0, 1);
+        entry.scoreCount += 1;
+        if (entry.total === 0) {
+          entry.proficiency = clamp(entry.scoreSum / entry.scoreCount, 0, 1);
+        }
       }
     });
   });
 
-  const topicList = Array.from(topicMap.values()).slice(0, 12);
+  const allTopics = Array.from(topicMap.values());
+  let topicList;
+  if (allTopics.length <= 12) {
+    topicList = allTopics;
+  } else {
+    // Prioritize topics with real simulado evidence when > 12 topics exist, preserving syllabus order
+    const simulated = allTopics.filter((t) => t.hasSimuladoData);
+    const nonSimulated = allTopics.filter((t) => !t.hasSimuladoData);
+    topicList = [...simulated.slice(0, 12), ...nonSimulated.slice(0, Math.max(0, 12 - simulated.length))]
+      .sort((a, b) => a.order - b.order);
+  }
   if (topicList.length === 0) {
     return { nodes: [], edges: [], isAutoTopology: true, stats: { nodeCount: 0, edgeCount: 0, blockedCount: 0 } };
   }
@@ -1402,12 +1486,14 @@ export function buildKnowledgeGraphLayout(category, options = {}) {
         ? height / 2
         : 48 + (rowPos / (colNodes.length - 1)) * (height - 96);
       const src = profByKey.get(node.normalizedKey);
-      const proficiencyPct = Math.round((src?.proficiency ?? 0.5) * 100);
+      const rawProficiency = src?.proficiency ?? 0.5;
+      const proficiencyPct = Math.round(rawProficiency * 100);
       const isBlocked = Array.isArray(node.blockedBy) && node.blockedBy.length > 0;
       const item = {
         ...node,
         x: Math.round(x),
         y: Math.round(y),
+        proficiency: rawProficiency,
         proficiencyPct,
         totalQuestions: src?.total ?? 0,
         completed: Boolean(src?.completed),
@@ -1427,7 +1513,7 @@ export function buildKnowledgeGraphLayout(category, options = {}) {
         id: `${e.from}->${e.to}`,
         from: fromNode,
         to: toNode,
-        isBlocking: fromNode.proficiencyPct < 60,
+        isBlocking: (fromNode.proficiency ?? 0.5) < 0.6,
       };
     })
     .filter(Boolean);
@@ -1516,12 +1602,18 @@ export function buildCalibrationSeriesData(auditLogs = [], historyByCategory = {
     });
   }
 
-  if (rawPoints.length === 0) {
+  if (rawPoints.length === 0 && categoryFilter === 'all') {
     safeArr(healthSnapshots).forEach((snap) => {
       const m = snap?.metrics || {};
       pushPoint(
         snap.generatedAt ?? snap.timestamp,
-        m.currentCalibration?.avgBrier ?? m.calibrationDrift?.recentMean ?? m.avgBrier ?? m.brier ?? m.calibration?.avgBrier,
+        m.currentCalibration?.avgBrier ??
+          m.calibrationDrift?.brier?.recentMean ??
+          m.probabilityCalibrationDrift?.recent?.brier ??
+          m.calibrationDrift?.recentMean ??
+          m.avgBrier ??
+          m.brier ??
+          m.calibration?.avgBrier,
         m.currentCalibration?.ece ?? m.ece ?? m.calibration?.ece,
         'Global'
       );
@@ -1530,31 +1622,35 @@ export function buildCalibrationSeriesData(auditLogs = [], historyByCategory = {
 
   rawPoints.sort((a, b) => a.ts - b.ts);
 
-  // Dedupe points within 1 second using normalized label (evita duplicatas entre auditLog e historyByCategory)
+  // Dedupe points within 1 second per normalized label (even when interleaved across categories)
+  const lastTsByLabel = new Map();
   const deduped = [];
   rawPoints.forEach((pt) => {
-    const prev = deduped[deduped.length - 1];
-    if (prev && Math.abs(prev.ts - pt.ts) < 1000 && prev.normLabel === pt.normLabel) return;
-    const d = new Date(pt.ts);
+    const labelKey = pt.normLabel || '__default__';
+    const lastTs = lastTsByLabel.get(labelKey);
+    if (lastTs !== undefined && Math.abs(pt.ts - lastTs) < 1000) return;
+    lastTsByLabel.set(labelKey, pt.ts);
+    const dayKey = getDateKey(new Date(pt.ts)) || new Date(pt.ts).toISOString().slice(0, 10);
     deduped.push({
       ts: pt.ts,
+      dayKey,
       brier: pt.brier !== null ? Number(pt.brier.toFixed(4)) : null,
       ece: pt.ece !== null ? Number(pt.ece.toFixed(4)) : null,
       label: pt.label,
       normLabel: pt.normLabel,
-      dateLabel: `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`,
+      dateLabel: formatShortBrDate(dayKey),
     });
   });
 
-  // Quando visualizando 'all' com múltiplas disciplinas no mesmo dia, agrega por dia
+  // Quando visualizando 'all' com múltiplas disciplinas no mesmo dia, agrega por dia (em APP_TIMEZONE)
   // para evitar zigue-zague artificial entre disciplinas diferentes.
   const distinctLabels = new Set(deduped.map((p) => p.normLabel).filter(Boolean));
   if (categoryFilter === 'all' && distinctLabels.size > 1) {
     const byDay = new Map();
     deduped.forEach((pt) => {
-      const dayKey = new Date(pt.ts).toISOString().slice(0, 10);
+      const dayKey = pt.dayKey;
       if (!byDay.has(dayKey)) {
-        byDay.set(dayKey, { ts: pt.ts, dateLabel: pt.dateLabel, briers: [], eces: [], labels: new Set() });
+        byDay.set(dayKey, { ts: pt.ts, dateLabel: formatShortBrDate(dayKey), briers: [], eces: [], labels: new Set() });
       }
       const bucket = byDay.get(dayKey);
       bucket.ts = Math.max(bucket.ts, pt.ts);
@@ -1574,5 +1670,5 @@ export function buildCalibrationSeriesData(auditLogs = [], historyByCategory = {
     return aggregated.slice(-30);
   }
 
-  return deduped.map(({ normLabel: _normLabel, ...rest }) => rest).slice(-30);
+  return deduped.map(({ normLabel: _normLabel, dayKey: _dayKey, ...rest }) => rest).slice(-30);
 }

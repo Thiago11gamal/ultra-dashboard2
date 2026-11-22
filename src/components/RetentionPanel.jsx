@@ -170,7 +170,7 @@ const RetentionBar = ({ value, bg }) => (
     </div>
 );
 
-export default function RetentionPanel({ categories = [], onSelectCategory }) {
+export default function RetentionPanel({ categories = [], studyLogs = [], minScore = 0, maxScore = 100, onSelectCategory }) {
     const [expandedCategories, setExpandedCategories] = useState({});
 
     // Auto-refresh now every 60 seconds to recalculate retention
@@ -224,7 +224,8 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
             .map(cat => {
                 const safeCategoryName = String(cat.name || 'Sem nome');
 
-                const empirical = estimateEmpiricalHalfLife(cat);
+                const scaleOpts = { minScore, maxScore };
+                const empirical = estimateEmpiricalHalfLife(cat, { ...scaleOpts, studyLogs });
                 const catHalfLife = empirical.effectiveHalfLife;
                 const empiricalScale = empirical.priorHalfLife > 0
                     ? clamp(empirical.effectiveHalfLife / empirical.priorHalfLife, 0.5, 2.0)
@@ -234,7 +235,7 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
 
                 const tasksWithRetention = rawTasks
                     .map(task => {
-                        const taskMastery = getMasterySignal(task, cat);
+                        const taskMastery = getMasterySignal(task, cat, scaleOpts);
                         const taskHalfLife = clamp((7 + (16 * taskMastery.masterySignal)) * empiricalScale, 4, 60);
                         const lastStudy = task.lastStudiedAt ?? task.completedAt;
 
@@ -252,7 +253,7 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
                     ? Math.round(studiedTasks.reduce((acc, task) => acc + task.retention.val, 0) / studiedTasks.length)
                     : null;
 
-                const latestStudyMs = getLatestStudyMs(cat, rawTasks);
+                const latestStudyMs = getLatestStudyMs(cat, rawTasks, studyLogs);
                 const catDirectRet = calculateRetention(latestStudyMs, catHalfLife, now);
                 const isNeverStudied = catDirectRet.status === 'never' && studiedTasks.length === 0;
 
@@ -281,7 +282,7 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
                 };
             })
             .sort((a, b) => a.retention.val - b.retention.val);
-    }, [categories, now, getRetentionStyle]); // now forces periodic recalculation
+    }, [categories, now, getRetentionStyle, studyLogs, minScore, maxScore]); // now forces periodic recalculation
 
     // Stats summary
     const stats = useMemo(() => {

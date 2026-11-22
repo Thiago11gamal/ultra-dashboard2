@@ -1,7 +1,8 @@
 import React, { useMemo } from 'react';
 import { Target, CheckCircle2, Zap } from 'lucide-react';
-import { getSafeScore, getSyntheticTotal } from '../utils/scoreHelper';
+import { getSafeScore, getSyntheticTotal, resolveEffectiveCorrect } from '../utils/scoreHelper';
 import { normalizeDate, toDateMs } from '../utils/dateHelper';
+import { normalize } from '../utils/normalization';
 
 const hasValidNum = (v) =>
     v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
@@ -22,8 +23,12 @@ export default function ParetoAnalysis({ categories = [], maxScore: globalMaxSco
 
         safeCategories.forEach(cat => {
             if (cat.simuladoStats && cat.simuladoStats.history) {
-                // Determine weight for this category
-                const catWeight = Number(cat.weight || cat.rawWeight || 1.0);
+                // Determine weight for this category (respect explicit weight === 0 / P0)
+                const rawCatWeight = hasValidNum(cat.weight)
+                    ? Number(cat.weight)
+                    : (hasValidNum(cat.rawWeight) ? Number(cat.rawWeight) : 1.0);
+                const catWeight = Math.max(0, rawCatWeight);
+                if (catWeight <= 0) return;
                 // FIX P-03: Usar maxScore e minScore da categoria com fallback global.
                 const catMaxScore = (hasValidNum(cat.maxScore) && Number(cat.maxScore) > 0)
                     ? Number(cat.maxScore)
@@ -62,20 +67,25 @@ export default function ParetoAnalysis({ categories = [], maxScore: globalMaxSco
 
                         // FIX P-07: Suportar aliases de contagem e fallback score/scorePct.
                         let total = Math.max(0, parseInt(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions, 10) || 0);
-                        if (total === 0 && (t.score != null || t.scorePct != null)) {
+                        const isSynthetic = total === 0 && (t.score != null || t.scorePct != null || t.scorePoints != null);
+                        if (isSynthetic) {
                             total = getSyntheticTotal(catMaxScore);
                         }
                         if (total === 0) return;
 
-                        // FIX P-08: Respeitar acertos explícitos quando informados.
+                        // FIX P-08: Respeitar acertos explícitos + penalidade CEBRASPE/TRI.
                         const explicitCorrect = t.correct ?? t.acertos ?? t.correctCount;
-                        let correctCount;
-                        if (hasValidNum(explicitCorrect) && !t.isPercentage) {
-                            correctCount = Math.max(0, Math.min(total, Math.round(Number(explicitCorrect))));
-                        } else {
-                            const ratio = (score - catMinScore) / Math.max(1e-9, catMaxScore - catMinScore);
-                            correctCount = Math.max(0, Math.min(total, Math.round(ratio * total)));
-                        }
+                        const correctCount = isSynthetic
+                            ? Math.max(0, Math.min(total, ((score - catMinScore) / Math.max(1e-9, catMaxScore - catMinScore)) * total))
+                            : resolveEffectiveCorrect(
+                                normalizedTopic,
+                                score,
+                                total,
+                                hasValidNum(explicitCorrect),
+                                Number(explicitCorrect),
+                                catMaxScore,
+                                catMinScore
+                            );
                         const missed = Math.max(0, total - correctCount);
 
                         allTopics.push({
@@ -84,7 +94,8 @@ export default function ParetoAnalysis({ categories = [], maxScore: globalMaxSco
                             total,
                             correct: correctCount,
                             missed,
-                            weight: catWeight * recencyFactor,
+                            catWeight,
+                            recencyFactor,
                             percentage: Math.round((correctCount / total) * 100)
                         });
                     });
@@ -94,13 +105,20 @@ export default function ParetoAnalysis({ categories = [], maxScore: globalMaxSco
 
         const topicMap = {};
         allTopics.forEach(t => {
-            const key = `${t.category} - ${t.topic}`;
-            if (!topicMap[key]) topicMap[key] = { ...t, weightSum: t.weight, count: 1 };
-            else {
+            const key = `${normalize(t.category)}::${normalize(t.topic)}`;
+            if (!topicMap[key]) {
+                topicMap[key] = {
+                    ...t,
+                    weightedMissedQ: t.missed * t.recencyFactor,
+                    weightedTotalQ: t.total * t.recencyFactor,
+                    count: 1
+                };
+            } else {
                 topicMap[key].total += t.total;
                 topicMap[key].correct += t.correct;
                 topicMap[key].missed += t.missed;
-                topicMap[key].weightSum += t.weight;
+                topicMap[key].weightedMissedQ += t.missed * t.recencyFactor;
+                topicMap[key].weightedTotalQ += t.total * t.recencyFactor;
                 topicMap[key].count += 1;
                 
                 // FIX P-09: Proteger contra divisão por zero.
@@ -111,13 +129,13 @@ export default function ParetoAnalysis({ categories = [], maxScore: globalMaxSco
 
         const groupedTopics = Object.values(topicMap);
         
-        // Calculate Weighted Missed Points (Impact)
+        // Calculate Weighted Missed Points (Impact): recency-weighted error rate × subject weight × log-volume of recent misses
+        // Monotonically decreases when a new 100% attempt is recorded (fixes inverted recency penalty).
         groupedTopics.forEach(t => {
-            // FIX P-10: criticidade com proteção contra safeTotal=0.
-            const safeTotal = Math.max(1, t.total);
-            const errorRate = (t.total - t.correct) / safeTotal;
-            // Impact = frequency * significance * scale
-            t.weightedMissed = errorRate * t.weightSum * 10;
+            const safeWeightedTotal = Math.max(1e-6, t.weightedTotalQ);
+            const recencyErrorRate = Math.max(0, Math.min(1, t.weightedMissedQ / safeWeightedTotal));
+            const missVolumeScale = t.weightedMissedQ > 0 ? Math.max(1, Math.log2(1 + t.weightedMissedQ)) : 0;
+            t.weightedMissed = recencyErrorRate * t.catWeight * 10 * missVolumeScale;
         });
 
         const totalMissedGlobal = groupedTopics.reduce((acc, t) => acc + t.weightedMissed, 0);

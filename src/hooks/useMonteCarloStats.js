@@ -1196,9 +1196,15 @@ export function useMonteCarloStats({
           : regularizeVolatility(rawSubjSd, 0, cat.n || 1, catRange);
         const subjImmunity = subjectImmunityMap[String(cat.name || '').toLowerCase().trim()] ?? 1.0;
 
-        // ✅ LOTE-01 FIX: meta projetada no INTERVALO real, respeitando minScore
+        // ✅ LOTE-01 FIX: meta projetada no INTERVALO real, respeitando minScore e historicalCutoffs
+        const validHistCutoffs = Array.isArray(historicalCutoffs)
+          ? historicalCutoffs.map(Number).filter(Number.isFinite)
+          : [];
+        const effectiveGlobalTarget = validHistCutoffs.length > 0
+          ? validHistCutoffs.reduce((a, b) => a + b, 0) / validHistCutoffs.length
+          : Number(debouncedTarget);
         const globalRange = Math.max(1e-9, Number(maxScore) - Number(minScore));
-        const targetRatio = clamp((Number(debouncedTarget) - Number(minScore)) / globalRange, 0, 1);
+        const targetRatio = clamp((effectiveGlobalTarget - Number(minScore)) / globalRange, 0, 1);
         const subjectTarget = clamp(catMinScore + targetRatio * catRange, catMinScore, catMaxScore);
         const simulationsCount = Math.min(dynamicSimulations || 2000, 3000);
 
@@ -1264,6 +1270,7 @@ export function useMonteCarloStats({
     dynamicSimulations,
     calibrationPenalty,
     flashcardDecks,
+    historicalCutoffs,
     enablePerSubject
   ]);
 

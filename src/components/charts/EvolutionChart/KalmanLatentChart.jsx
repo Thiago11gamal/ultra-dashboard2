@@ -84,6 +84,19 @@ export const KalmanLatentChart = React.memo(function KalmanLatentChart({
     [focusCategory, timeline, minScore, maxScore, timeWindow]
   );
 
+  const chartPoints = useMemo(
+    () => (kalman.points || []).map((pt, idx) => ({
+      ...pt,
+      xKey: `${pt.date || pt.displayDate || idx}#${idx}`,
+    })),
+    [kalman.points]
+  );
+  const displayLabelByKey = useMemo(() => {
+    const map = new Map();
+    chartPoints.forEach((pt) => map.set(pt.xKey, pt.displayDate));
+    return map;
+  }, [chartPoints]);
+
   const fmt = (v) => (unit === '%' ? `${Number(v).toFixed(1)}%` : `${formatValue(v)} ${unit}`);
 
   if (!kalman.points.length || !kalman.summary) {
@@ -145,7 +158,7 @@ export const KalmanLatentChart = React.memo(function KalmanLatentChart({
       <ChartFrame minHeight={340} label="Executando filtro State-Space Kalman">
         <div className="h-[340px] w-full" role="img" aria-label="Gráfico de Habilidade Latente (Filtro de Kalman) versus Notas Brutas">
           <ResponsiveContainer width="100%" height="100%" minHeight={300} minWidth={1}>
-            <ComposedChart data={kalman.points} margin={{ top: 16, right: 20, left: 4, bottom: 12 }}>
+            <ComposedChart data={chartPoints} margin={{ top: 16, right: 20, left: 4, bottom: 12 }}>
               <defs>
                 <linearGradient id={`kalmanBand_${uid}`} x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="#10b981" stopOpacity={0.28} />
@@ -153,7 +166,7 @@ export const KalmanLatentChart = React.memo(function KalmanLatentChart({
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
-              <XAxis dataKey="displayDate" stroke="#64748b" fontSize={10} />
+              <XAxis dataKey="xKey" tickFormatter={(val) => displayLabelByKey.get(val) || String(val).split('#')[0]} stroke="#64748b" fontSize={10} />
               <YAxis
                 domain={[minScore, maxScore]}
                 stroke="#64748b"

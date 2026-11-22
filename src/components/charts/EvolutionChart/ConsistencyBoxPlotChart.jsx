@@ -49,9 +49,10 @@ export const ConsistencyBoxPlotChart = React.memo(function ConsistencyBoxPlotCha
   const ticks = useMemo(() => {
     return [0, 0.25, 0.5, 0.75, 1].map((t) => {
       const val = data.domainMin + t * domainRange;
+      const formatted = formatValue(val, domainRange <= 10 ? 2 : 1);
       return {
         pct: t * 100,
-        label: unit === '%' ? `${Math.round(val)}%` : `${Math.round(val)}`,
+        label: unit === '%' ? `${formatted}%` : formatted,
       };
     });
   }, [data.domainMin, domainRange, unit]);

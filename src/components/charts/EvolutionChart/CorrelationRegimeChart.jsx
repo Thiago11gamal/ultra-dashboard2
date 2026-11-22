@@ -70,15 +70,16 @@ export const CorrelationRegimeChart = React.memo(function CorrelationRegimeChart
   maxScore = 100,
   unit = '%',
   focusSubjectId = null,
+  timeWindow = 'all',
 }) {
   const corr = useMemo(
-    () => computeWeeklyCategoryCorrelation(categories, maxScore, minScore),
-    [categories, maxScore, minScore]
+    () => computeWeeklyCategoryCorrelation(categories, maxScore, minScore, { timeWindow }),
+    [categories, maxScore, minScore, timeWindow]
   );
 
   const regimes = useMemo(
-    () => buildRegimeMapData(categories, studyLogs, simuladoRows, maxScore, minScore, targetScore),
-    [categories, studyLogs, simuladoRows, maxScore, minScore, targetScore]
+    () => buildRegimeMapData(categories, studyLogs, simuladoRows, maxScore, minScore, targetScore, { timeWindow }),
+    [categories, studyLogs, simuladoRows, maxScore, minScore, targetScore, timeWindow]
   );
 
   const yExtent = useMemo(() => {

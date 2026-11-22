@@ -212,8 +212,10 @@ export function runCoachDriftGuard(options = {}) {
     if (probabilityPairs.length === 0 && calibrationEvents.length > 0) {
       probabilityPairs = calibrationEvents
         .map((ev) => {
-          const p = Number(ev?.probability);
-          const y = ev?.observed === true ? 1 : (ev?.observed === false ? 0 : Number(ev?.observed));
+          if (ev?.probability === null || ev?.probability === undefined || typeof ev?.probability === 'boolean' || String(ev.probability).trim() === '') return null;
+          if (ev?.observed === null || ev?.observed === undefined || String(ev.observed).trim() === '') return null;
+          const p = Number(ev.probability);
+          const y = ev.observed === true ? 1 : (ev.observed === false ? 0 : Number(ev.observed));
           if (!Number.isFinite(p) || !Number.isFinite(y)) return null;
           const p01 = p > 1 ? Math.max(0, Math.min(1, p / 100)) : Math.max(0, Math.min(1, p));
           return {

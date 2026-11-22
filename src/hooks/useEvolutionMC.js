@@ -68,7 +68,7 @@ export function useEvolutionMC({
         const topicsSig = rawTopics
           .map((t) => `${t?.total ?? t?.questoes ?? t?.totalQuestoes ?? t?.questions ?? ''}:${t?.correct ?? t?.acertos ?? t?.correctCount ?? ''}:${t?.isPercentage ? 1 : 0}:${t?.score ?? t?.scorePoints ?? t?.scorePct ?? t?.value ?? ''}:${t?.timeSpent ?? ''}:${t?.timedQuestoes ?? ''}`)
           .join(',');
-        return `${h?.date || h?.createdAt || ''}:${h?.valid === false ? 0 : 1}:${h?.isPercentage ? 1 : 0}:${h?.unit ?? ''}:${h?.scoreUnit ?? ''}:${h?.score ?? ''}:${h?.scorePoints ?? ''}:${h?.scorePct ?? ''}:${h?.value ?? ''}:${h?.total ?? h?.questoes ?? h?.totalQuestoes ?? h?.questions ?? ''}:${h?.correct ?? h?.acertos ?? h?.correctCount ?? ''}:${h?.timeSpent ?? ''}:${h?.timedQuestoes ?? ''}:[${topicsSig}]`;
+        return `${h?.date || h?.createdAt || ''}:${h?.valid === false ? 0 : 1}:${h?.validated === false ? 0 : 1}:${h?.isPercentage ? 1 : 0}:${h?.unit ?? ''}:${h?.scoreUnit ?? ''}:${h?.score ?? ''}:${h?.scorePoints ?? ''}:${h?.scorePct ?? ''}:${h?.value ?? ''}:${h?.penaltyPerWrong ?? ''}:${h?.blanks ?? ''}:${h?.netPoints ?? ''}:${h?.total ?? h?.questoes ?? h?.totalQuestoes ?? h?.questions ?? ''}:${h?.correct ?? h?.acertos ?? h?.correctCount ?? ''}:${h?.timeSpent ?? ''}:${h?.timedQuestoes ?? ''}:[${topicsSig}]`;
       })
       .join('|');
   }, [focusCategory?.simuladoStats?.history]);
@@ -101,11 +101,13 @@ export function useEvolutionMC({
       };
     }
 
-    const globalMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
-    const globalMax = Math.max(globalMin + 1, Number(maxScore) || 100);
+    const isStrictNum = (v) =>
+      v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
+    const globalMin = isStrictNum(minScore) ? Number(minScore) : 0;
+    const globalMax = Math.max(globalMin + 1, isStrictNum(maxScore) ? Number(maxScore) : 100);
     const globalRange = Math.max(1, globalMax - globalMin);
-    const safeMin = Number.isFinite(Number(focusCategory?.minScore)) ? Number(focusCategory.minScore) : globalMin;
-    const safeMax = Number(focusCategory?.maxScore) > safeMin ? Number(focusCategory.maxScore) : globalMax;
+    const safeMin = isStrictNum(focusCategory?.minScore) ? Number(focusCategory.minScore) : globalMin;
+    const safeMax = isStrictNum(focusCategory?.maxScore) && Number(focusCategory.maxScore) > safeMin ? Number(focusCategory.maxScore) : globalMax;
     const safeRange = Math.max(1, safeMax - safeMin);
     const hasCustomCutoff = focusCategory?.minCutoff !== null &&
       focusCategory?.minCutoff !== undefined &&
@@ -144,7 +146,7 @@ export function useEvolutionMC({
     };
 
     const hist = [...historyArray]
-      .filter((h) => h && h.valid !== false && (h.date || h.createdAt))
+      .filter((h) => h && h.valid !== false && h.validated !== false && (h.date || h.createdAt))
       .map((h) => {
         const dateKey = getDateKey(h.date || h.createdAt);
         let score = getSafeScore(h, safeMax, safeMin);
@@ -199,7 +201,7 @@ export function useEvolutionMC({
       let totalTimeSpent = 0;
       let totalTimedQuestions = 0;
       historyArray.forEach((rawH) => {
-        if (!rawH || rawH.valid === false || !(rawH.date || rawH.createdAt)) return;
+        if (!rawH || rawH.valid === false || rawH.validated === false || !(rawH.date || rawH.createdAt)) return;
         const validDateKey = getDateKey(rawH.date || rawH.createdAt);
         if (!validDateKey) return;
         let hasTopicWithTime = false;

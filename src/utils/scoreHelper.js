@@ -171,6 +171,7 @@ export {
   extractTopicsTotals,
   getSafeScore,
   clampCorrectToTotal,
+  resolveEffectiveCorrect,
   sanitizeSimuladoRow,
   computeEffectiveScoreRatio,
   mergeQuestionResult,

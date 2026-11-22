@@ -112,15 +112,22 @@ export function getTotalQuestions(entity) {
   }, 0);
 }
 
-export function getMasterySignal(entity, fallbackEntity = null) {
+export function getMasterySignal(entity, fallbackEntity = null, options = {}) {
   const totalQ =
     getTotalQuestions(entity) ||
     getTotalQuestions(fallbackEntity);
 
-  const minScore = toFiniteNumber(entity?.minScore ?? fallbackEntity?.minScore, 0);
+  const fallbackMin = options?.minScore != null && options.minScore !== '' && Number.isFinite(Number(options.minScore))
+    ? Number(options.minScore)
+    : 0;
+  const fallbackMax = options?.maxScore != null && options.maxScore !== '' && Number.isFinite(Number(options.maxScore)) && Number(options.maxScore) > fallbackMin
+    ? Number(options.maxScore)
+    : 100;
+
+  const minScore = toFiniteNumber(entity?.minScore ?? fallbackEntity?.minScore, fallbackMin);
   const maxScore = Math.max(
     minScore + 1,
-    toFiniteNumber(entity?.maxScore ?? fallbackEntity?.maxScore, 100)
+    toFiniteNumber(entity?.maxScore ?? fallbackEntity?.maxScore, fallbackMax)
   );
 
   const bayesObj = entity?.bayesianStats?.mean != null
@@ -184,8 +191,23 @@ export function retentionFromHalfLife(days, halfLife) {
   );
 }
 
-export function getLatestStudyMs(entity, tasks = []) {
-  const historyEntries = normalizeArray(entity?.simuladoStats?.history);
+export function getLatestStudyMs(entity, tasks = [], studyLogs = []) {
+  const historyEntries = normalizeArray(entity?.simuladoStats?.history)
+    .filter(entry => entry && entry.valid !== false && entry.validated !== false);
+  const entityIdStr = entity?.id != null ? String(entity.id) : '';
+  const entityNameLower = String(entity?.name || '').trim().toLowerCase();
+  const logDates = normalizeArray(studyLogs)
+    .filter(log => {
+      if (!log || log.type === 'flashcard') return false;
+      const m = toFiniteNumber(log.minutes ?? log.minutos, 0);
+      const d = toFiniteNumber(log.duration, 0);
+      if (m <= 0 && d <= 0) return false;
+      const matchId = entityIdStr && log.categoryId != null && String(log.categoryId) === entityIdStr;
+      const logName = String(log.subject || log.categoryName || log.category || '').trim().toLowerCase();
+      const matchName = entityNameLower && logName && logName === entityNameLower;
+      return matchId || matchName;
+    })
+    .map(log => toDateMs(log.date ?? log.createdAt));
   const candidates = [
     toDateMs(entity?.lastStudiedAt),
     ...normalizeArray(tasks).map(task =>
@@ -193,7 +215,8 @@ export function getLatestStudyMs(entity, tasks = []) {
     ),
     ...historyEntries.map(entry =>
       toDateMs(entry?.date ?? entry?.createdAt)
-    )
+    ),
+    ...logDates
   ].filter(ms => Number.isFinite(ms));
 
   return candidates.length ? Math.max(...candidates) : null;

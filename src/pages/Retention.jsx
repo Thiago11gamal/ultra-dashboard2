@@ -36,6 +36,21 @@ export default function Retention() {
         return normalizeArray(rawDecks).filter(Boolean);
     }));
 
+    const studyLogs = useAppStore(useShallow(state => {
+        const activeContest = state.appState?.contests?.[state.appState?.activeId];
+        return normalizeArray(activeContest?.studyLogs).filter(Boolean);
+    }));
+
+    const contestMinScore = useAppStore(state => {
+        const activeContest = state.appState?.contests?.[state.appState?.activeId];
+        return activeContest?.minScore ?? activeContest?.settings?.minScore ?? 0;
+    });
+
+    const contestMaxScore = useAppStore(state => {
+        const activeContest = state.appState?.contests?.[state.appState?.activeId];
+        return activeContest?.maxScore ?? activeContest?.settings?.maxScore ?? 100;
+    });
+
     const safeDecks = useMemo(() => normalizeArray(flashcardDecks).map(deck => ({
         ...deck,
         cards: normalizeArray(deck?.cards)
@@ -45,15 +60,18 @@ export default function Retention() {
     const showToast = useToast();
     const startPomodoroSession = useAppStore(state => state.startPomodoroSession);
 
-    const chartData = useMemo(() => mapRetentionData(categories), [categories]);
+    const chartData = useMemo(
+        () => mapRetentionData(categories, { studyLogs, minScore: contestMinScore, maxScore: contestMaxScore }),
+        [categories, studyLogs, contestMinScore, contestMaxScore]
+    );
     const empiricalProfiles = useMemo(
         () => categories.map((cat) => ({
             id: cat.id || cat.name,
             name: cat.name,
             color: cat.color || '#6366f1',
-            ...estimateEmpiricalHalfLife(cat),
+            ...estimateEmpiricalHalfLife(cat, { studyLogs, minScore: contestMinScore, maxScore: contestMaxScore }),
         })),
-        [categories]
+        [categories, studyLogs, contestMinScore, contestMaxScore]
     );
 
     const srsIndicators = useMemo(() => {
@@ -150,6 +168,9 @@ export default function Retention() {
             <div className="tour-step-10">
                 <RetentionPanel
                     categories={categories}
+                    studyLogs={studyLogs}
+                    minScore={contestMinScore}
+                    maxScore={contestMaxScore}
                     onSelectCategory={handleSelectCategory}
                 />
             </div>

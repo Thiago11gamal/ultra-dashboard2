@@ -11,10 +11,14 @@ import {
     ResponsiveContainer
 } from 'recharts';
 import { getDateKey, formatDuration, formatWeekdayShortPtBR } from '../../../utils/dateHelper.js';
-import { getSafeScore, getSyntheticTotal, formatValue, extractTopicsTotals } from '../../../utils/scoreHelper.js';
+import { parseNoonLocal, addDaysNoon } from '../../../utils/parseNoonLocal.js';
+import { getSafeScore, getSyntheticTotal, formatValue, extractTopicsTotals, resolveEffectiveCorrect } from '../../../utils/scoreHelper.js';
 import { pointsToRatio, ratioToPoints } from '../../../utils/scoreHelper.conversions.js';
 import { getHistoryDate } from '../../../utils/evolutionGuards.js';
 import { isSubjectMatch } from '../../../utils/normalization.js';
+
+const isStrictNum = (v) =>
+    v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
 
 const WeeklyPerformanceChart = React.memo(function WeeklyPerformanceChart({
     categories = [],
@@ -25,9 +29,10 @@ const WeeklyPerformanceChart = React.memo(function WeeklyPerformanceChart({
     minScore = 0,
     unit = '%'
 }) {
-    const safeMaxScore = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100;
-    const safeMinScore = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
-    const safeUnit = typeof unit === 'string' && unit.length <= 4 ? unit : '%';
+    const safeMaxScore = isStrictNum(maxScore) && Number(maxScore) > 0 ? Number(maxScore) : 100;
+    const safeMinScore = isStrictNum(minScore) ? Number(minScore) : 0;
+    const trimmedUnit = typeof unit === 'string' ? unit.trim() : '';
+    const safeUnit = trimmedUnit.length > 0 && trimmedUnit.length <= 12 ? trimmedUnit : '%';
     const instanceId = useId().replace(/:/g, "");
     const barGradId = `wp_barGrad_${instanceId}`;
 
@@ -35,20 +40,19 @@ const WeeklyPerformanceChart = React.memo(function WeeklyPerformanceChart({
         const safeCats = (Array.isArray(categories) ? categories : Object.values(categories || {})).filter(Boolean);
         const safeLogs = (Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {})).filter(Boolean);
         const days = [];
-        const today = new Date();
-        today.setHours(12, 0, 0, 0);
+        const todayKey = getDateKey(new Date());
+        const todayNoon = (todayKey ? parseNoonLocal(todayKey) : null) || new Date();
         const focusCategory = focusSubjectId ? safeCats.find(c => String(c?.id) === String(focusSubjectId)) : null;
         const focusName = focusCategory?.name || '';
 
         for (let i = 6; i >= 0; i--) {
-            const d = new Date(today);
-            d.setDate(d.getDate() - i);
+            const d = addDaysNoon(todayNoon, -i) || todayNoon;
             const dateKey = getDateKey(d);
 
             const dow = formatWeekdayShortPtBR(d);
 
             const dailyLogs = safeLogs.filter(log => {
-                if (!log) return false;
+                if (!log || log.type === 'flashcard') return false;
                 const rawDate = getHistoryDate(log);
                 if (!rawDate) return false;
                 const logDate = getDateKey(rawDate);
@@ -63,7 +67,12 @@ const WeeklyPerformanceChart = React.memo(function WeeklyPerformanceChart({
                 }
                 return true;
             });
-            const totalMinutes = dailyLogs.reduce((acc, log) => acc + (Number(log.minutes ?? log.minutos ?? log.duration) || 0), 0);
+            const totalMinutes = dailyLogs.reduce((acc, log) => {
+                const rawMin = Number(log.minutes ?? log.minutos);
+                const rawDur = Number(log.duration);
+                const m = (Number.isFinite(rawMin) && rawMin > 0) ? rawMin : (Number.isFinite(rawDur) && rawDur > 0 ? rawDur : 0);
+                return acc + Math.min(720, Math.max(0, m));
+            }, 0);
 
             let correctTotal = 0;
             let questionsTotal = 0;
@@ -71,40 +80,42 @@ const WeeklyPerformanceChart = React.memo(function WeeklyPerformanceChart({
             safeCats.forEach(cat => {
                 if (!cat || (showOnlyFocus && focusSubjectId && String(cat.id) !== String(focusSubjectId))) return;
 
-                const catMax = Number.isFinite(Number(cat?.maxScore)) && Number(cat?.maxScore) > 0 ? Number(cat.maxScore) : safeMaxScore;
-                const catMin = Number.isFinite(Number(cat?.minScore)) ? Math.min(Number(cat.minScore), catMax) : safeMinScore;
+                const catMax = isStrictNum(cat?.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : safeMaxScore;
+                const catMin = isStrictNum(cat?.minScore) ? Math.min(Number(cat.minScore), catMax) : safeMinScore;
                 const catRange = Math.max(1e-9, catMax - catMin);
                 const history = Array.isArray(cat.simuladoStats?.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats?.history || {});
                 history.forEach(h => {
-                    if (!h || h.valid === false) return;
+                    if (!h || h.valid === false || h.validated === false) return;
                     const hDate = getDateKey(getHistoryDate(h));
                     if (hDate === dateKey) {
-                        let q = Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions) || 0;
-                        let corr = 0;
-                        const hasCorrect = (h.correct !== undefined && h.correct !== null && String(h.correct).trim() !== '') ||
-                                          (h.acertos !== undefined && h.acertos !== null && String(h.acertos).trim() !== '') ||
-                                          (h.correctCount !== undefined && h.correctCount !== null && String(h.correctCount).trim() !== '');
+                        let q = Math.max(0, Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions) || 0);
+                        let corr = NaN;
+                        let resolvedFromTopics = false;
                         if (q === 0 && h.topics != null) {
                             const tf = extractTopicsTotals(h, catMax, catMin);
                             if (tf.total > 0) {
                                 q = tf.total;
                                 corr = tf.correct;
+                                resolvedFromTopics = true;
                             } else if (tf.hasTopicsScore && Number.isFinite(tf.score)) {
                                 q = getSyntheticTotal(catMax);
                                 corr = Math.max(0, Math.min(1, (tf.score - catMin) / catRange)) * q;
+                                resolvedFromTopics = true;
                             }
-                        } else if (hasCorrect && !h.isPercentage) {
-                            const rawC = Math.max(0, Number(h.correct ?? h.acertos ?? h.correctCount) || 0);
-                            corr = Math.min(q > 0 ? q : rawC, Number.isFinite(rawC) ? rawC : 0);
-                            if (q === 0) q = corr > 0 ? corr : getSyntheticTotal(catMax);
-                        } else {
-                            if (q === 0 && (h.score != null || h.scorePoints != null || h.scorePct != null)) {
-                                q = getSyntheticTotal(catMax);
-                            }
-                            if (q < 1) return;
+                        }
+                        if (!resolvedFromTopics) {
+                            const hasCorrect = isStrictNum(h.correct) || isStrictNum(h.acertos) || isStrictNum(h.correctCount);
+                            const rawC = Number(h.correct ?? h.acertos ?? h.correctCount);
                             const score = getSafeScore(h, catMax, catMin);
-                            const ratio = pointsToRatio(score, catMax, catMin);
-                            corr = ratio * q;
+                            if (q > 0) {
+                                if (!hasCorrect && !Number.isFinite(score)) return;
+                                corr = resolveEffectiveCorrect(h, score, q, hasCorrect && Number.isFinite(rawC), rawC, catMax, catMin);
+                            } else if (Number.isFinite(score)) {
+                                q = getSyntheticTotal(catMax);
+                                corr = pointsToRatio(score, catMax, catMin) * q;
+                            } else {
+                                return;
+                            }
                         }
                         if (!Number.isFinite(corr) || q < 1) return;
                         correctTotal += corr;

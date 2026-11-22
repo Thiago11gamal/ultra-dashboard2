@@ -69,7 +69,7 @@ export const ProjectionFanChart = React.memo(function ProjectionFanChart({
 }) {
   const uid = useId().replace(/:/g, '');
   const [customHorizon, setCustomHorizon] = useState(null);
-  const examHorizon = Math.max(14, Math.min(365, Math.round(Number(projectDays) || 60)));
+  const examHorizon = Math.max(1, Math.min(365, Math.round(Number(projectDays) || 60)));
   const effectiveHorizon = customHorizon ?? examHorizon;
 
   const data = useMemo(

@@ -4,10 +4,10 @@ import {
     ComposedChart, Line, Bar, XAxis, YAxis, Tooltip, ReferenceLine, CartesianGrid, LabelList
 } from 'recharts';
 import { getDateKey, toDateMs } from '../../../utils/dateHelper';
-import { getSafeScore, getSyntheticTotal, formatValue, extractTopicsTotals } from '../../../utils/scoreHelper';
+import { getSafeScore, getSyntheticTotal, formatValue, extractTopicsTotals, resolveEffectiveCorrect } from '../../../utils/scoreHelper';
 import { ratioToPoints, pointsToRatio } from '../../../utils/scoreHelper.conversions';
 import { filterHistoryByTimeWindow } from '../../../hooks/useSubjectAggData';
-import { normalize } from '../../../utils/normalization';
+import { isSubjectMatch } from '../../../utils/normalization';
 import { Target, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
 const hasValidNumber = (v) =>
@@ -105,7 +105,7 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
         ? Math.min(Number(focusCategory.minScore), safeMax)
         : Math.min(globalMin, safeMax);
     const safeRange = Math.max(1e-9, safeMax - safeMin);
-    const effectiveTargetScore = (focusCategory && hasValidNumber(focusCategory?.minCutoff))
+    const effectiveTargetScore = (focusCategory && hasValidNumber(focusCategory?.minCutoff) && Number(focusCategory.minCutoff) > safeMin)
         ? Math.max(safeMin, Math.min(safeMax, Number(focusCategory.minCutoff)))
         : (hasValidNumber(targetScore)
             ? (safeMax === globalMax && safeMin === globalMin
@@ -128,23 +128,29 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
                 return { tot: synthTot, corr: pointsToRatio(tf.score, catMax, catMin) * synthTot, isSynthetic: true };
             }
         }
-        if (hasExplicitC) {
+        const rawScore = getSafeScore(h, catMax, catMin);
+        if (tot > 0 && hasExplicitC) {
             const rawC = Math.max(0, Number(rawCorrVal) || 0);
-            if (tot === 0) tot = rawC > 0 ? rawC : getSyntheticTotal(catMax);
-            corr = Math.min(tot, Number.isFinite(rawC) ? rawC : 0);
+            corr = resolveEffectiveCorrect(h, rawScore, tot, true, rawC, catMax, catMin);
             return { tot, corr, isSynthetic: false };
         }
-        const rawScore = getSafeScore(h, catMax, catMin);
+        if (tot === 0 && hasExplicitC) {
+            const rawC = Math.max(0, Number(rawCorrVal) || 0);
+            const hasExplicitScore = hasValidNumber(h.score) || hasValidNumber(h.scorePoints) || hasValidNumber(h.scorePct);
+            if (rawC > 0 && !hasExplicitScore) {
+                return { tot: rawC, corr: rawC, isSynthetic: false };
+            }
+        }
         if (!Number.isFinite(rawScore) && tot <= 0) return { tot: 0, corr: 0, isSynthetic: false };
         const score = Number.isFinite(rawScore) ? rawScore : catMin;
         const isSynthetic = tot === 0;
-        if (tot === 0 && (h.isPercentage || h.score != null || h.scorePoints != null || h.scorePct != null)) {
+        if (tot === 0 && (h.isPercentage || hasValidNumber(h.score) || hasValidNumber(h.scorePoints) || hasValidNumber(h.scorePct))) {
             tot = getSyntheticTotal(catMax);
         }
         if (tot <= 0) return { tot: 0, corr: 0, isSynthetic: false };
         corr = isSynthetic
             ? pointsToRatio(score, catMax, catMin) * tot
-            : Math.round(pointsToRatio(score, catMax, catMin) * tot);
+            : resolveEffectiveCorrect(h, score, tot, false, 0, catMax, catMin);
         return { tot, corr: Math.max(0, Math.min(tot, corr)), isSynthetic };
     };
 
@@ -282,18 +288,16 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
         let latestHasTime = false;
         let hasRowMatch = false;
         if (Array.isArray(simuladoRows) && simuladoRows.length > 0) {
-            const activeCategoryMap = new Set(activeCategories.map(c => normalize(c.name)));
             const activeCategoryIdMap = new Set(activeCategories.map(c => c.id).filter(Boolean));
             const sortedRows = [...simuladoRows]
                 .filter(r => {
-                  if (!r || r.valid === false) return false;
+                  if (!r || r.valid === false || r.validated === false) return false;
                   const rDateKey = getDateKey(r.date || r.createdAt);
                   if (!rDateKey || rDateKey > maxAllowedDateKey) return false;
-                  const rSubj = normalize(r.subject || r.categoryName || r.materia);
-                  const subjMatches = rSubj ? activeCategoryMap.has(rSubj) : false;
                   const idMatches = r.categoryId && activeCategoryIdMap.has(r.categoryId);
-                
-                  return subjMatches || idMatches;
+                  if (idMatches) return true;
+                  const rSubjRaw = r.subject || r.categoryName || r.materia || '';
+                  return Boolean(rSubjRaw) && activeCategories.some(c => isSubjectMatch(rSubjRaw, c.name));
                 })
                 .sort((a, b) => {
                     const dkA = getDateKey(a.date || a.createdAt) || '';
@@ -305,8 +309,8 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
                 });
             if (sortedRows.length > 0) {
                 const latestRow = sortedRows[0];
-                const rSubj = normalize(latestRow.subject || latestRow.categoryName || latestRow.materia);
-                const matchedCat = activeCategories.find(c => (c.name && normalize(c.name) === rSubj) || (c.id && c.id === latestRow.categoryId));
+                const rSubjRaw = latestRow.subject || latestRow.categoryName || latestRow.materia || '';
+                const matchedCat = activeCategories.find(c => (c.id && c.id === latestRow.categoryId) || (rSubjRaw && isSubjectMatch(rSubjRaw, c.name)));
                 const lMax = hasValidNumber(matchedCat?.maxScore) && Number(matchedCat.maxScore) > 0 ? Number(matchedCat.maxScore) : safeMaxScore;
                 const lMin = hasValidNumber(matchedCat?.minScore) ? Math.min(Number(matchedCat.minScore), lMax) : safeMinScore;
                 const rawLatest = getSafeScore(latestRow, lMax, lMin);

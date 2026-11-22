@@ -36,8 +36,8 @@ export const DisciplinaCard = React.memo(function DisciplinaCard({
     const hasLevel = hasValidNumber(level);
     const val = hasLevel ? Number(level) : null;
     const globalRange = Math.max(1e-9, globalMax - globalMin);
-    const effectiveTarget = hasValidNumber(cat?.minCutoff)
-        ? Number(cat.minCutoff)
+    const effectiveTarget = hasValidNumber(cat?.minCutoff) && Number(cat.minCutoff) > safeMin
+        ? Math.min(safeMax, Number(cat.minCutoff))
         : (hasValidNumber(target)
             ? (Number(target) <= safeMax && Number(target) >= safeMin && safeMax === globalMax && safeMin === globalMin
                 ? Number(target)
@@ -60,7 +60,7 @@ export const DisciplinaCard = React.memo(function DisciplinaCard({
     if (!hasValidNumber(rawVal)) {
         const historyRaw = cat?.simuladoStats?.history;
         const rawList = Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw || {});
-        const validHistory = rawList.filter(h => h && h.valid !== false);
+        const validHistory = rawList.filter(h => h && h.valid !== false && h.validated !== false);
         if (validHistory.length > 0) {
             const todayKey = getDateKey(new Date());
             const nonFutureHistory = todayKey

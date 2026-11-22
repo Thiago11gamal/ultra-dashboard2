@@ -34,10 +34,12 @@ export function useCategoryLevels(categories, timeline, activeEngine, maxScore =
 
       const historyRaw = cat.simuladoStats?.history;
       const history = (historyRaw ? (Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw)) : [])
-        .filter((h) => h && h.valid !== false);
+        .filter((h) => h && h.valid !== false && h.validated !== false);
       const weight = Number(cat.weight) > 0 ? Number(cat.weight) : 10;
-      const catMax = Number.isFinite(Number(cat?.maxScore)) && Number(cat?.maxScore) > 0 ? Number(cat.maxScore) : maxScore;
-      const catMin = Number.isFinite(Number(cat?.minScore)) ? Math.min(Number(cat.minScore), catMax) : safeMin;
+      const isStrictNum = (v) =>
+        v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
+      const catMax = isStrictNum(cat?.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : maxScore;
+      const catMin = isStrictNum(cat?.minScore) ? Math.min(Number(cat.minScore), catMax) : safeMin;
       const catRange = Math.max(1e-9, catMax - catMin);
 
       // Fallback para o histórico da disciplina caso não esteja na timeline

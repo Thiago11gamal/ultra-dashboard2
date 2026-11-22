@@ -527,7 +527,8 @@ export function parseGoalDateUnified(value) {
   export const isFlashcardDue = (cardDue, referenceKey = null) => {
     if (!cardDue) return true;
     const todayKey = referenceKey || getFlashcardTodayKey();
-    return cardDue <= todayKey;
+    const normalizedDue = getDateKey(cardDue) || String(cardDue);
+    return normalizedDue <= todayKey;
   };
 
 

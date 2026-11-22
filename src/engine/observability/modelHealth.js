@@ -183,10 +183,23 @@ export function evaluateModelHealth(input = {}, options = {}) {
       ? Number(diagnostics.ece.toFixed(6))
       : null;
 
+    const validPairBriers = probabilityPairs
+      .map((pair) => {
+        if (pair?.probability === null || pair?.probability === undefined || pair?.observed === null || pair?.observed === undefined) return NaN;
+        const p = Number(pair.probability);
+        const y = Number(pair.observed);
+        return Number.isFinite(p) && Number.isFinite(y) ? Math.pow(p - y, 2) : NaN;
+      })
+      .filter(Number.isFinite);
+    const currentAvgBrier = validPairBriers.length > 0
+      ? Number((validPairBriers.reduce((a, b) => a + b, 0) / validPairBriers.length).toFixed(6))
+      : null;
+
     metrics.currentCalibration = {
       count: probabilityPairs.length,
       ece: currentEce,
       mce: Number.isFinite(diagnostics.mce) ? Number(diagnostics.mce.toFixed(6)) : null,
+      avgBrier: currentAvgBrier,
       reliability: diagnostics.reliability || [],
       brierDecomposition: diagnostics.brierDecomposition || null,
     };
@@ -220,24 +233,34 @@ export function evaluateModelHealth(input = {}, options = {}) {
     // Fallback: quando há menos de 10 pares diretos mas existem eventos de telemetria
     // de calibração (gerados pelo Coach/Raio-X) com ECE/Brier já computados, expõe os
     // valores recentes em vez de exibir "—" permanentemente no HealthPanel.
+    const parseStrictProbMetric = (v) => {
+      if (v === null || v === undefined || typeof v === 'boolean' || String(v).trim() === '') return NaN;
+      const n = Number(v);
+      return Number.isFinite(n) && n >= 0 && n <= 1 ? n : NaN;
+    };
     const recentEces = calibrationEvents
-      .map((ev) => Number(ev?.ece))
-      .filter((v) => Number.isFinite(v) && v >= 0 && v <= 1);
+      .map((ev) => parseStrictProbMetric(ev?.ece))
+      .filter(Number.isFinite);
     const recentBriers = calibrationEvents
-      .map((ev) => Number(ev?.avgBrier ?? ev?.brier))
-      .filter((v) => Number.isFinite(v) && v >= 0 && v <= 1);
+      .map((ev) => parseStrictProbMetric(ev?.avgBrier ?? ev?.brier))
+      .filter(Number.isFinite);
     const recentMces = calibrationEvents
       .map((ev) => {
-        if (Number.isFinite(Number(ev?.mce))) return Number(ev.mce);
+        const directMce = parseStrictProbMetric(ev?.mce);
+        if (Number.isFinite(directMce)) return directMce;
         if (Array.isArray(ev?.reliability) && ev.reliability.length > 0) {
           const gaps = ev.reliability
-            .map((b) => Math.abs(Number(b?.gap)))
+            .map((b) => {
+              if (b?.gap === null || b?.gap === undefined || typeof b?.gap === 'boolean' || String(b.gap).trim() === '') return NaN;
+              const g = Math.abs(Number(b.gap));
+              return Number.isFinite(g) && g >= 0 && g <= 1 ? g : NaN;
+            })
             .filter(Number.isFinite);
           return gaps.length > 0 ? Math.max(...gaps) : NaN;
         }
         return NaN;
       })
-      .filter((v) => Number.isFinite(v) && v >= 0 && v <= 1);
+      .filter(Number.isFinite);
 
     if (recentEces.length > 0 || recentBriers.length > 0) {
       const avgEce = recentEces.length > 0

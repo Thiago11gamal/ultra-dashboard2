@@ -1,6 +1,9 @@
 import { useMemo } from 'react';
 import { toDateMs, getDateKey } from '../utils/dateHelper';
-import { getSafeScore, getSyntheticTotal } from '../utils/scoreHelper';
+import { getSafeScore, getSyntheticTotal, resolveEffectiveCorrect } from '../utils/scoreHelper';
+
+const isStrictNum = (v) =>
+  v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
 
 function extractTopicsTotals(entry, safeMax, safeMin) {
   const rawTopics = entry?.topics;
@@ -56,22 +59,25 @@ export function filterHistoryByTimeWindow(history, timeWindow) {
   const safeHistory = Array.isArray(history) ? history : Object.values(history || {});
   const todayKey = getDateKey(new Date());
 
-  const validEntries = safeHistory.filter(Boolean).filter((h) => {
-    if (h?.valid === false || h?.validated === false) return false;
+  const allDated = safeHistory.filter(Boolean).reduce((acc, h) => {
+    if (h?.valid === false || h?.validated === false) return acc;
     const rawDate = h?.date || h?.createdAt;
-    if (!rawDate) return false;
+    if (!rawDate) return acc;
     const key = getDateKey(rawDate);
-    if (!key) return false;
-    return key <= todayKey;
-  });
+    if (!key) return acc;
+    acc.push({ h, key });
+    return acc;
+  }, []);
+
+  const hasNonFuture = todayKey ? allDated.some((x) => x.key <= todayKey) : false;
+  const validDated = hasNonFuture ? allDated.filter((x) => x.key <= todayKey) : allDated;
+  const validEntries = validDated.map((x) => x.h);
 
   if (timeWindow === 'all' || !Number.isFinite(days) || days <= 0) {
     return validEntries;
   }
-  const withMs = validEntries
-    .map((h) => {
-      const rawDate = h?.date || h?.createdAt;
-      const key = getDateKey(rawDate);
+  const withMs = validDated
+    .map(({ h, key }) => {
       const ms = toDateMs(key);
       return Number.isFinite(ms) ? { h, ms } : null;
     })
@@ -95,13 +101,11 @@ export function useSubjectAggData({ categories, showOnlyFocus, focusCategory, ti
         const history = filterHistoryByTimeWindow(cat.simuladoStats?.history || [], timeWindow)
           .filter((h) => h && h.materia !== 'Simulado Personalizado');
 
-        const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
-        const safeMax = Math.max(safeMin + 1, Number(maxScore) || 100);
+        const safeMin = isStrictNum(minScore) ? Number(minScore) : 0;
+        const safeMax = Math.max(safeMin + 1, isStrictNum(maxScore) ? Number(maxScore) : 100);
 
-        const rawCatMax = Number(cat.maxScore);
-        const rawCatMin = Number(cat.minScore);
-        const catMax = Number.isFinite(rawCatMax) && rawCatMax > 0 ? rawCatMax : safeMax;
-        const catMin = Number.isFinite(rawCatMin) ? Math.min(catMax - 1e-6, rawCatMin) : Math.min(catMax - 1e-6, safeMin);
+        const catMax = isStrictNum(cat.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : safeMax;
+        const catMin = isStrictNum(cat.minScore) ? Math.min(catMax - 1e-6, Number(cat.minScore)) : Math.min(catMax - 1e-6, safeMin);
         const catRange = Math.max(1e-9, catMax - catMin);
 
         let realQ = 0;
@@ -143,8 +147,8 @@ export function useSubjectAggData({ categories, showOnlyFocus, focusCategory, ti
           if (tot <= 0) return;
 
           let corr = 0;
-          if (!isSynth && !h.isPercentage && hasRawC && Number.isFinite(rawC)) {
-            corr = Math.max(0, Math.min(tot, rawC));
+          if (!isSynth) {
+            corr = resolveEffectiveCorrect(h, score, tot, hasRawC && Number.isFinite(rawC), rawC, catMax, catMin);
           } else {
             const normalizedScore = Math.max(catMin, Math.min(catMax, score));
             const derived = ((normalizedScore - catMin) / catRange) * tot;
@@ -183,13 +187,16 @@ export function useSubjectAggData({ categories, showOnlyFocus, focusCategory, ti
               }
             }
             if (hasTopicWithTime) return { ts: acc.ts + topicsTs, tq: acc.tq + topicsTimedQ };
-            let rootTot = Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions) || 0;
+            const explicitTimedQ = isStrictNum(h.timedQuestoes) && Number(h.timedQuestoes) > 0 ? Number(h.timedQuestoes) : 0;
+            let rootTot = explicitTimedQ > 0
+              ? explicitTimedQ
+              : (Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions) || 0);
             if (rootTot <= 0 && h.topics != null) {
               const tf = extractTopicsTotals(h, catMax, catMin);
               if (tf.total > 0) rootTot = tf.total;
             }
             if (rootTs !== null && rootTs > 0 && rootTot > 0) return { ts: acc.ts + rootTs, tq: acc.tq + rootTot };
-            if (rootTs !== null && rootTs > 0 && h.score != null) return { ts: acc.ts + rootTs, tq: acc.tq + getSyntheticTotal(catMax) };
+            if (rootTs !== null && rootTs > 0 && (isStrictNum(h.score) || isStrictNum(h.scorePoints) || isStrictNum(h.scorePct))) return { ts: acc.ts + rootTs, tq: acc.tq + getSyntheticTotal(catMax) };
             return acc;
           },
           { ts: 0, tq: 0 }

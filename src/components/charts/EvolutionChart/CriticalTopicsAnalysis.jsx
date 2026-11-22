@@ -4,7 +4,8 @@ import {
     ResponsiveContainer, LabelList, Cell
 } from "recharts";
 import { getDateKey } from "../../../utils/dateHelper";
-import { getSafeScore, getSyntheticTotal } from "../../../utils/scoreHelper";
+import { parseNoonLocal, addDaysNoon } from "../../../utils/parseNoonLocal";
+import { getSafeScore, getSyntheticTotal, extractTopicsTotals, resolveEffectiveCorrect } from "../../../utils/scoreHelper";
 import { toArray, getHistoryDate } from "../../../utils/evolutionGuards";
 import { filterHistoryByTimeWindow } from "../../../hooks/useSubjectAggData";
 import { ShieldAlert, AlertTriangle, Sparkles } from "lucide-react";
@@ -42,24 +43,24 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
         return list;
     }, [categories, showOnlyFocus, focusSubjectId]);
 
-    // Calc time window
+    // Calc time window anchored in APP_TIMEZONE (avoids local TZ off-by-one boundary shifts)
     const { startDateKey, endDateKey, dateLabel } = useMemo(() => {
-        const end = new Date();
-        end.setHours(23, 59, 59, 999);
-        end.setDate(end.getDate() - (selectedWeekOffset * 7));
-
-        const start = new Date(end);
-        start.setHours(0, 0, 0, 0);
-        start.setDate(end.getDate() - 6);
-
-        const format = (d) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
-
+        const todayKey = getDateKey(new Date());
+        const todayNoon = (todayKey ? parseNoonLocal(todayKey) : null) || new Date();
+        const endNoon = addDaysNoon(todayNoon, -(selectedWeekOffset * 7)) || todayNoon;
+        const startNoon = addDaysNoon(endNoon, -6) || endNoon;
+        const startKey = getDateKey(startNoon) || todayKey || '';
+        const endKey = getDateKey(endNoon) || todayKey || '';
+        const fmtKey = (k) => {
+            const p = String(k).split('-');
+            return p.length === 3 ? `${p[2]}/${p[1]}` : k;
+        };
         return {
-            startDate: start,
-            endDate: end,
-            startDateKey: getDateKey(start),
-            endDateKey: getDateKey(end),
-            dateLabel: `${format(start)} — ${format(end)}`
+            startDate: startNoon,
+            endDate: endNoon,
+            startDateKey: startKey,
+            endDateKey: endKey,
+            dateLabel: `${fmtKey(startKey)} — ${fmtKey(endKey)}`
         };
     }, [selectedWeekOffset]);
 
@@ -119,7 +120,9 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                     }
 
                     let total = parseInt(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions, 10) || 0;
-                    if (total === 0 && hasValidNumber(t.score)) {
+                    const hasTopicScore = hasValidNumber(t.score) || hasValidNumber(t.scorePoints) || hasValidNumber(t.scorePct);
+                    const isSynthTopic = total === 0 && hasTopicScore;
+                    if (isSynthTopic) {
                         total = getSyntheticTotal(catMax);
                     } else if (total === 0) {
                         return;
@@ -132,14 +135,14 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                         (t.correctCount !== null && t.correctCount !== undefined && String(t.correctCount).trim() !== '')
                     );
                     const parsedCorrect = Number(t.correct ?? t.acertos ?? t.correctCount);
+                    const score = getSafeScore(t, catMax, catMin);
                     let correctCount;
-                    if (hasExplicitCorrect && Number.isFinite(parsedCorrect)) {
-                        correctCount = parsedCorrect;
-                    } else {
-                        const score = getSafeScore(t, catMax, catMin);
+                    if (isSynthTopic) {
                         if (!Number.isFinite(score)) return;
-                        const normalizedScore = Math.max(catMin, Math.min(catMax, score));
-                        correctCount = ((normalizedScore - catMin) / catRange) * total;
+                        correctCount = ((Math.max(catMin, Math.min(catMax, score)) - catMin) / catRange) * total;
+                    } else {
+                        if (!hasExplicitCorrect && !Number.isFinite(score)) return;
+                        correctCount = resolveEffectiveCorrect(t, score, total, hasExplicitCorrect && Number.isFinite(parsedCorrect), parsedCorrect, catMax, catMin);
                     }
 
                     if (!Number.isFinite(correctCount)) return;
@@ -208,43 +211,20 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
             const catRange = Math.max(1e-9, catMax - catMin);
             for (const h of recentHistory) {
                 let t = parseInt(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions, 10) || 0;
-                if (t === 0 && hasValidNumber(h.score)) {
+                // Prioriza questões reais de h.topics ANTES do fallback sintético de h.score
+                if (t === 0 && h.topics != null) {
+                    const tf = extractTopicsTotals(h, catMax, catMin);
+                    if (tf.total > 0) {
+                        total += tf.total;
+                        correct += Math.max(0, Math.min(tf.total, tf.correct));
+                        continue;
+                    }
+                }
+                const hasHeaderScore = hasValidNumber(h.score) || hasValidNumber(h.scorePoints) || hasValidNumber(h.scorePct);
+                const isSynthHeader = t === 0 && hasHeaderScore;
+                if (isSynthHeader) {
                     t = getSyntheticTotal(catMax);
                 } else if (t === 0) {
-                    let topicList = toArray(h.topics);
-                    if (topicList.length === 0 && (h.topic || h.assunto || h.subtopic || h.topicName)) {
-                        topicList = [{
-                            name: h.topic || h.assunto || h.subtopic || h.topicName,
-                            total: h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions,
-                            correct: h.correct ?? h.acertos ?? h.correctCount,
-                            score: h.score,
-                            isPercentage: h.isPercentage
-                        }];
-                    }
-                    // Fallback: agrega a partir de h.topics se o cabeçalho h não tiver total/score
-                    topicList.forEach(tp => {
-                        let tpTot = parseInt(tp.total ?? tp.questoes ?? tp.totalQuestoes ?? tp.questions, 10) || 0;
-                        if (tpTot === 0 && hasValidNumber(tp.score)) tpTot = getSyntheticTotal(catMax);
-                        if (tpTot <= 0) return;
-                        const hasTpCorr = !tp.isPercentage && (
-                            (tp.correct !== null && tp.correct !== undefined && String(tp.correct).trim() !== '') ||
-                            (tp.acertos !== null && tp.acertos !== undefined && String(tp.acertos).trim() !== '') ||
-                            (tp.correctCount !== null && tp.correctCount !== undefined && String(tp.correctCount).trim() !== '')
-                        );
-                        const parsedTpCorr = Number(tp.correct ?? tp.acertos ?? tp.correctCount);
-                        let tpCorr;
-                        if (hasTpCorr && Number.isFinite(parsedTpCorr)) {
-                            tpCorr = parsedTpCorr;
-                        } else {
-                            const tpScore = getSafeScore(tp, catMax, catMin);
-                            if (!Number.isFinite(tpScore)) return;
-                            tpCorr = ((Math.max(catMin, Math.min(catMax, tpScore)) - catMin) / catRange) * tpTot;
-                        }
-                        if (Number.isFinite(tpCorr)) {
-                            total += tpTot;
-                            correct += Math.max(0, Math.min(tpTot, tpCorr));
-                        }
-                    });
                     continue;
                 }
                 
@@ -254,14 +234,14 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                     (h.correctCount !== null && h.correctCount !== undefined && String(h.correctCount).trim() !== '')
                 );
                 const parsedHCorrect = Number(h.correct ?? h.acertos ?? h.correctCount);
+                const score = getSafeScore(h, catMax, catMin);
                 let correctCount;
-                if (hasExplicitCorrect && Number.isFinite(parsedHCorrect)) {
-                    correctCount = parsedHCorrect;
-                } else {
-                    const score = getSafeScore(h, catMax, catMin);
+                if (isSynthHeader) {
                     if (!Number.isFinite(score)) continue;
-                    const normalizedScore = Math.max(catMin, Math.min(catMax, score));
-                    correctCount = ((normalizedScore - catMin) / catRange) * t;
+                    correctCount = ((Math.max(catMin, Math.min(catMax, score)) - catMin) / catRange) * t;
+                } else {
+                    if (!hasExplicitCorrect && !Number.isFinite(score)) continue;
+                    correctCount = resolveEffectiveCorrect(h, score, t, hasExplicitCorrect && Number.isFinite(parsedHCorrect), parsedHCorrect, catMax, catMin);
                 }
                 
                 if (!Number.isFinite(correctCount)) continue;
@@ -304,7 +284,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
           const topics = toArray(h.topics);
     
           const hasTopicData = topics.some(
-            t => Number(t?.total ?? t?.questoes ?? t?.totalQuestoes ?? t?.questions) > 0 || hasValidNumber(t?.score)
+            t => Number(t?.total ?? t?.questoes ?? t?.totalQuestoes ?? t?.questions) > 0 || hasValidNumber(t?.score) || hasValidNumber(t?.scorePoints) || hasValidNumber(t?.scorePct)
           );
     
           return (
@@ -314,6 +294,8 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
             (
               parseInt(h?.total ?? h?.questoes ?? h?.totalQuestoes ?? h?.questions, 10) > 0 ||
               hasValidNumber(h?.score) ||
+              hasValidNumber(h?.scorePoints) ||
+              hasValidNumber(h?.scorePct) ||
               hasTopicData
             )
           );

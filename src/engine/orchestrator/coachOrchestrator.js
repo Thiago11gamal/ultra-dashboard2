@@ -151,16 +151,23 @@ export async function runCoachOrchestrator(input = {}, optionsArg) {
       : safeInput;
   const categories = safeArray(safeInput.categories);
   const simulados = safeArray(safeInput.simulados);
-  const effectiveSimulados = simulados.length > 0
+  const hasOnlyGenericSims = simulados.length > 0 && simulados.every((s) => {
+    if (!s || typeof s !== 'object') return true;
+    if (s.categoryId != null && String(s.categoryId).trim() !== '') return false;
+    const subj = String(s.subject || s.categoryName || s.materia || '').trim().toLowerCase();
+    return !subj || subj === 'simulado geral' || subj === 'geral' || subj === 'global';
+  });
+  const catFlattenedSims = categories.flatMap((cat) => {
+    const hist = safeArray(cat?.simuladoStats?.history).filter((entry) => entry && entry.valid !== false && entry.validated !== false);
+    return hist.map((entry) => ({
+      ...entry,
+      categoryId: entry?.categoryId ?? cat?.id,
+      subject: entry?.subject || entry?.categoryName || cat?.name || '',
+    }));
+  });
+  const effectiveSimulados = simulados.length > 0 && !(hasOnlyGenericSims && catFlattenedSims.length > 0)
     ? simulados
-    : categories.flatMap((cat) => {
-      const hist = safeArray(cat?.simuladoStats?.history).filter((entry) => entry && entry.valid !== false);
-      return hist.map((entry) => ({
-        ...entry,
-        categoryId: entry?.categoryId ?? cat?.id,
-        subject: entry?.subject || entry?.categoryName || cat?.name || '',
-      }));
-    });
+    : (catFlattenedSims.length > 0 ? catFlattenedSims : simulados);
   const studyLogs = safeArray(safeInput.studyLogs);
   const maxScore = clampFinite(options.maxScore, 1, 1_000_000, 100);
   const minScore = clampFinite(options.minScore, -1_000_000, maxScore - 1e-6, 0);

@@ -43,9 +43,12 @@ function DueForecast({ decks = [], horizon = 14, compact = false, dayTick }) {
     }
 
     if (compact) {
-        // Compact inline version — respects the horizon prop
+        // Compact inline version — respects the horizon prop consistently for total & peak
         const sliceLen = Math.min(7, usedHorizon);
-        const nextN = forecast.slice(0, sliceLen).reduce((s, f) => s + f.count, 0);
+        const compactSlice = forecast.slice(0, sliceLen);
+        const nextN = compactSlice.reduce((s, f) => s + f.count, 0);
+        const compactMaxDaily = compactSlice.reduce((m, f) => Math.max(m, f.count || 0), 0);
+        const compactPeakDay = compactSlice.find(d => d.count === compactMaxDaily && compactMaxDaily > 0) ?? compactSlice[0] ?? { label: '-', dateLabel: '-' };
         const label = usedHorizon <= 7 ? `Próximos ${usedHorizon} dias` : `Próximos ${sliceLen} dias`;
         return (
             <div className="flex items-center gap-3 text-sm">
@@ -62,9 +65,9 @@ function DueForecast({ decks = [], horizon = 14, compact = false, dayTick }) {
                 </div>
                 <div className="ml-auto text-[10px] text-right text-slate-400">
                     {/* T-034 FIX: não mostrar pico falso quando tudo está zerado */}
-                    {maxDaily > 0 ? (
+                    {compactMaxDaily > 0 ? (
                         <>
-                            Pico: <span className="font-bold text-white">{maxDaily}</span> em {peakDay.label}
+                            Pico: <span className="font-bold text-white">{compactMaxDaily}</span> em {compactPeakDay.label}
                         </>
                     ) : (
                         <span className="text-emerald-400">Sem vencimentos no período</span>

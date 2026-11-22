@@ -308,8 +308,10 @@ export function computeHurstExponent(scores) {
 }
 
 export function generateMathDiagnostic(history, maxScore = 100, minScore = 0) {
-  const validHistory = (Array.isArray(history) ? history : Object.values(history || {}))
-    .filter((h) => h && h.valid !== false && h.validated !== false);
+  const validHistory = getSortedHistory(
+    (Array.isArray(history) ? history : Object.values(history || {}))
+      .filter((h) => h && h.valid !== false && h.validated !== false)
+  );
   const scores = validHistory.map(h => getSafeScore(h, maxScore, minScore));
   const hurst = computeHurstExponent(scores);
 
@@ -882,7 +884,7 @@ export function computeCategoryDiagnostics({
  * Matriz semanal de correlação (Matéria × Matéria) para detectar efeito gangorra
  * (crowding-out) ou disciplinas que evoluem/oscilam juntas já a partir de 3 semanas.
  */
-export function computeWeeklyCategoryCorrelation(categories = [], maxScore = 100, minScore = 0) {
+export function computeWeeklyCategoryCorrelation(categories = [], maxScore = 100, minScore = 0, options = {}) {
   const safeCats = (Array.isArray(categories) ? categories : Object.values(categories || {})).filter(Boolean);
   if (safeCats.length < 2) return { categories: [], matrix: [], pairs: [] };
   const safeMax = Math.max(Number(maxScore) || 100, Number(minScore) || 0);
@@ -898,28 +900,51 @@ export function computeWeeklyCategoryCorrelation(categories = [], maxScore = 100
     return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}-${String(dt.getUTCDate()).padStart(2, '0')}`;
   };
 
+  const isStrictNumDiag = (v) =>
+    v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
+  const todayKey = getDateKey(new Date());
+  const cutoffKey = (() => {
+    const tw = options?.timeWindow;
+    if (!tw || tw === 'all') return null;
+    const days = Number.parseInt(String(tw), 10);
+    if (!Number.isFinite(days) || days <= 0 || !todayKey) return null;
+    const [y, m, d] = todayKey.split('-').map(Number);
+    const dt = new Date(Date.UTC(y, m - 1, d - days));
+    return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}-${String(dt.getUTCDate()).padStart(2, '0')}`;
+  })();
+
   const weeklySeries = new Map();
   const activeCats = [];
 
   safeCats.forEach((cat) => {
-    const cMin = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : safeMin;
-    const cMax = Number(cat.maxScore) > cMin ? Number(cat.maxScore) : safeMax;
+    const cMin = isStrictNumDiag(cat.minScore) ? Number(cat.minScore) : safeMin;
+    const cMax = isStrictNumDiag(cat.maxScore) && Number(cat.maxScore) > cMin ? Number(cat.maxScore) : safeMax;
     const cRange = Math.max(1e-6, cMax - cMin);
     const hist = Array.isArray(cat?.simuladoStats?.history)
       ? cat.simuladoStats.history
       : Object.values(cat?.simuladoStats?.history || {});
+    const dated = hist
+      .filter((h) => h && h.valid !== false && h.validated !== false)
+      .map((h) => ({ h, dk: getDateKey(h.date || h.createdAt) }))
+      .filter((e) => Boolean(e.dk));
+    const hasNonFuture = todayKey ? dated.some((e) => e.dk <= todayKey) : false;
     const byWeek = {};
-    hist.forEach((h) => {
-      if (!h || h.valid === false || h.validated === false) return;
-      const wk = weekKey(h.date || h.createdAt);
+    dated.forEach(({ h, dk }) => {
+      if (hasNonFuture && todayKey && dk > todayKey) return;
+      if (cutoffKey && dk < cutoffKey) return;
+      const wk = weekKey(dk);
       if (!wk) return;
       const sc = getSafeScore(h, cMax, cMin);
       if (!Number.isFinite(sc)) return;
       const norm = (sc - cMin) / cRange;
-      if (!byWeek[wk]) byWeek[wk] = [];
-      byWeek[wk].push(norm);
+      const qWeight = Math.max(1, Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions) || 20);
+      if (!byWeek[wk]) byWeek[wk] = { sum: 0, weight: 0 };
+      byWeek[wk].sum += norm * qWeight;
+      byWeek[wk].weight += qWeight;
     });
-    const avgByWeek = Object.fromEntries(Object.entries(byWeek).map(([k, arr]) => [k, _mean(arr)]));
+    const avgByWeek = Object.fromEntries(
+      Object.entries(byWeek).map(([k, b]) => [k, b.weight > 0 ? b.sum / b.weight : 0])
+    );
     if (Object.keys(avgByWeek).length >= 2) {
       const id = String(cat.id || cat.name);
       weeklySeries.set(id, avgByWeek);
@@ -967,17 +992,43 @@ export function computeWeeklyCategoryCorrelation(categories = [], maxScore = 100
 /**
  * Constrói dados para o Mapa de Regimes (Expoente de Hurst H × Velocidade de Evolução).
  */
-export function buildRegimeMapData(categories = [], studySessions = [], simulados = [], maxScore = 100, minScore = 0, targetScore = 80) {
+export function buildRegimeMapData(categories = [], studySessions = [], simulados = [], maxScore = 100, minScore = 0, targetScore = 80, options = {}) {
   const safeCats = (Array.isArray(categories) ? categories : Object.values(categories || {})).filter(Boolean);
-  const gRange = Math.max(1e-6, (Number(maxScore) || 100) - (Number.isFinite(Number(minScore)) ? Number(minScore) : 0));
+  const isStrictNumDiag = (v) =>
+    v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
+  const safeGlobalMin = isStrictNumDiag(minScore) ? Number(minScore) : 0;
+  const safeGlobalMax = isStrictNumDiag(maxScore) && Number(maxScore) > safeGlobalMin ? Number(maxScore) : Math.max(safeGlobalMin + 1, 100);
+  const gRange = Math.max(1e-6, safeGlobalMax - safeGlobalMin);
+  const todayKey = getDateKey(new Date());
+  const cutoffKey = (() => {
+    const tw = options?.timeWindow;
+    if (!tw || tw === 'all') return null;
+    const days = Number.parseInt(String(tw), 10);
+    if (!Number.isFinite(days) || days <= 0 || !todayKey) return null;
+    const [y, m, d] = todayKey.split('-').map(Number);
+    const dt = new Date(Date.UTC(y, m - 1, d - days));
+    return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}-${String(dt.getUTCDate()).padStart(2, '0')}`;
+  })();
+
   return safeCats
     .map((cat) => {
-      const cMin = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : minScore;
-      const cMax = Number(cat.maxScore) > cMin ? Number(cat.maxScore) : maxScore;
+      const cMin = isStrictNumDiag(cat.minScore) ? Number(cat.minScore) : safeGlobalMin;
+      const cMax = isStrictNumDiag(cat.maxScore) && Number(cat.maxScore) > cMin ? Number(cat.maxScore) : safeGlobalMax;
       const rawHist = Array.isArray(cat?.simuladoStats?.history)
         ? cat.simuladoStats.history
         : Object.values(cat?.simuladoStats?.history || {});
-      const hist = rawHist.filter((h) => h && h.valid !== false && h.validated !== false);
+      const validRaw = rawHist.filter((h) => h && h.valid !== false && h.validated !== false);
+      const hasNonFuture = todayKey ? validRaw.some((h) => {
+        const dk = getDateKey(h.date || h.createdAt);
+        return dk && dk <= todayKey;
+      }) : false;
+      const hist = validRaw.filter((h) => {
+        const dk = getDateKey(h.date || h.createdAt);
+        if (!dk) return !cutoffKey;
+        if (hasNonFuture && todayKey && dk > todayKey) return false;
+        if (cutoffKey && dk < cutoffKey) return false;
+        return true;
+      });
       if (hist.length < 3) return null;
 
       const diag = computeCategoryDiagnostics({

@@ -167,7 +167,7 @@ export function computeTopicGraphMetrics(topics = [], graphConfig = {}, options 
       rawEdges.push(edgeObj);
     }
 
-    if (nodeSet.has(toNorm)) {
+    if (nodeSet.has(fromNorm) && nodeSet.has(toNorm)) {
       const current = prereqMap.get(toNorm) || [];
       if (!current.includes(fromNorm)) {
         current.push(fromNorm);

@@ -54,6 +54,7 @@ export function computeEfficientAllocation(categories = [], studyLogs = [], opti
   }
 
   // Weekly hours currently spent per category (average over last 28d) + latest study timestamp per category
+  const validCatIds = new Set(cats.filter((c) => c?.id != null && String(c.id).trim() !== '').map((c) => String(c.id)));
   const minsByCatId = new Map();
   const minsByCatNorm = new Map();
   const latestLogMsByCatId = new Map();
@@ -68,10 +69,11 @@ export function computeEfficientAllocation(categories = [], studyLogs = [], opti
     if (m <= 0) return;
 
     const idKey = log.categoryId != null && String(log.categoryId).trim() !== '' ? String(log.categoryId) : '';
+    const hasMatchingId = Boolean(idKey && validCatIds.has(idKey));
     const nameCandidate = log.subject || log.categoryName || log.category || log.catName || '';
     const normKey = normalize(nameCandidate);
 
-    if (idKey) {
+    if (hasMatchingId) {
       const prev = latestLogMsByCatId.get(idKey) || 0;
       if (ms > prev) latestLogMsByCatId.set(idKey, ms);
     }
@@ -83,7 +85,7 @@ export function computeEfficientAllocation(categories = [], studyLogs = [], opti
     if (ms < cutoff28Ms) return;
     totalMins28 += m;
 
-    if (idKey) {
+    if (hasMatchingId) {
       minsByCatId.set(idKey, (minsByCatId.get(idKey) || 0) + m);
     } else if (normKey) {
       minsByCatNorm.set(normKey, (minsByCatNorm.get(normKey) || 0) + m);
@@ -476,7 +478,7 @@ export function rebalanceRemainingWeekSchedule(
   const studiedByDay = new Map();
   safeLogs.forEach((l) => {
     const dk = getDateKey(l.date || l.createdAt);
-    const m = Math.max(0, Number(l.minutes ?? l.minutos ?? l.duration) || 0);
+    const m = getPositiveLogMinutes(l);
     if (dk && m > 0) studiedByDay.set(dk, (studiedByDay.get(dk) || 0) + m);
   });
 

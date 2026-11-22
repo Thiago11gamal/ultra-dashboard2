@@ -66,22 +66,27 @@ const CustomTooltip = ({ active, payload }) => {
 const ReliabilityCurveChart = ({ buckets }) => {
     const chartData = useMemo(() => {
         if (!buckets || !Array.isArray(buckets) || buckets.length === 0) return [];
-        return buckets
-            .filter(b => {
-                const count = b?.count != null && b?.count !== '' ? Number(b.count) : 0;
-                const hasPred = b?.meanPred !== null && b?.meanPred !== undefined && b?.meanPred !== '' && Number.isFinite(Number(b.meanPred));
-                const hasObs = b?.observedRate !== null && b?.observedRate !== undefined && b?.observedRate !== '' && Number.isFinite(Number(b.observedRate));
-                return count > 0 && hasPred && hasObs;
-            })
+        const validBuckets = buckets.filter(b => {
+            const count = b?.count != null && b?.count !== '' ? Number(b.count) : 0;
+            const hasPred = b?.meanPred !== null && b?.meanPred !== undefined && b?.meanPred !== '' && typeof b?.meanPred !== 'boolean' && Number.isFinite(Number(b.meanPred));
+            const hasObs = b?.observedRate !== null && b?.observedRate !== undefined && b?.observedRate !== '' && typeof b?.observedRate !== 'boolean' && Number.isFinite(Number(b.observedRate));
+            return count > 0 && hasPred && hasObs;
+        });
+        if (validBuckets.length === 0) return [];
+        const isPctScale = validBuckets.some(b => Number(b.meanPred) > 1 || Number(b.observedRate) > 1);
+        return validBuckets
             .map(b => {
                 const rawPred = Number(b.meanPred);
                 const rawObs = Number(b.observedRate);
-                const pred = Math.max(0, Math.min(1, rawPred > 1 ? rawPred / 100 : rawPred));
-                const obs = Math.max(0, Math.min(1, rawObs > 1 ? rawObs / 100 : rawObs));
-                const rawGap = b?.gap !== null && b?.gap !== undefined && b?.gap !== '' && Number.isFinite(Number(b.gap))
-                    ? Math.abs(Number(b.gap))
-                    : Math.abs(pred - obs);
-                const gap = Math.max(0, Math.min(1, rawGap > 1 ? rawGap / 100 : rawGap));
+                const pred = Math.max(0, Math.min(1, isPctScale ? rawPred / 100 : rawPred));
+                const obs = Math.max(0, Math.min(1, isPctScale ? rawObs / 100 : rawObs));
+                const hasExplicitGap = b?.gap !== null && b?.gap !== undefined && b?.gap !== '' && typeof b?.gap !== 'boolean' && Number.isFinite(Number(b.gap));
+                let gap = Math.abs(pred - obs);
+                if (hasExplicitGap) {
+                    const rawGap = Math.abs(Number(b.gap));
+                    const scaledGap = isPctScale ? rawGap / 100 : (rawGap > 1 ? rawGap / 100 : rawGap);
+                    gap = Math.max(0, Math.min(1, scaledGap));
+                }
                 return {
                     pred,
                     obs,

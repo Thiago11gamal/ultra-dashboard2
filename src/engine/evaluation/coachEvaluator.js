@@ -64,9 +64,9 @@ export function evaluateProbabilityPrediction(
   const predictedProbability01 = predictedPct / 100;
   const observed =
     observedSuccess === true ||
-    observedSuccess === 1 ||
-    observedSuccess === '1' ||
-    observedSuccess === 'true'
+      observedSuccess === 1 ||
+      observedSuccess === '1' ||
+      observedSuccess === 'true'
       ? 1
       : 0;
   const brier = computeBrierScore(predictedProbability01, observed);
@@ -320,9 +320,9 @@ export function evaluateCoachSnapshot(snapshot = {}, outcome = {}, options = {})
   const rawOutcomeUplift = toFinite(outcome?.taskUplift, null);
   const taskUpliftEvaluation = rawOutcomeUplift !== null
     ? {
-        uplift: Number(rawOutcomeUplift.toFixed(4)),
-        source: 'backtest_horizon',
-      }
+      uplift: Number(rawOutcomeUplift.toFixed(4)),
+      source: 'backtest_horizon',
+    }
     : null;
 
   return {
@@ -413,17 +413,17 @@ export function summarizeCoachEvaluations(evaluations = [], options = {}) {
   const diagnostics =
     acc.probabilityPairs.length >= 6
       ? computeCalibrationDiagnostics(acc.probabilityPairs, {
-          // Garante pelo menos ~3 amostras por bin para evitar ECE inflada por bins unitários
-          bins: Math.max(2, Math.min(options.bins ?? 6, Math.floor(acc.probabilityPairs.length / 3))),
-        })
+        // Garante pelo menos ~3 amostras por bin para evitar ECE inflada por bins unitários
+        bins: Math.max(2, Math.min(options.bins ?? 6, Math.floor(acc.probabilityPairs.length / 3))),
+      })
       : {
-          // FIX: null = "sem dados". Zero exibia falsamente "calibração
-          // perfeita" no dashboard do Control Center. O pipeline downstream
-          // já trata null (Number.isFinite → card exibe '—').
-          ece: null,
-          mce: null,
-          reliability: [],
-        };
+        // FIX: null = "sem dados". Zero exibia falsamente "calibração
+        // perfeita" no dashboard do Control Center. O pipeline downstream
+        // já trata null (Number.isFinite → card exibe '—').
+        ece: null,
+        mce: null,
+        reliability: [],
+      };
 
   const avgBrier = meanValues(acc.briers);
   const avgLogLoss = meanValues(acc.logLosses);
@@ -679,8 +679,29 @@ export function saveEvaluationResult(result, contestId) {
 
     if (sanitizedItems.length === 0) return false;
 
-    const updated = [...sanitizedItems, ...existing].slice(0, EVAL_STORAGE_MAX);
-    return safeSetItem(resolveEvalStorageKey(contestId), JSON.stringify(updated));
+    const getEvalDedupKey = (item) => {
+      if (!item || typeof item !== 'object') return null;
+      if (item.id) return `id:${item.id}`;
+      const strat = item.strategyId ?? item.strategy ?? '';
+      const cat = item.categoryId ?? item.category ?? item.subject ?? '';
+      const ts = Number(item.timestamp ?? item.generatedAt ?? 0);
+      if (strat !== '' || cat !== '') {
+        return `sc:${strat}|${cat}|${ts}`;
+      }
+      return null;
+    };
+
+    const seenKeys = new Set();
+    const deduped = [];
+    for (const item of [...sanitizedItems, ...existing]) {
+      const k = getEvalDedupKey(item);
+      if (k && seenKeys.has(k)) continue;
+      if (k) seenKeys.add(k);
+      deduped.push(item);
+      if (deduped.length >= EVAL_STORAGE_MAX) break;
+    }
+
+    return safeSetItem(resolveEvalStorageKey(contestId), JSON.stringify(deduped));
   } catch {
     return false;
   }

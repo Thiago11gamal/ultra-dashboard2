@@ -554,6 +554,58 @@ export function clampCorrectToTotal(correct, total) {
 }
 
 /**
+ * Resolve o número efetivo de acertos respeitando penalidades (CEBRASPE),
+ * questões em branco e notas autoritativas (ENEM TRI / scorePoints / scorePct),
+ * sem distorcer arredondamentos inteiros simples (ex.: 2/3 com score: 67).
+ */
+export function resolveEffectiveCorrect(
+  entry,
+  score,
+  rawTotal,
+  hasExplicitCorrect,
+  rawCorrect,
+  maxScore = 100,
+  minScore = 0
+) {
+  const safeTotal = Math.max(0, Number(rawTotal) || 0);
+  if (safeTotal <= 0) return 0;
+
+  const safeMax = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100;
+  const safeMin = Number.isFinite(Number(minScore)) ? Math.min(Number(minScore), safeMax) : 0;
+  const safeRange = Math.max(1e-9, safeMax - safeMin);
+  const hasScore = Number.isFinite(Number(score));
+  const scoreRatio = hasScore ? clampFinite((Number(score) - safeMin) / safeRange, 0, 1, 0) : NaN;
+
+  const hasValidRaw = Boolean(hasExplicitCorrect && !entry?.isPercentage && Number.isFinite(Number(rawCorrect)));
+  const clampedRaw = hasValidRaw ? Math.max(0, Math.min(safeTotal, Number(rawCorrect))) : NaN;
+
+  if (!hasValidRaw) {
+    return Number.isFinite(scoreRatio) ? Math.max(0, Math.min(safeTotal, scoreRatio * safeTotal)) : 0;
+  }
+
+  if (!Number.isFinite(scoreRatio)) {
+    return clampedRaw;
+  }
+
+  const rawRatio = clampedRaw / safeTotal;
+  const hasPenalizedOrTRI =
+    (Number(entry?.penaltyPerWrong) > 0) ||
+    (Number(entry?.blanks) > 0) ||
+    isStrictNumericInput(entry?.netPoints) ||
+    isStrictNumericInput(entry?.scorePoints) ||
+    isStrictNumericInput(entry?.scorePct);
+
+  const hasDivergentExplicitScore =
+    isStrictNumericInput(entry?.score) && Math.abs(scoreRatio - rawRatio) > 0.01;
+
+  if ((hasPenalizedOrTRI && Math.abs(scoreRatio - rawRatio) > 1e-4) || hasDivergentExplicitScore) {
+    return Math.max(0, Math.min(safeTotal, scoreRatio * safeTotal));
+  }
+
+  return clampedRaw;
+}
+
+/**
  * Sanitiza linha de simulado garantindo invariantes:
  * - total >= 0
  * - correct >= 0

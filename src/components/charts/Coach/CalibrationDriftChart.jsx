@@ -14,6 +14,7 @@ import {
 import { ChartFrame } from '../ChartFrame';
 import { buildCalibrationSeriesData } from '../../../utils/advancedChartHelpers';
 import { normalize } from '../../../utils/normalization';
+import { getDateKey } from '../../../utils/dateHelper';
 
 function CalibrationTooltip({ active, payload }) {
   if (!active || !payload || !payload.length) return null;
@@ -73,10 +74,13 @@ export const CalibrationDriftChart = React.memo(function CalibrationDriftChart({
     const logs = Array.isArray(auditLogs) ? auditLogs : Object.values(auditLogs || {});
     logs.forEach((log) => {
       if (!log) return;
-      const raw = String(log.categoryName || log.categoryId || '').trim();
-      const nk = normalize(raw);
-      if (!nk) return;
-      const resolved = nameMap.get(nk) || (nameMap.size === 0 ? raw : null);
+      const idKey = log.categoryId != null ? normalize(String(log.categoryId)) : '';
+      const nameKey = log.categoryName ? normalize(String(log.categoryName)) : '';
+      const fallbackRaw = String(log.categoryName || log.categoryId || '').trim();
+      const resolved =
+        (idKey && nameMap.get(idKey)) ||
+        (nameKey && nameMap.get(nameKey)) ||
+        (nameMap.size === 0 ? fallbackRaw : null);
       if (resolved) found.set(normalize(resolved), resolved);
     });
     if (historyByCategory && typeof historyByCategory === 'object') {
@@ -100,12 +104,11 @@ export const CalibrationDriftChart = React.memo(function CalibrationDriftChart({
   const data = useMemo(() => {
     if (Array.isArray(series) && series.length > 0) {
       return series.map((pt, idx) => {
-        const d = pt.ts > 0 ? new Date(pt.ts) : null;
+        const dk = pt.ts > 0 ? getDateKey(new Date(pt.ts)) : null;
+        const parts = dk ? dk.split('-') : [];
         return {
           ...pt,
-          dateLabel: d && !Number.isNaN(d.getTime())
-            ? `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`
-            : `#${idx + 1}`,
+          dateLabel: parts.length === 3 ? `${parts[2]}/${parts[1]}` : `#${idx + 1}`,
           brier: pt.brier != null && Number.isFinite(Number(pt.brier)) ? Number(Number(pt.brier).toFixed(4)) : null,
           ece: pt.ece != null && Number.isFinite(Number(pt.ece)) ? Number(Number(pt.ece).toFixed(4)) : null,
         };

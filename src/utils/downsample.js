@@ -20,12 +20,12 @@ export function downsampleLTTB(data, threshold, xKey, yKey) {
   };
   const dataLength = data.length;
   // Forward/backward fill Y values so null points in sparse series do not turn into 0
-  // and distort LTTB triangle area calculations.
-  const filledY = new Array(dataLength).fill(0);
+  // and distort LTTB triangle area calculations (preserving legitimate 0 values).
+  const filledY = new Array(dataLength).fill(null);
   let lastValidY = null;
   for (let idx = 0; idx < dataLength; idx++) {
     const raw = data[idx]?.[yKey];
-    const num = (raw !== null && raw !== undefined && raw !== "") ? Number(raw) : NaN;
+    const num = (raw !== null && raw !== undefined && raw !== "" && typeof raw !== "boolean") ? Number(raw) : NaN;
     if (Number.isFinite(num)) {
       lastValidY = num;
       filledY[idx] = num;
@@ -36,10 +36,10 @@ export function downsampleLTTB(data, threshold, xKey, yKey) {
   let nextValidY = null;
   for (let idx = dataLength - 1; idx >= 0; idx--) {
     const raw = data[idx]?.[yKey];
-    const num = (raw !== null && raw !== undefined && raw !== "") ? Number(raw) : NaN;
+    const num = (raw !== null && raw !== undefined && raw !== "" && typeof raw !== "boolean") ? Number(raw) : NaN;
     if (Number.isFinite(num)) {
       nextValidY = num;
-    } else if (filledY[idx] === 0 && nextValidY !== null) {
+    } else if (filledY[idx] === null && nextValidY !== null) {
       filledY[idx] = nextValidY;
     }
   }

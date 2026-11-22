@@ -156,992 +156,992 @@ export default function Coach() {
         }
     }, [activeId, isAdmin]);
 
-useEffect(() => {
-    return subscribeFlags(() => {
-        if (isMountedRef.current) {
-            setFlagRevision(r => r + 1);
-        }
-    });
-}, []);
-
-const data = useAppStore(useShallow(state => {
-    const contest = state.appState?.contests?.[state.appState?.activeId] || {};
-    return {
-        simuladoRows: contest.simuladoRows,
-        simulados: contest.simulados,
-        categories: contest.categories,
-        flashcardDecks: contest.flashcardDecks,
-        user: contest.user,
-        calibrationHistoryByCategory: contest.calibrationHistoryByCategory,
-        calibrationOps: contest.calibrationOps,
-        calibrationAuditLog: contest.calibrationAuditLog,
-        maxScore: contest.maxScore,
-        minScore: contest.minScore,
-        studyLogs: contest.studyLogs,
-        settings: contest.settings,
-        coachPlan: contest.coachPlan,
-        coachPlanner: contest.coachPlanner,
-        coachScore: contest.coachScore
-    };
-}));
-const isHydrated = useAppStore(state => state.appState.isHydrated);
-const setData = useAppStore(state => state.setData);
-const patchData = useAppStore(state => state.patchData);
-const showToast = useToast();
-const showToastRef = useRef(showToast); // FIX: Estabilização de referência para evitar loops
-
-useEffect(() => {
-    showToastRef.current = showToast;
-}, [showToast]);
-
-const rawHistory = data?.simuladoRows || EMPTY_ARRAY;
-const history = useMemo(() => (Array.isArray(rawHistory) ? rawHistory : Object.values(rawHistory || {})).filter(Boolean), [rawHistory]);
-
-const rawSimulados = data?.simulados || EMPTY_ARRAY;
-const simulados = useMemo(() => (Array.isArray(rawSimulados) ? rawSimulados : Object.values(rawSimulados || {})).filter(Boolean), [rawSimulados]);
-
-const rawCategories = data?.categories || EMPTY_ARRAY;
-const categories = useMemo(() => (Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories || {})).filter(Boolean).map(c => ({
-    ...c,
-    tasks: (Array.isArray(c.tasks) ? c.tasks : Object.values(c.tasks || {})).filter(Boolean)
-})), [rawCategories]);
-
-const rawFlashcardDecks = data?.flashcardDecks || EMPTY_ARRAY;
-const flashcardDecks = useMemo(() => (Array.isArray(rawFlashcardDecks) ? rawFlashcardDecks : Object.values(rawFlashcardDecks || {})).filter(Boolean), [rawFlashcardDecks]);
-
-const rawStudyLogs = data?.studyLogs || EMPTY_ARRAY;
-const studyLogs = useMemo(() => (Array.isArray(rawStudyLogs) ? rawStudyLogs : Object.values(rawStudyLogs || {})).filter(Boolean), [rawStudyLogs]);
-const flashcardDue = useMemo(() => {
-    return getFlashcardDueTodayCount(flashcardDecks);
-}, [flashcardDecks]);
-const userProfile = data?.user;
-
-const updateCoachScore = useAppStore(state => state.updateCoachScore);
-const { isPremium } = useSubscription(currentUser);
-const navigate = useNavigate();
-
-const [activeTab, setActiveTab] = useState('insights');
-const showControlCenter = isAdmin || getCoachFeature({ contestId: activeId }, 'useCoachControlCenter', false);
-
-const VALID_TABS = new Set(showControlCenter ? ['insights', 'analytics', 'control'] : ['insights', 'analytics']);
-const safeActiveTab = VALID_TABS.has(activeTab) ? activeTab : 'insights';
-
-useEffect(() => {
-    if (activeTab && activeTab !== safeActiveTab) {
-        console.warn(`[Coach.jsx] Estado de aba inválido recebido: ${activeTab}, ativando fallback.`);
-    }
-}, [activeTab, safeActiveTab]);
-
-const [isAnalyzing, setIsAnalyzing] = useState(true);
-const [planRefreshTick, setPlanRefreshTick] = useState(0);
-const lastProcessedManualRefreshRef = useRef(0);
-const calibrationHistoryRef = useRef(data?.calibrationHistoryByCategory || {});
-
-useEffect(() => {
-    isMountedRef.current = true;
-    return () => { isMountedRef.current = false; };
-}, []);
-
-useEffect(() => {
-    calibrationHistoryRef.current = data?.calibrationHistoryByCategory || {};
-}, [data?.calibrationHistoryByCategory]);
-
-const categoriesRef = useRef(data?.categories || []);
-useEffect(() => {
-    categoriesRef.current = data?.categories || [];
-}, [data?.categories]);
-
-// Backfill de simulados agora é gerenciado no hook useMonteCarloStats via rawSimuladoRows (evita duplicação).
-
-const lastPersistByCategoryRef = useRef(new Map());
-const persistCalibrationMetric = useCallback((metric) => {
-    if ((!metric?.categoryId && !metric?.categoryName) || !isMountedRef.current) return;
-
-    // RATE-LIMIT: Evita loops por categoria se métricas forem emitidas em sequência rápida
-    const now = Date.now();
-    const normalizedCategoryId = getSafeCategoryKey(metric?.categoryId || metric?.categoryName);
-    if (!normalizedCategoryId) return;
-    const storageCategoryKey = getCalibrationKey(normalizedCategoryId) || normalizedCategoryId;
-
-    const catKey = String(storageCategoryKey);
-    if (now - (lastPersistByCategoryRef.current.get(catKey) || 0) < 500) return;
-
-    const toFinite = (value, fallback = null) => {
-        if (value === null || value === undefined || value === '') return fallback;
-        const n = Number(value);
-        return Number.isFinite(n) ? n : fallback;
-    };
-    const metricTimestamp = metric?.timestamp || now;
-    const avgBrier = toFinite(metric?.avgBrier, null);
-    const ece = toFinite(metric?.ece, null);
-    const probability = toFinite(metric?.probability, null);
-    const calibrationPenalty = toFinite(metric?.calibrationPenalty, 0);
-    const reliability = Array.isArray(metric?.reliability) ? metric.reliability : [];
-    const isDegraded = metric?.degraded === true ||
-        calibrationPenalty >= HIGH_PENALTY_THRESHOLD ||
-        (avgBrier !== null && avgBrier >= CRITICAL_BRIER_THRESHOLD);
-
-    // DATA-QUALITY GATE: evita persistir eventos sem calibração real (ex.: n < 8 simulados onde avgBrier e ece são null)
-    // que poluem o histórico, escondem a barra de formação de amostra (X/8) e geram linhas com '-' no Log de Auditoria.
-    const hasUsefulSignal = avgBrier !== null || ece !== null || calibrationPenalty > 0 || reliability.length > 0 || isDegraded;
-    if (!hasUsefulSignal) return;
-    lastPersistByCategoryRef.current.set(catKey, now);
-
-    const normalizedMetric = {
-        ...metric,
-        categoryId: normalizedCategoryId,
-        categoryName: metric?.categoryName || normalizedCategoryId,
-        timestamp: metricTimestamp,
-        avgBrier,
-        ece,
-        probability,
-        calibrationPenalty,
-        reliability,
-        degraded: isDegraded
-    };
-
-    let didSkipPersist = false;
-    // BUG-3 FIX: Immer mutation pattern — explicit return undefined to document intent
-    setData(prev => {
-        if (!prev) return prev;
-        const current = prev.calibrationHistoryByCategory || {};
-        const categoryHistory = getCalibrationHistoryFor(
-            current,
-            storageCategoryKey,
-            normalizedCategoryId,
-            metric?.categoryId,
-            metric?.categoryName
-        );
-
-        // Verificação de redundância (Brier + ECE + penalty + probabilidade)
-        // Evita descartar eventos onde o Brier ficou estável, mas ECE/penalty mudaram.
-        const lastEntry = categoryHistory[categoryHistory.length - 1];
-        const hasComparableLast = lastEntry && toFinite(lastEntry?.timestamp, null) !== null;
-        if (hasComparableLast) {
-            const metricDelta = (currentValue, previousValue) => {
-                const curVal = toFinite(currentValue, null);
-                const prevVal = toFinite(previousValue, null);
-                if (curVal !== null && prevVal !== null) return Math.abs(prevVal - curVal);
-                if (curVal === null && prevVal === null) return 0;
-                return Infinity;
-            };
-
-            const toReliabilitySignature = (bucketList = []) => (Array.isArray(bucketList) ? bucketList : [])
-                .map((bucket) => {
-                    const meanPred = toFinite(bucket?.meanPred, null);
-                    const observedRate = toFinite(bucket?.observedRate, null);
-                    const gap = toFinite(bucket?.gap, null);
-                    const count = Number(bucket?.count) || 0;
-                    return `${count}|${meanPred !== null ? meanPred.toFixed(3) : 'na'}|${observedRate !== null ? observedRate.toFixed(3) : 'na'}|${gap !== null ? gap.toFixed(3) : 'na'}`;
-                })
-                .join('::');
-
-            const brierDelta = metricDelta(avgBrier, lastEntry.avgBrier);
-            const eceDelta = metricDelta(ece, lastEntry.ece);
-            const penaltyDelta = Math.abs(toFinite(lastEntry.calibrationPenalty, 0) - calibrationPenalty);
-            const probabilityDelta = metricDelta(probability, lastEntry.probability);
-            const reliabilitySignatureChanged =
-                toReliabilitySignature(lastEntry?.reliability) !== toReliabilitySignature(reliability);
-            const degradationChanged = Boolean(lastEntry.degraded) !== Boolean(isDegraded);
-
-            const lastBrierVal = toFinite(lastEntry.avgBrier, null);
-            const lastEceVal = toFinite(lastEntry.ece, null);
-            const prevBrierBase = lastBrierVal !== null ? Math.max(0.001, Math.abs(lastBrierVal)) : 0.001;
-            const prevEceBase = lastEceVal !== null ? Math.max(0.001, Math.abs(lastEceVal)) : 0.001;
-
-            // BUG 6 FIX: Lowered absolute thresholds to capture low-variance micro-movements
-            const shouldSkipPersist =
-                (brierDelta < 0.001 || (brierDelta / prevBrierBase) < 0.05) &&
-                (eceDelta < 0.001 || (eceDelta / prevEceBase) < 0.05) &&
-                penaltyDelta < 0.001 &&
-                probabilityDelta < 0.01 &&
-                !reliabilitySignatureChanged;
-
-            if (shouldSkipPersist && !degradationChanged) {
-                didSkipPersist = true;
-                return prev;
-            }
-        }
-
-        const cutoff = now - CALIBRATION_HISTORY_RETENTION_MS;
-        const cleaned = categoryHistory.filter(item => Number.isFinite(Number(item?.timestamp)) && Number(item.timestamp) >= cutoff);
-        const nextHistory = [...cleaned, normalizedMetric].slice(-60);
-
-        const recent7 = nextHistory.filter(item => Number(item?.timestamp || 0) >= (now - 1000 * 60 * 60 * 24 * 7));
-        const recent7Brier = recent7.map(item => toFinite(item?.avgBrier, null)).filter(val => val !== null);
-        const avgBrier7d = recent7Brier.length > 0
-            ? recent7Brier.reduce((acc, val) => acc + val, 0) / recent7Brier.length
-            : null;
-
-        const calibrationOps = {
-            ...(prev.calibrationOps || {}),
-            [storageCategoryKey]: {
-                categoryName: normalizedMetric.categoryName,
-                avgBrier7d: Number.isFinite(avgBrier7d) ? Number(avgBrier7d.toFixed(4)) : null,
-                sample7d: recent7.length,
-                degraded: isDegraded,
-                updatedAt: now
-            }
-        };
-        const nextHistoryByCategory = {
-            ...(prev.calibrationHistoryByCategory || {}),
-            [storageCategoryKey]: nextHistory
-        };
-        if (normalizedCategoryId && normalizedCategoryId !== storageCategoryKey) {
-            delete calibrationOps[normalizedCategoryId];
-            delete nextHistoryByCategory[normalizedCategoryId];
-        }
-
-        const calibrationAuditLog = [...(prev.calibrationAuditLog || []), {
-            ...normalizedMetric,
-            categoryId: storageCategoryKey,
-            avgBrier7d: Number.isFinite(avgBrier7d) ? Number(avgBrier7d.toFixed(4)) : null,
-            degraded: isDegraded,
-            source: 'coach'
-        }].slice(-500);
-        return {
-            calibrationHistoryByCategory: nextHistoryByCategory,
-            calibrationOps,
-            calibrationAuditLog
-        };
-    });
-
-    if (didSkipPersist) return;
-
-    const telemetryContestId = useAppStore.getState()?.appState?.activeId || 'default';
-    if (normalizedMetric.calibrationPenalty >= HIGH_PENALTY_THRESHOLD) {
-        logCalibrationTelemetryEvent({ ...normalizedMetric, contestId: telemetryContestId, eventType: 'high_penalty_alert' });
-    } else {
-        logCalibrationTelemetryEvent({ ...normalizedMetric, contestId: telemetryContestId });
-    }
-
-    if (isDegraded) {
-        const currentTime = Date.now();
-        // LEAK-CALIBRATION-CACHE FIX: antes, entradas eram removidas apenas por tamanho.
-        // Entradas com >12h de idade deveriam ser prunadas para liberar memória e permitir
-        // re-disparo legítimo do alerta. Agora fazemos uma varredura de cleanup antes de inserir.
-        for (const [key, ts] of calibrationAlertCacheRef.current.entries()) {
-            if (currentTime - ts > ALERT_COOLDOWN_MS) calibrationAlertCacheRef.current.delete(key);
-        }
-        const lastAlertAt = Number(calibrationAlertCacheRef.current.get(normalizedCategoryId) || 0);
-        if (currentTime - lastAlertAt > ALERT_COOLDOWN_MS) {
-            // VIS-FIX: avgBrier pode ser null (degradação só por penalty) → antes exibia "Brier 0.00".
-            const brierLabel = avgBrier !== null ? ` (Brier ${avgBrier.toFixed(2)})` : '';
-            showToastRef.current(`⚠️ Calibração crítica em ${displaySubject(normalizedMetric.categoryName || normalizedCategoryId || 'categoria', categoriesRef.current)}${brierLabel}.`, 'warning');
-            calibrationAlertCacheRef.current.delete(normalizedCategoryId);
-            calibrationAlertCacheRef.current.set(normalizedCategoryId, currentTime);
-            if (calibrationAlertCacheRef.current.size > CALIBRATION_ALERT_CACHE_MAX && calibrationAlertCacheRef.current.size > 0) {
-                const oldestKey = calibrationAlertCacheRef.current.keys().next().value;
-                if (oldestKey !== undefined) calibrationAlertCacheRef.current.delete(oldestKey);
-            }
-        }
-    }
-}, [setData]);
-
-// BUG-11 FIX: Pass explicit defaults for timeIndex and timelineDates
-const currentMaxScore = data?.maxScore ?? data?.settings?.maxScore ?? 100;
-const currentMinScore = data?.minScore ?? data?.settings?.minScore ?? 0;
-
-// BUG-26 FIX: Deduplicating history entries safely with correct scale
-const combinedHistory = useMemo(
-    () => getCombinedHistory(history, simulados, currentMaxScore, currentMinScore),
-    [history, simulados, currentMaxScore, currentMinScore]
-);
-
-// Converte targetScore ou targetProbability em pontos na escala da prova
-const targetScorePoints = useMemo(() => {
-    const safeMax = Math.max(1, Number(currentMaxScore) || 100);
-    const safeMin = Number.isFinite(Number(currentMinScore)) ? Math.min(Number(currentMinScore), safeMax - 1) : 0;
-    return resolveUserTargetScorePoints(userProfile, safeMin, safeMax, 0.85);
-}, [userProfile, currentMinScore, currentMaxScore]);
-
-const mcStats = useMonteCarloStats({
-    categories: categories,
-    goalDate: userProfile?.goalDate,
-    targetScore: targetScorePoints,
-    timeIndex: -1,
-    timelineDates: EMPTY_ARRAY,
-    minScore: currentMinScore,
-    maxScore: currentMaxScore,
-    simuladoRows: data?.simuladoRows || EMPTY_ARRAY
-});
-
-const isMcStatsReady = mcStats?.simulationData?.status === 'ready';
-const projectedScore = mcStats?.projectedMean ?? 0;
-// UX-STABILITY: Para o card de volatilidade, preferimos pooledSD (determinístico)
-// ao sd da simulação MC (estocástico), reduzindo "pisca/pula" visual.
-const rawVolatility = mcStats?.statsData?.pooledSD ?? mcStats?.sd ?? 0;
-const volatility = Number.isFinite(Number(rawVolatility)) ? Number(rawVolatility) : 0;
-const normalizedVolatility = useMemo(() => {
-    const domain = Math.max(1e-9, (Number(currentMaxScore) || 100) - (Number(currentMinScore) || 0));
-    return (volatility / domain) * 100;
-}, [volatility, currentMaxScore, currentMinScore]);
-const drift = useMemo(() => calculateAdaptiveSlope(combinedHistory, currentMaxScore, { minScore: currentMinScore }), [combinedHistory, currentMaxScore, currentMinScore]);
-const normalizedDrift = useMemo(() => {
-    const safeDrift = Number.isFinite(Number(drift)) ? Number(drift) : 0;
-    const domain = Math.max(1e-9, (Number(currentMaxScore) || 100) - (Number(currentMinScore) || 0));
-    const val = ((safeDrift * 30) / domain) * 100;
-    return Number.isFinite(val) ? val : 0;
-}, [drift, currentMaxScore, currentMinScore]);
-const formattedDrift = useMemo(() => {
-    if (Math.abs(normalizedDrift) < 0.05) return "0.0pp";
-    return `${normalizedDrift > 0 ? '+' : ''}${normalizedDrift.toFixed(1)}pp`;
-}, [normalizedDrift]);
-const totalSimulados = useMemo(() => combinedHistory.length, [combinedHistory]);
-
-// VIS-FIX: projectedMean está na escala da prova (pontos), não em %.
-// Antes o banner exibia "Global MC: 742%" para provas com maxScore=1000.
-const globalProjection = useMemo(() => {
-    const rawMean = suggestedFocus?.globalProjectedMean ?? suggestedFocus?.globalMcContext?.projectedMean;
-    if (rawMean === null || rawMean === undefined || rawMean === '' || typeof rawMean === 'boolean') return null;
-    const mean = Number(rawMean);
-    if (!Number.isFinite(mean)) return null;
-    const safeMax = Math.max(1, Number(currentMaxScore) || 100);
-    const safeMin = Number.isFinite(Number(currentMinScore)) ? Math.min(Number(currentMinScore), safeMax - 1) : 0;
-    const pct = Math.max(0, Math.min(100, ((mean - safeMin) / (safeMax - safeMin)) * 100));
-    const rawProb = suggestedFocus?.globalMcContext?.probability;
-    const prob = (rawProb !== null && rawProb !== undefined && rawProb !== '' && typeof rawProb !== 'boolean')
-        ? Number(rawProb)
-        : NaN;
-    return {
-        points: mean,
-        max: safeMax,
-        pct,
-        probability: Number.isFinite(prob) ? Math.max(0, Math.min(100, prob)) : null
-    };
-}, [suggestedFocus?.globalProjectedMean, suggestedFocus?.globalMcContext, currentMaxScore, currentMinScore]);
-
-const degradedCount = useMemo(() => {
-    const ops = data?.calibrationOps || {};
-    const historyByCategory = data?.calibrationHistoryByCategory || {};
-    let count = 0;
-    const seenCanonical = new Set();
-
-    categories.forEach(cat => {
-        if (!cat) return;
-        const canonicalKey = getSafeCategoryKey(cat.id || cat.name);
-        if (!canonicalKey || seenCanonical.has(canonicalKey)) return;
-        seenCanonical.add(canonicalKey);
-
-        const candidateKeys = [
-            cat.id && String(cat.id),
-            cat.id && getSafeCategoryKey(cat.id),
-            cat.id && getCalibrationKey(cat.id),
-            cat.id && getCalibrationKey(getSafeCategoryKey(cat.id)),
-            cat.name && String(cat.name),
-            cat.name && getSafeCategoryKey(cat.name),
-            cat.name && getCalibrationKey(cat.name),
-            cat.name && getCalibrationKey(getSafeCategoryKey(cat.name))
-        ].filter(Boolean);
-
-        const op = candidateKeys.map(k => ops[k]).find(Boolean);
-        if (op?.degraded) {
-            count++;
-            return;
-        }
-
-        const history = getCalibrationHistoryFor(
-            historyByCategory,
-            cat.id,
-            getSafeCategoryKey(cat.id),
-            cat.name,
-            getSafeCategoryKey(cat.name)
-        );
-        if (Array.isArray(history) && history.length > 0) {
-            // Alinha critério com RaioXDashboard (média móvel de 7 dias ancorada no último registro — pura)
-            const getTs = (entry) => {
-                if (!entry?.timestamp) return 0;
-                if (typeof entry.timestamp === 'number' && Number.isFinite(entry.timestamp)) return entry.timestamp;
-                const n = Number(entry.timestamp);
-                if (Number.isFinite(n)) return n;
-                const ms = toDateMs(entry.timestamp);
-                return Number.isFinite(ms) ? ms : 0;
-            };
-            const maxTs = history.reduce((max, entry) => Math.max(max, getTs(entry)), 0);
-            const sevenDaysAgo = maxTs > 0 ? maxTs - 7 * 24 * 60 * 60 * 1000 : 0;
-            const recent = maxTs > 0 ? history.filter(h => getTs(h) >= sevenDaysAgo) : history;
-            const base = recent.length > 0 ? recent : history;
-            const brierVals = base
-                .filter(h => h?.avgBrier != null && h?.avgBrier !== '' && Number.isFinite(Number(h.avgBrier)))
-                .map(h => Number(h.avgBrier));
-            const penVals = base
-                .filter(h => h?.calibrationPenalty != null && h?.calibrationPenalty !== '' && Number.isFinite(Number(h.calibrationPenalty)))
-                .map(h => Number(h.calibrationPenalty));
-            const avgBrier7d = brierVals.length > 0 ? brierVals.reduce((acc, v) => acc + v, 0) / brierVals.length : null;
-            const avgPen7d = penVals.length > 0 ? penVals.reduce((acc, v) => acc + v, 0) / penVals.length : 0;
-            const latest = history[history.length - 1];
-            if (Boolean(latest?.degraded) || (avgBrier7d !== null && avgBrier7d >= CRITICAL_BRIER_THRESHOLD) || avgPen7d >= HIGH_PENALTY_THRESHOLD) {
-                count++;
-            }
-        }
-    });
-    return count;
-}, [data?.calibrationOps, data?.calibrationHistoryByCategory, categories]);
-
-const mcStatsContext = useMemo(() => {
-    if (!isMcStatsReady) return null;
-    return {
-        projectedMean: mcStats?.projectedMean,
-        probability: mcStats?.probability,
-        statsData: mcStats?.statsData,
-        sd: mcStats?.sd
-    };
-}, [isMcStatsReady, mcStats?.projectedMean, mcStats?.probability, mcStats?.statsData, mcStats?.sd]);
-
-// Chave primitiva estável para hidratar getSuggestedFocus/generateDailyGoals assim que
-// o Worker de Monte Carlo concluir (sem disparar loop #185 por mudança de referência de objeto).
-const mcStatsSyncKey = useMemo(() => {
-    if (!isMcStatsReady || mcStats?.projectedMean === null || mcStats?.projectedMean === undefined) return '';
-    const meanNum = Number(mcStats.projectedMean);
-    if (!Number.isFinite(meanNum)) return '';
-    const probRaw = mcStats?.probability;
-    const probNum = (probRaw !== null && probRaw !== undefined && probRaw !== '') ? Number(probRaw) : NaN;
-    return `${meanNum.toFixed(1)}|${Number.isFinite(probNum) ? probNum.toFixed(1) : 'na'}`;
-}, [isMcStatsReady, mcStats?.projectedMean, mcStats?.probability]);
-
-// FIX-#185: Stable ref so the analysis useEffect doesn't need mcStatsContext
-// as a dependency. Without this, any isFlashing toggle inside useMonteCarloStats
-// creates a new mcStats object → new mcStatsContext → effect fires → setData()
-// → store update → re-render → infinite loop (React error #185).
-const mcStatsContextRef = useRef(mcStatsContext);
-useEffect(() => { mcStatsContextRef.current = mcStatsContext; }, [mcStatsContext]);
-
-// Sincroniza projeção global quando o cálculo do Monte Carlo conclui a simulação
-useEffect(() => {
-    if (!isMcStatsReady || mcStats?.projectedMean == null) return;
-    const projectedVal = Number(mcStats.projectedMean.toFixed(1));
-    const probVal = mcStats.probability != null ? Number(mcStats.probability.toFixed(1)) : null;
-    const timer = setTimeout(() => {
-        if (!isMountedRef.current) return;
-        setSuggestedFocus(prev => {
-            if (!prev) return prev;
-            if (prev.globalProjectedMean === projectedVal && prev.globalMcContext?.probability === probVal) {
-                return prev;
-            }
-            return {
-                ...prev,
-                globalProjectedMean: projectedVal,
-                globalMcContext: {
-                    projectedMean: projectedVal,
-                    probability: probVal,
-                    source: 'useMonteCarloStats'
-                }
-            };
-        });
-    }, 0);
-    return () => clearTimeout(timer);
-}, [isMcStatsReady, mcStats?.projectedMean, mcStats?.probability]);
-
-useEffect(() => {
-    if (!isHydrated) return;
-    if (!data?.categories || categories.length === 0) {
-        const timer = setTimeout(() => {
+    useEffect(() => {
+        return subscribeFlags(() => {
             if (isMountedRef.current) {
-                setSuggestedFocus(null);
-                setIsAnalyzing(false);
-                const currentData = useAppStore.getState().appState?.contests?.[activeId];
-                const hasResidualPlan = Array.isArray(currentData?.coachPlan)
-                    ? currentData.coachPlan.length > 0
-                    : Object.keys(currentData?.coachPlan || {}).length > 0;
-                const hasResidualPlanner = currentData?.coachPlanner && typeof currentData.coachPlanner === 'object'
-                    ? Object.values(currentData.coachPlanner).some(arr => (Array.isArray(arr) ? arr : Object.values(arr || {})).length > 0)
-                    : false;
-                if (hasResidualPlan || hasResidualPlanner) {
-                    patchData(() => ({
-                        coachPlan: [],
-                        coachPlanner: { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] }
-                    }));
-                }
+                setFlagRevision(r => r + 1);
             }
-        }, 0);
-        return () => clearTimeout(timer);
-    }
+        });
+    }, []);
 
-    let metricsTimer = null;
-    let nestedTimeouts = [];
-    // UX-FLUIDITY FIX: agenda o cálculo pesado para o próximo ciclo.
-    // Se o usuário sair rapidamente do Coach, o cleanup cancela tudo e o menu
-    // lateral não fica "preso" aguardando cálculo síncrono.
-    const analysisTimer = setTimeout(() => {
-        try {
-            const safeTargetScore = Number.isFinite(Number(targetScorePoints)) ? Number(targetScorePoints) : null;
-            const safeMax = Number.isFinite(Number(currentMaxScore)) ? Number(currentMaxScore) : 100;
-            const safeMin = Number.isFinite(Number(currentMinScore)) ? Number(currentMinScore) : 0;
-            const collectedMetrics = [];
-            const collectedMetricKeys = new Set();
-            const isManualRefresh = planRefreshTick !== lastProcessedManualRefreshRef.current;
-            lastProcessedManualRefreshRef.current = planRefreshTick;
+    const data = useAppStore(useShallow(state => {
+        const contest = state.appState?.contests?.[state.appState?.activeId] || {};
+        return {
+            simuladoRows: contest.simuladoRows,
+            simulados: contest.simulados,
+            categories: contest.categories,
+            flashcardDecks: contest.flashcardDecks,
+            user: contest.user,
+            calibrationHistoryByCategory: contest.calibrationHistoryByCategory,
+            calibrationOps: contest.calibrationOps,
+            calibrationAuditLog: contest.calibrationAuditLog,
+            maxScore: contest.maxScore,
+            minScore: contest.minScore,
+            studyLogs: contest.studyLogs,
+            settings: contest.settings,
+            coachPlan: contest.coachPlan,
+            coachPlanner: contest.coachPlanner,
+            coachScore: contest.coachScore
+        };
+    }));
+    const isHydrated = useAppStore(state => state.appState.isHydrated);
+    const setData = useAppStore(state => state.setData);
+    const patchData = useAppStore(state => state.patchData);
+    const showToast = useToast();
+    const showToastRef = useRef(showToast); // FIX: Estabilização de referência para evitar loops
 
-            const baseCoachOptions = {
-                contestId: activeId,
-                user: data?.user,
-                ...(safeTargetScore !== null ? { targetScore: safeTargetScore } : {}),
-                maxScore: safeMax,
-                minScore: safeMin,
-                calibrationHistoryByCategory: calibrationHistoryRef.current,
-                flashcardDecks,
-                flashcardDue,
-                onCalibrationMetric: (metric) => {
-                    const rawKey = getSafeCategoryKey(metric?.categoryId || metric?.categoryName);
-                    const dedupKey = rawKey ? (getCalibrationKey(rawKey) || rawKey) : '';
-                    if (dedupKey && !collectedMetricKeys.has(dedupKey)) {
-                        collectedMetricKeys.add(dedupKey);
-                        collectedMetrics.push(metric);
-                    }
-                },
-                // Pass global MC stats for richer integration (see analysis of Coach + MC)
-                // FIX-#185: Read from ref (stable) instead of the reactive mcStatsContext
-                globalMcStats: mcStatsContextRef.current,
-                simuladoRows: data?.simuladoRows,
-                allSimulados: data?.simulados,
-                config: {
-                    contestId: activeId,
-                    MC_ENABLE_ADAPTIVE_CALIBRATION: data?.settings?.adaptiveCalibrationEnabled !== false
-                }
-            };
+    useEffect(() => {
+        showToastRef.current = showToast;
+    }, [showToast]);
 
-            const result = getSuggestedFocus(
-                categories,
-                combinedHistory,
-                studyLogs,
-                baseCoachOptions
+    const rawHistory = data?.simuladoRows || EMPTY_ARRAY;
+    const history = useMemo(() => (Array.isArray(rawHistory) ? rawHistory : Object.values(rawHistory || {})).filter(Boolean), [rawHistory]);
+
+    const rawSimulados = data?.simulados || EMPTY_ARRAY;
+    const simulados = useMemo(() => (Array.isArray(rawSimulados) ? rawSimulados : Object.values(rawSimulados || {})).filter(Boolean), [rawSimulados]);
+
+    const rawCategories = data?.categories || EMPTY_ARRAY;
+    const categories = useMemo(() => (Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories || {})).filter(Boolean).map(c => ({
+        ...c,
+        tasks: (Array.isArray(c.tasks) ? c.tasks : Object.values(c.tasks || {})).filter(Boolean)
+    })), [rawCategories]);
+
+    const rawFlashcardDecks = data?.flashcardDecks || EMPTY_ARRAY;
+    const flashcardDecks = useMemo(() => (Array.isArray(rawFlashcardDecks) ? rawFlashcardDecks : Object.values(rawFlashcardDecks || {})).filter(Boolean), [rawFlashcardDecks]);
+
+    const rawStudyLogs = data?.studyLogs || EMPTY_ARRAY;
+    const studyLogs = useMemo(() => (Array.isArray(rawStudyLogs) ? rawStudyLogs : Object.values(rawStudyLogs || {})).filter(Boolean), [rawStudyLogs]);
+    const flashcardDue = useMemo(() => {
+        return getFlashcardDueTodayCount(flashcardDecks);
+    }, [flashcardDecks]);
+    const userProfile = data?.user;
+
+    const updateCoachScore = useAppStore(state => state.updateCoachScore);
+    const { isPremium } = useSubscription(currentUser);
+    const navigate = useNavigate();
+
+    const [activeTab, setActiveTab] = useState('insights');
+    const showControlCenter = isAdmin || getCoachFeature({ contestId: activeId }, 'useCoachControlCenter', false);
+
+    const VALID_TABS = new Set(showControlCenter ? ['insights', 'analytics', 'control'] : ['insights', 'analytics']);
+    const safeActiveTab = VALID_TABS.has(activeTab) ? activeTab : 'insights';
+
+    useEffect(() => {
+        if (activeTab && activeTab !== safeActiveTab) {
+            console.warn(`[Coach.jsx] Estado de aba inválido recebido: ${activeTab}, ativando fallback.`);
+        }
+    }, [activeTab, safeActiveTab]);
+
+    const [isAnalyzing, setIsAnalyzing] = useState(true);
+    const [planRefreshTick, setPlanRefreshTick] = useState(0);
+    const lastProcessedManualRefreshRef = useRef(0);
+    const calibrationHistoryRef = useRef(data?.calibrationHistoryByCategory || {});
+
+    useEffect(() => {
+        isMountedRef.current = true;
+        return () => { isMountedRef.current = false; };
+    }, []);
+
+    useEffect(() => {
+        calibrationHistoryRef.current = data?.calibrationHistoryByCategory || {};
+    }, [data?.calibrationHistoryByCategory]);
+
+    const categoriesRef = useRef(data?.categories || []);
+    useEffect(() => {
+        categoriesRef.current = data?.categories || [];
+    }, [data?.categories]);
+
+    // Backfill de simulados agora é gerenciado no hook useMonteCarloStats via rawSimuladoRows (evita duplicação).
+
+    const lastPersistByCategoryRef = useRef(new Map());
+    const persistCalibrationMetric = useCallback((metric) => {
+        if ((!metric?.categoryId && !metric?.categoryName) || !isMountedRef.current) return;
+
+        // RATE-LIMIT: Evita loops por categoria se métricas forem emitidas em sequência rápida
+        const now = Date.now();
+        const normalizedCategoryId = getSafeCategoryKey(metric?.categoryId || metric?.categoryName);
+        if (!normalizedCategoryId) return;
+        const storageCategoryKey = getCalibrationKey(normalizedCategoryId) || normalizedCategoryId;
+
+        const catKey = String(storageCategoryKey);
+        if (now - (lastPersistByCategoryRef.current.get(catKey) || 0) < 500) return;
+
+        const toFinite = (value, fallback = null) => {
+            if (value === null || value === undefined || value === '') return fallback;
+            const n = Number(value);
+            return Number.isFinite(n) ? n : fallback;
+        };
+        const metricTimestamp = metric?.timestamp || now;
+        const avgBrier = toFinite(metric?.avgBrier, null);
+        const ece = toFinite(metric?.ece, null);
+        const probability = toFinite(metric?.probability, null);
+        const calibrationPenalty = toFinite(metric?.calibrationPenalty, 0);
+        const reliability = Array.isArray(metric?.reliability) ? metric.reliability : [];
+        const isDegraded = metric?.degraded === true ||
+            calibrationPenalty >= HIGH_PENALTY_THRESHOLD ||
+            (avgBrier !== null && avgBrier >= CRITICAL_BRIER_THRESHOLD);
+
+        // DATA-QUALITY GATE: evita persistir eventos sem calibração real (ex.: n < 8 simulados onde avgBrier e ece são null)
+        // que poluem o histórico, escondem a barra de formação de amostra (X/8) e geram linhas com '-' no Log de Auditoria.
+        const hasUsefulSignal = avgBrier !== null || ece !== null || calibrationPenalty > 0 || reliability.length > 0 || isDegraded;
+        if (!hasUsefulSignal) return;
+        lastPersistByCategoryRef.current.set(catKey, now);
+
+        const normalizedMetric = {
+            ...metric,
+            categoryId: normalizedCategoryId,
+            categoryName: metric?.categoryName || normalizedCategoryId,
+            timestamp: metricTimestamp,
+            avgBrier,
+            ece,
+            probability,
+            calibrationPenalty,
+            reliability,
+            degraded: isDegraded
+        };
+
+        let didSkipPersist = false;
+        // BUG-3 FIX: Immer mutation pattern — explicit return undefined to document intent
+        setData(prev => {
+            if (!prev) return prev;
+            const current = prev.calibrationHistoryByCategory || {};
+            const categoryHistory = getCalibrationHistoryFor(
+                current,
+                storageCategoryKey,
+                normalizedCategoryId,
+                metric?.categoryId,
+                metric?.categoryName
             );
 
-            // BEST: enrich the suggestion with global MC context for the UI
-            const _mcCtx = mcStatsContextRef.current;
-            if (result && _mcCtx && _mcCtx.projectedMean != null) {
-                const projectedVal = Number(_mcCtx.projectedMean.toFixed(1));
-                result.globalProjectedMean = projectedVal;
-                result.globalMcContext = {
-                    projectedMean: projectedVal,
-                    probability: _mcCtx.probability != null ? Number(_mcCtx.probability.toFixed(1)) : null,
-                    source: 'useMonteCarloStats'
+            // Verificação de redundância (Brier + ECE + penalty + probabilidade)
+            // Evita descartar eventos onde o Brier ficou estável, mas ECE/penalty mudaram.
+            const lastEntry = categoryHistory[categoryHistory.length - 1];
+            const hasComparableLast = lastEntry && toFinite(lastEntry?.timestamp, null) !== null;
+            if (hasComparableLast) {
+                const metricDelta = (currentValue, previousValue) => {
+                    const curVal = toFinite(currentValue, null);
+                    const prevVal = toFinite(previousValue, null);
+                    if (curVal !== null && prevVal !== null) return Math.abs(prevVal - curVal);
+                    if (curVal === null && prevVal === null) return 0;
+                    return Infinity;
                 };
-            }
-            setSuggestedFocus(result);
 
-            // GERAÇÃO AUTOMÁTICA DO PLANO DE METAS DO COACH (coachPlan)
+                const toReliabilitySignature = (bucketList = []) => (Array.isArray(bucketList) ? bucketList : [])
+                    .map((bucket) => {
+                        const meanPred = toFinite(bucket?.meanPred, null);
+                        const observedRate = toFinite(bucket?.observedRate, null);
+                        const gap = toFinite(bucket?.gap, null);
+                        const count = Number(bucket?.count) || 0;
+                        return `${count}|${meanPred !== null ? meanPred.toFixed(3) : 'na'}|${observedRate !== null ? observedRate.toFixed(3) : 'na'}|${gap !== null ? gap.toFixed(3) : 'na'}`;
+                    })
+                    .join('::');
+
+                const brierDelta = metricDelta(avgBrier, lastEntry.avgBrier);
+                const eceDelta = metricDelta(ece, lastEntry.ece);
+                const penaltyDelta = Math.abs(toFinite(lastEntry.calibrationPenalty, 0) - calibrationPenalty);
+                const probabilityDelta = metricDelta(probability, lastEntry.probability);
+                const reliabilitySignatureChanged =
+                    toReliabilitySignature(lastEntry?.reliability) !== toReliabilitySignature(reliability);
+                const degradationChanged = Boolean(lastEntry.degraded) !== Boolean(isDegraded);
+
+                const lastBrierVal = toFinite(lastEntry.avgBrier, null);
+                const lastEceVal = toFinite(lastEntry.ece, null);
+                const prevBrierBase = lastBrierVal !== null ? Math.max(0.001, Math.abs(lastBrierVal)) : 0.001;
+                const prevEceBase = lastEceVal !== null ? Math.max(0.001, Math.abs(lastEceVal)) : 0.001;
+
+                // BUG 6 FIX: Lowered absolute thresholds to capture low-variance micro-movements
+                const shouldSkipPersist =
+                    (brierDelta < 0.001 || (brierDelta / prevBrierBase) < 0.05) &&
+                    (eceDelta < 0.001 || (eceDelta / prevEceBase) < 0.05) &&
+                    penaltyDelta < 0.001 &&
+                    probabilityDelta < 0.01 &&
+                    !reliabilitySignatureChanged;
+
+                if (shouldSkipPersist && !degradationChanged) {
+                    didSkipPersist = true;
+                    return prev;
+                }
+            }
+
+            const cutoff = now - CALIBRATION_HISTORY_RETENTION_MS;
+            const cleaned = categoryHistory.filter(item => Number.isFinite(Number(item?.timestamp)) && Number(item.timestamp) >= cutoff);
+            const nextHistory = [...cleaned, normalizedMetric].slice(-60);
+
+            const recent7 = nextHistory.filter(item => Number(item?.timestamp || 0) >= (now - 1000 * 60 * 60 * 24 * 7));
+            const recent7Brier = recent7.map(item => toFinite(item?.avgBrier, null)).filter(val => val !== null);
+            const avgBrier7d = recent7Brier.length > 0
+                ? recent7Brier.reduce((acc, val) => acc + val, 0) / recent7Brier.length
+                : null;
+
+            const calibrationOps = {
+                ...(prev.calibrationOps || {}),
+                [storageCategoryKey]: {
+                    categoryName: normalizedMetric.categoryName,
+                    avgBrier7d: Number.isFinite(avgBrier7d) ? Number(avgBrier7d.toFixed(4)) : null,
+                    sample7d: recent7.length,
+                    degraded: isDegraded,
+                    updatedAt: now
+                }
+            };
+            const nextHistoryByCategory = {
+                ...(prev.calibrationHistoryByCategory || {}),
+                [storageCategoryKey]: nextHistory
+            };
+            if (normalizedCategoryId && normalizedCategoryId !== storageCategoryKey) {
+                delete calibrationOps[normalizedCategoryId];
+                delete nextHistoryByCategory[normalizedCategoryId];
+            }
+
+            const calibrationAuditLog = [...(prev.calibrationAuditLog || []), {
+                ...normalizedMetric,
+                categoryId: storageCategoryKey,
+                avgBrier7d: Number.isFinite(avgBrier7d) ? Number(avgBrier7d.toFixed(4)) : null,
+                degraded: isDegraded,
+                source: 'coach'
+            }].slice(-500);
+            return {
+                calibrationHistoryByCategory: nextHistoryByCategory,
+                calibrationOps,
+                calibrationAuditLog
+            };
+        });
+
+        if (didSkipPersist) return;
+
+        const telemetryContestId = useAppStore.getState()?.appState?.activeId || 'default';
+        if (normalizedMetric.calibrationPenalty >= HIGH_PENALTY_THRESHOLD) {
+            logCalibrationTelemetryEvent({ ...normalizedMetric, contestId: telemetryContestId, eventType: 'high_penalty_alert' });
+        } else {
+            logCalibrationTelemetryEvent({ ...normalizedMetric, contestId: telemetryContestId });
+        }
+
+        if (isDegraded) {
+            const currentTime = Date.now();
+            // LEAK-CALIBRATION-CACHE FIX: antes, entradas eram removidas apenas por tamanho.
+            // Entradas com >12h de idade deveriam ser prunadas para liberar memória e permitir
+            // re-disparo legítimo do alerta. Agora fazemos uma varredura de cleanup antes de inserir.
+            for (const [key, ts] of calibrationAlertCacheRef.current.entries()) {
+                if (currentTime - ts > ALERT_COOLDOWN_MS) calibrationAlertCacheRef.current.delete(key);
+            }
+            const lastAlertAt = Number(calibrationAlertCacheRef.current.get(normalizedCategoryId) || 0);
+            if (currentTime - lastAlertAt > ALERT_COOLDOWN_MS) {
+                // VIS-FIX: avgBrier pode ser null (degradação só por penalty) → antes exibia "Brier 0.00".
+                const brierLabel = avgBrier !== null ? ` (Brier ${avgBrier.toFixed(2)})` : '';
+                showToastRef.current(`⚠️ Calibração crítica em ${displaySubject(normalizedMetric.categoryName || normalizedCategoryId || 'categoria', categoriesRef.current)}${brierLabel}.`, 'warning');
+                calibrationAlertCacheRef.current.delete(normalizedCategoryId);
+                calibrationAlertCacheRef.current.set(normalizedCategoryId, currentTime);
+                if (calibrationAlertCacheRef.current.size > CALIBRATION_ALERT_CACHE_MAX && calibrationAlertCacheRef.current.size > 0) {
+                    const oldestKey = calibrationAlertCacheRef.current.keys().next().value;
+                    if (oldestKey !== undefined) calibrationAlertCacheRef.current.delete(oldestKey);
+                }
+            }
+        }
+    }, [setData]);
+
+    // BUG-11 FIX: Pass explicit defaults for timeIndex and timelineDates
+    const currentMaxScore = data?.maxScore ?? data?.settings?.maxScore ?? 100;
+    const currentMinScore = data?.minScore ?? data?.settings?.minScore ?? 0;
+
+    // BUG-26 FIX: Deduplicating history entries safely with correct scale
+    const combinedHistory = useMemo(
+        () => getCombinedHistory(history, simulados, currentMaxScore, currentMinScore),
+        [history, simulados, currentMaxScore, currentMinScore]
+    );
+
+    // Converte targetScore ou targetProbability em pontos na escala da prova
+    const targetScorePoints = useMemo(() => {
+        const safeMax = Math.max(1, Number(currentMaxScore) || 100);
+        const safeMin = Number.isFinite(Number(currentMinScore)) ? Math.min(Number(currentMinScore), safeMax - 1) : 0;
+        return resolveUserTargetScorePoints(userProfile, safeMin, safeMax, 0.85);
+    }, [userProfile, currentMinScore, currentMaxScore]);
+
+    const mcStats = useMonteCarloStats({
+        categories: categories,
+        goalDate: userProfile?.goalDate,
+        targetScore: targetScorePoints,
+        timeIndex: -1,
+        timelineDates: EMPTY_ARRAY,
+        minScore: currentMinScore,
+        maxScore: currentMaxScore,
+        simuladoRows: data?.simuladoRows || EMPTY_ARRAY
+    });
+
+    const isMcStatsReady = mcStats?.simulationData?.status === 'ready';
+    const projectedScore = mcStats?.projectedMean ?? 0;
+    // UX-STABILITY: Para o card de volatilidade, preferimos pooledSD (determinístico)
+    // ao sd da simulação MC (estocástico), reduzindo "pisca/pula" visual.
+    const rawVolatility = mcStats?.statsData?.pooledSD ?? mcStats?.sd ?? 0;
+    const volatility = Number.isFinite(Number(rawVolatility)) ? Number(rawVolatility) : 0;
+    const normalizedVolatility = useMemo(() => {
+        const domain = Math.max(1e-9, (Number(currentMaxScore) || 100) - (Number(currentMinScore) || 0));
+        return (volatility / domain) * 100;
+    }, [volatility, currentMaxScore, currentMinScore]);
+    const drift = useMemo(() => calculateAdaptiveSlope(combinedHistory, currentMaxScore, { minScore: currentMinScore }), [combinedHistory, currentMaxScore, currentMinScore]);
+    const normalizedDrift = useMemo(() => {
+        const safeDrift = Number.isFinite(Number(drift)) ? Number(drift) : 0;
+        const domain = Math.max(1e-9, (Number(currentMaxScore) || 100) - (Number(currentMinScore) || 0));
+        const val = ((safeDrift * 30) / domain) * 100;
+        return Number.isFinite(val) ? val : 0;
+    }, [drift, currentMaxScore, currentMinScore]);
+    const formattedDrift = useMemo(() => {
+        if (Math.abs(normalizedDrift) < 0.05) return "0.0pp";
+        return `${normalizedDrift > 0 ? '+' : ''}${normalizedDrift.toFixed(1)}pp`;
+    }, [normalizedDrift]);
+    const totalSimulados = useMemo(() => combinedHistory.length, [combinedHistory]);
+
+    // VIS-FIX: projectedMean está na escala da prova (pontos), não em %.
+    // Antes o banner exibia "Global MC: 742%" para provas com maxScore=1000.
+    const globalProjection = useMemo(() => {
+        const rawMean = suggestedFocus?.globalProjectedMean ?? suggestedFocus?.globalMcContext?.projectedMean;
+        if (rawMean === null || rawMean === undefined || rawMean === '' || typeof rawMean === 'boolean') return null;
+        const mean = Number(rawMean);
+        if (!Number.isFinite(mean)) return null;
+        const safeMax = Math.max(1, Number(currentMaxScore) || 100);
+        const safeMin = Number.isFinite(Number(currentMinScore)) ? Math.min(Number(currentMinScore), safeMax - 1) : 0;
+        const pct = Math.max(0, Math.min(100, ((mean - safeMin) / (safeMax - safeMin)) * 100));
+        const rawProb = suggestedFocus?.globalMcContext?.probability;
+        const prob = (rawProb !== null && rawProb !== undefined && rawProb !== '' && typeof rawProb !== 'boolean')
+            ? Number(rawProb)
+            : NaN;
+        return {
+            points: mean,
+            max: safeMax,
+            pct,
+            probability: Number.isFinite(prob) ? Math.max(0, Math.min(100, prob)) : null
+        };
+    }, [suggestedFocus?.globalProjectedMean, suggestedFocus?.globalMcContext, currentMaxScore, currentMinScore]);
+
+    const degradedCount = useMemo(() => {
+        const ops = data?.calibrationOps || {};
+        const historyByCategory = data?.calibrationHistoryByCategory || {};
+        let count = 0;
+        const seenCanonical = new Set();
+
+        categories.forEach(cat => {
+            if (!cat) return;
+            const canonicalKey = getSafeCategoryKey(cat.id || cat.name);
+            if (!canonicalKey || seenCanonical.has(canonicalKey)) return;
+            seenCanonical.add(canonicalKey);
+
+            const candidateKeys = [
+                cat.id && String(cat.id),
+                cat.id && getSafeCategoryKey(cat.id),
+                cat.id && getCalibrationKey(cat.id),
+                cat.id && getCalibrationKey(getSafeCategoryKey(cat.id)),
+                cat.name && String(cat.name),
+                cat.name && getSafeCategoryKey(cat.name),
+                cat.name && getCalibrationKey(cat.name),
+                cat.name && getCalibrationKey(getSafeCategoryKey(cat.name))
+            ].filter(Boolean);
+
+            const op = candidateKeys.map(k => ops[k]).find(Boolean);
+            if (op?.degraded) {
+                count++;
+                return;
+            }
+
+            const history = getCalibrationHistoryFor(
+                historyByCategory,
+                cat.id,
+                getSafeCategoryKey(cat.id),
+                cat.name,
+                getSafeCategoryKey(cat.name)
+            );
+            if (Array.isArray(history) && history.length > 0) {
+                // Alinha critério com RaioXDashboard (média móvel de 7 dias ancorada no último registro — pura)
+                const getTs = (entry) => {
+                    if (!entry?.timestamp) return 0;
+                    if (typeof entry.timestamp === 'number' && Number.isFinite(entry.timestamp)) return entry.timestamp;
+                    const n = Number(entry.timestamp);
+                    if (Number.isFinite(n)) return n;
+                    const ms = toDateMs(entry.timestamp);
+                    return Number.isFinite(ms) ? ms : 0;
+                };
+                const maxTs = history.reduce((max, entry) => Math.max(max, getTs(entry)), 0);
+                const sevenDaysAgo = maxTs > 0 ? maxTs - 7 * 24 * 60 * 60 * 1000 : 0;
+                const recent = maxTs > 0 ? history.filter(h => getTs(h) >= sevenDaysAgo) : history;
+                const base = recent.length > 0 ? recent : history;
+                const brierVals = base
+                    .filter(h => h?.avgBrier != null && h?.avgBrier !== '' && Number.isFinite(Number(h.avgBrier)))
+                    .map(h => Number(h.avgBrier));
+                const penVals = base
+                    .filter(h => h?.calibrationPenalty != null && h?.calibrationPenalty !== '' && Number.isFinite(Number(h.calibrationPenalty)))
+                    .map(h => Number(h.calibrationPenalty));
+                const avgBrier7d = brierVals.length > 0 ? brierVals.reduce((acc, v) => acc + v, 0) / brierVals.length : null;
+                const avgPen7d = penVals.length > 0 ? penVals.reduce((acc, v) => acc + v, 0) / penVals.length : 0;
+                const latest = history[history.length - 1];
+                if (Boolean(latest?.degraded) || (avgBrier7d !== null && avgBrier7d >= CRITICAL_BRIER_THRESHOLD) || avgPen7d >= HIGH_PENALTY_THRESHOLD) {
+                    count++;
+                }
+            }
+        });
+        return count;
+    }, [data?.calibrationOps, data?.calibrationHistoryByCategory, categories]);
+
+    const mcStatsContext = useMemo(() => {
+        if (!isMcStatsReady) return null;
+        return {
+            projectedMean: mcStats?.projectedMean,
+            probability: mcStats?.probability,
+            statsData: mcStats?.statsData,
+            sd: mcStats?.sd
+        };
+    }, [isMcStatsReady, mcStats?.projectedMean, mcStats?.probability, mcStats?.statsData, mcStats?.sd]);
+
+    // Chave primitiva estável para hidratar getSuggestedFocus/generateDailyGoals assim que
+    // o Worker de Monte Carlo concluir (sem disparar loop #185 por mudança de referência de objeto).
+    const mcStatsSyncKey = useMemo(() => {
+        if (!isMcStatsReady || mcStats?.projectedMean === null || mcStats?.projectedMean === undefined) return '';
+        const meanNum = Number(mcStats.projectedMean);
+        if (!Number.isFinite(meanNum)) return '';
+        const probRaw = mcStats?.probability;
+        const probNum = (probRaw !== null && probRaw !== undefined && probRaw !== '') ? Number(probRaw) : NaN;
+        return `${meanNum.toFixed(1)}|${Number.isFinite(probNum) ? probNum.toFixed(1) : 'na'}`;
+    }, [isMcStatsReady, mcStats?.projectedMean, mcStats?.probability]);
+
+    // FIX-#185: Stable ref so the analysis useEffect doesn't need mcStatsContext
+    // as a dependency. Without this, any isFlashing toggle inside useMonteCarloStats
+    // creates a new mcStats object → new mcStatsContext → effect fires → setData()
+    // → store update → re-render → infinite loop (React error #185).
+    const mcStatsContextRef = useRef(mcStatsContext);
+    useEffect(() => { mcStatsContextRef.current = mcStatsContext; }, [mcStatsContext]);
+
+    // Sincroniza projeção global quando o cálculo do Monte Carlo conclui a simulação
+    useEffect(() => {
+        if (!isMcStatsReady || mcStats?.projectedMean == null) return;
+        const projectedVal = Number(mcStats.projectedMean.toFixed(1));
+        const probVal = mcStats.probability != null ? Number(mcStats.probability.toFixed(1)) : null;
+        const timer = setTimeout(() => {
+            if (!isMountedRef.current) return;
+            setSuggestedFocus(prev => {
+                if (!prev) return prev;
+                if (prev.globalProjectedMean === projectedVal && prev.globalMcContext?.probability === probVal) {
+                    return prev;
+                }
+                return {
+                    ...prev,
+                    globalProjectedMean: projectedVal,
+                    globalMcContext: {
+                        projectedMean: projectedVal,
+                        probability: probVal,
+                        source: 'useMonteCarloStats'
+                    }
+                };
+            });
+        }, 0);
+        return () => clearTimeout(timer);
+    }, [isMcStatsReady, mcStats?.projectedMean, mcStats?.probability]);
+
+    useEffect(() => {
+        if (!isHydrated) return;
+        if (!data?.categories || categories.length === 0) {
+            const timer = setTimeout(() => {
+                if (isMountedRef.current) {
+                    setSuggestedFocus(null);
+                    setIsAnalyzing(false);
+                    const currentData = useAppStore.getState().appState?.contests?.[activeId];
+                    const hasResidualPlan = Array.isArray(currentData?.coachPlan)
+                        ? currentData.coachPlan.length > 0
+                        : Object.keys(currentData?.coachPlan || {}).length > 0;
+                    const hasResidualPlanner = currentData?.coachPlanner && typeof currentData.coachPlanner === 'object'
+                        ? Object.values(currentData.coachPlanner).some(arr => (Array.isArray(arr) ? arr : Object.values(arr || {})).length > 0)
+                        : false;
+                    if (hasResidualPlan || hasResidualPlanner) {
+                        patchData(() => ({
+                            coachPlan: [],
+                            coachPlanner: { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] }
+                        }));
+                    }
+                }
+            }, 0);
+            return () => clearTimeout(timer);
+        }
+
+        let metricsTimer = null;
+        let nestedTimeouts = [];
+        // UX-FLUIDITY FIX: agenda o cálculo pesado para o próximo ciclo.
+        // Se o usuário sair rapidamente do Coach, o cleanup cancela tudo e o menu
+        // lateral não fica "preso" aguardando cálculo síncrono.
+        const analysisTimer = setTimeout(() => {
             try {
-                const newTasks = generateDailyGoals(
+                const safeTargetScore = Number.isFinite(Number(targetScorePoints)) ? Number(targetScorePoints) : null;
+                const safeMax = Number.isFinite(Number(currentMaxScore)) ? Number(currentMaxScore) : 100;
+                const safeMin = Number.isFinite(Number(currentMinScore)) ? Number(currentMinScore) : 0;
+                const collectedMetrics = [];
+                const collectedMetricKeys = new Set();
+                const isManualRefresh = planRefreshTick !== lastProcessedManualRefreshRef.current;
+                lastProcessedManualRefreshRef.current = planRefreshTick;
+
+                const baseCoachOptions = {
+                    contestId: activeId,
+                    user: data?.user,
+                    ...(safeTargetScore !== null ? { targetScore: safeTargetScore } : {}),
+                    maxScore: safeMax,
+                    minScore: safeMin,
+                    calibrationHistoryByCategory: calibrationHistoryRef.current,
+                    flashcardDecks,
+                    flashcardDue,
+                    onCalibrationMetric: (metric) => {
+                        const rawKey = getSafeCategoryKey(metric?.categoryId || metric?.categoryName);
+                        const dedupKey = rawKey ? (getCalibrationKey(rawKey) || rawKey) : '';
+                        if (dedupKey && !collectedMetricKeys.has(dedupKey)) {
+                            collectedMetricKeys.add(dedupKey);
+                            collectedMetrics.push(metric);
+                        }
+                    },
+                    // Pass global MC stats for richer integration (see analysis of Coach + MC)
+                    // FIX-#185: Read from ref (stable) instead of the reactive mcStatsContext
+                    globalMcStats: mcStatsContextRef.current,
+                    simuladoRows: data?.simuladoRows,
+                    allSimulados: data?.simulados,
+                    config: {
+                        contestId: activeId,
+                        MC_ENABLE_ADAPTIVE_CALIBRATION: data?.settings?.adaptiveCalibrationEnabled !== false
+                    }
+                };
+
+                const result = getSuggestedFocus(
                     categories,
                     combinedHistory,
                     studyLogs,
                     baseCoachOptions
                 );
 
-                if (Array.isArray(newTasks) && isMountedRef.current) {
-                    const currentData = useAppStore.getState().appState?.contests?.[activeId];
-                    const existingPlan = Array.isArray(currentData?.coachPlan) ? currentData.coachPlan : Object.values(currentData?.coachPlan || {});
-                    const existingPlanner = currentData?.coachPlanner && typeof currentData.coachPlanner === 'object'
-                        ? currentData.coachPlanner
-                        : { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] };
-                    const hasExistingPlannerItems = Object.values(existingPlanner).some(arr => (Array.isArray(arr) ? arr : Object.values(arr || {})).length > 0);
-                    if (newTasks.length === 0 && existingPlan.length === 0 && !hasExistingPlannerItems) {
-                        setIsAnalyzing(false);
-                    } else {
-                        const normalizeTaskSid = (rawSid) =>
-                            rawSid ? String(rawSid).replace(/-dup\d+-[a-zA-Z0-9_-]+$/, '') : '';
-                        const extractTopicKeyFromSid = (rawSid) => {
-                            const clean = normalizeTaskSid(rawSid);
-                            const topicMatch = clean.match(/^(.+?-topic-[a-zA-Z0-9]+)-\d+-([a-zA-Z0-9]+)$/);
-                            if (topicMatch) return `${topicMatch[1]}-${topicMatch[2]}`;
-                            const decayOrSyllabus = clean.match(/^(.+?-(?:decay|syllabus)-[a-zA-Z0-9]+)(?:-\d+)?-([a-zA-Z0-9]+)$/);
-                            if (decayOrSyllabus) return decayOrSyllabus[1];
-                            const srsOrSynth = clean.match(/^(.+?-(?:srsblitz|synthesis))(?:-\d+)?-([a-zA-Z0-9]+)$/);
-                            if (srsOrSynth) return `${srsOrSynth[1]}-${srsOrSynth[2]}`;
-                            return null;
-                        };
+                // BEST: enrich the suggestion with global MC context for the UI
+                const _mcCtx = mcStatsContextRef.current;
+                if (result && _mcCtx && _mcCtx.projectedMean != null) {
+                    const projectedVal = Number(_mcCtx.projectedMean.toFixed(1));
+                    result.globalProjectedMean = projectedVal;
+                    result.globalMcContext = {
+                        projectedMean: projectedVal,
+                        probability: _mcCtx.probability != null ? Number(_mcCtx.probability.toFixed(1)) : null,
+                        source: 'useMonteCarloStats'
+                    };
+                }
+                setSuggestedFocus(result);
 
-                        const isTaskCategoryValid = (taskItem) => {
-                            const cid = taskItem?.categoryId;
-                            if (!cid || ['geral', 'default'].includes(String(cid))) return true;
-                            const safeCid = getSafeCategoryKey(cid);
-                            return categories.some(c => c && (
-                                (c.id && String(c.id) === String(cid)) ||
-                                (safeCid && getSafeCategoryKey(c.id) === safeCid) ||
-                                (taskItem?.category && c.name && isSubjectMatch(c.name, taskItem.category))
-                            ));
-                        };
+                // GERAÇÃO AUTOMÁTICA DO PLANO DE METAS DO COACH (coachPlan)
+                try {
+                    const newTasks = generateDailyGoals(
+                        categories,
+                        combinedHistory,
+                        studyLogs,
+                        baseCoachOptions
+                    );
 
-                        // Mapear tarefas atribuídas ao planner semanal para preservar a agenda já organizada
-                        // e atualizar a telemetria (analysis) caso a tarefa exista nas novas metas calculadas.
-                        const freshTasksById = new Map();
-                        const freshTasksByTopicKey = new Map();
-                        newTasks.forEach(t => {
-                            if (t) {
-                                const sid = normalizeTaskSid(getSafeCategoryKey(ensureCoachTaskId(t)));
-                                if (sid) {
-                                    freshTasksById.set(sid, t);
-                                    const topicKey = extractTopicKeyFromSid(sid);
-                                    if (topicKey) freshTasksByTopicKey.set(topicKey, t);
-                                }
-                            }
-                        });
+                    if (Array.isArray(newTasks) && isMountedRef.current) {
+                        const currentData = useAppStore.getState().appState?.contests?.[activeId];
+                        const existingPlan = Array.isArray(currentData?.coachPlan) ? currentData.coachPlan : Object.values(currentData?.coachPlan || {});
+                        const existingPlanner = currentData?.coachPlanner && typeof currentData.coachPlanner === 'object'
+                            ? currentData.coachPlanner
+                            : { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] };
+                        const hasExistingPlannerItems = Object.values(existingPlanner).some(arr => (Array.isArray(arr) ? arr : Object.values(arr || {})).length > 0);
+                        if (newTasks.length === 0 && existingPlan.length === 0 && !hasExistingPlannerItems) {
+                            setIsAnalyzing(false);
+                        } else {
+                            const normalizeTaskSid = (rawSid) =>
+                                rawSid ? String(rawSid).replace(/-dup\d+-[a-zA-Z0-9_-]+$/, '') : '';
+                            const extractTopicKeyFromSid = (rawSid) => {
+                                const clean = normalizeTaskSid(rawSid);
+                                const topicMatch = clean.match(/^(.+?-topic-[a-zA-Z0-9]+)-\d+-([a-zA-Z0-9]+)$/);
+                                if (topicMatch) return `${topicMatch[1]}-${topicMatch[2]}`;
+                                const decayOrSyllabus = clean.match(/^(.+?-(?:decay|syllabus)-[a-zA-Z0-9]+)(?:-\d+)?-([a-zA-Z0-9]+)$/);
+                                if (decayOrSyllabus) return decayOrSyllabus[1];
+                                const srsOrSynth = clean.match(/^(.+?-(?:srsblitz|synthesis))(?:-\d+)?-([a-zA-Z0-9]+)$/);
+                                if (srsOrSynth) return `${srsOrSynth[1]}-${srsOrSynth[2]}`;
+                                return null;
+                            };
 
-                        const assignedTasks = [];
-                        const assignedIds = new Set();
-                        const refreshedPlanner = {};
-                        let plannerTelemetryUpdated = false;
-                        let plannerChanged = false;
-                        Object.entries(existingPlanner).forEach(([dayKey, rawDayVal]) => {
-                            const dayArr = Array.isArray(rawDayVal)
-                                ? rawDayVal
-                                : (rawDayVal && typeof rawDayVal === 'object' ? Object.values(rawDayVal) : null);
-                            if (dayArr) {
-                                if (!Array.isArray(rawDayVal)) plannerChanged = true;
-                                const nextDay = [];
-                                dayArr.forEach(t => {
-                                    if (!t) {
-                                        plannerChanged = true;
-                                        return;
-                                    }
-                                    if (!isTaskCategoryValid(t)) {
-                                        plannerChanged = true;
-                                        return;
-                                    }
-                                    const rawSid = getSafeCategoryKey(ensureCoachTaskId(t));
-                                    const sid = normalizeTaskSid(rawSid);
+                            const isTaskCategoryValid = (taskItem) => {
+                                const cid = taskItem?.categoryId;
+                                if (!cid || ['geral', 'default'].includes(String(cid))) return true;
+                                const safeCid = getSafeCategoryKey(cid);
+                                return categories.some(c => c && (
+                                    (c.id && String(c.id) === String(cid)) ||
+                                    (safeCid && getSafeCategoryKey(c.id) === safeCid) ||
+                                    (taskItem?.category && c.name && isSubjectMatch(c.name, taskItem.category))
+                                ));
+                            };
+
+                            // Mapear tarefas atribuídas ao planner semanal para preservar a agenda já organizada
+                            // e atualizar a telemetria (analysis) caso a tarefa exista nas novas metas calculadas.
+                            const freshTasksById = new Map();
+                            const freshTasksByTopicKey = new Map();
+                            newTasks.forEach(t => {
+                                if (t) {
+                                    const sid = normalizeTaskSid(getSafeCategoryKey(ensureCoachTaskId(t)));
                                     if (sid) {
+                                        freshTasksById.set(sid, t);
                                         const topicKey = extractTopicKeyFromSid(sid);
-                                        const fresh = freshTasksById.get(sid) || (topicKey ? freshTasksByTopicKey.get(topicKey) : null);
-                                        const staleAlert = !fresh && !t.completed && isSystemAlertTask(t.text || t.title);
-                                        const staleOnManual = !fresh && !t.completed && isManualRefresh;
-                                        if (staleAlert || staleOnManual) {
+                                        if (topicKey) freshTasksByTopicKey.set(topicKey, t);
+                                    }
+                                }
+                            });
+
+                            const assignedTasks = [];
+                            const assignedIds = new Set();
+                            const refreshedPlanner = {};
+                            let plannerTelemetryUpdated = false;
+                            let plannerChanged = false;
+                            Object.entries(existingPlanner).forEach(([dayKey, rawDayVal]) => {
+                                const dayArr = Array.isArray(rawDayVal)
+                                    ? rawDayVal
+                                    : (rawDayVal && typeof rawDayVal === 'object' ? Object.values(rawDayVal) : null);
+                                if (dayArr) {
+                                    if (!Array.isArray(rawDayVal)) plannerChanged = true;
+                                    const nextDay = [];
+                                    dayArr.forEach(t => {
+                                        if (!t) {
                                             plannerChanged = true;
                                             return;
                                         }
-                                        const resolvedSid = fresh ? normalizeTaskSid(getSafeCategoryKey(ensureCoachTaskId(fresh))) : sid;
-                                        assignedIds.add(sid);
-                                        if (resolvedSid) assignedIds.add(resolvedSid);
-                                        if (rawSid !== sid || resolvedSid !== sid) {
+                                        if (!isTaskCategoryValid(t)) {
                                             plannerChanged = true;
+                                            return;
                                         }
-                                        const mergedTask = fresh
-                                            ? {
-                                                ...t,
-                                                id: fresh.id || resolvedSid || sid,
-                                                text: fresh.text || t.text,
-                                                ...(fresh.title || t.title ? { title: fresh.title || fresh.text || t.title } : {}),
-                                                topicName: fresh.topicName || t.topicName,
-                                                analysis: fresh.analysis || t.analysis,
-                                                priority: fresh.priority || t.priority,
-                                                completed: Boolean(t.completed),
-                                                ...(t.completedAt ? { completedAt: t.completedAt } : {})
+                                        const rawSid = getSafeCategoryKey(ensureCoachTaskId(t));
+                                        const sid = normalizeTaskSid(rawSid);
+                                        if (sid) {
+                                            const topicKey = extractTopicKeyFromSid(sid);
+                                            const fresh = freshTasksById.get(sid) || (topicKey ? freshTasksByTopicKey.get(topicKey) : null);
+                                            const staleAlert = !fresh && !t.completed && isSystemAlertTask(t.text || t.title);
+                                            const staleOnManual = !fresh && !t.completed && isManualRefresh;
+                                            if (staleAlert || staleOnManual) {
+                                                plannerChanged = true;
+                                                return;
                                             }
-                                            : (rawSid !== sid ? { ...t, id: sid } : t);
-                                        if (
-                                            fresh &&
-                                            (
-                                                (fresh.analysis && !isAnalysisEqual(fresh.analysis, t.analysis)) ||
-                                                (fresh.text && fresh.text !== t.text) ||
-                                                (fresh.topicName && fresh.topicName !== t.topicName) ||
-                                                (fresh.priority && fresh.priority !== t.priority)
-                                            )
-                                        ) {
-                                            plannerTelemetryUpdated = true;
+                                            const resolvedSid = fresh ? normalizeTaskSid(getSafeCategoryKey(ensureCoachTaskId(fresh))) : sid;
+                                            assignedIds.add(sid);
+                                            if (resolvedSid) assignedIds.add(resolvedSid);
+                                            if (rawSid !== sid || resolvedSid !== sid) {
+                                                plannerChanged = true;
+                                            }
+                                            const mergedTask = fresh
+                                                ? {
+                                                    ...t,
+                                                    id: fresh.id || resolvedSid || sid,
+                                                    text: fresh.text || t.text,
+                                                    ...(fresh.title || t.title ? { title: fresh.title || fresh.text || t.title } : {}),
+                                                    topicName: fresh.topicName || t.topicName,
+                                                    analysis: fresh.analysis || t.analysis,
+                                                    priority: fresh.priority || t.priority,
+                                                    completed: Boolean(t.completed),
+                                                    ...(t.completedAt ? { completedAt: t.completedAt } : {})
+                                                }
+                                                : (rawSid !== sid ? { ...t, id: sid } : t);
+                                            if (
+                                                fresh &&
+                                                (
+                                                    (fresh.analysis && !isAnalysisEqual(fresh.analysis, t.analysis)) ||
+                                                    (fresh.text && fresh.text !== t.text) ||
+                                                    (fresh.topicName && fresh.topicName !== t.topicName) ||
+                                                    (fresh.priority && fresh.priority !== t.priority)
+                                                )
+                                            ) {
+                                                plannerTelemetryUpdated = true;
+                                            }
+                                            assignedTasks.push(mergedTask);
+                                            nextDay.push(mergedTask);
+                                            return;
                                         }
-                                        assignedTasks.push(mergedTask);
-                                        nextDay.push(mergedTask);
-                                        return;
-                                    }
-                                    nextDay.push(t);
-                                });
-                                refreshedPlanner[dayKey] = nextDay;
-                            } else {
-                                refreshedPlanner[dayKey] = [];
-                            }
-                        });
-
-                        // Preservar status de tarefas previamente concluídas no backlog
-                        const existingCompletedMap = new Map();
-                        existingPlan.forEach(t => {
-                            if (t && t.completed && isTaskCategoryValid(t)) {
-                                const sid = normalizeTaskSid(getSafeCategoryKey(ensureCoachTaskId(t)));
-                                if (sid) {
-                                    existingCompletedMap.set(sid, t);
-                                    const topicKey = extractTopicKeyFromSid(sid);
-                                    if (topicKey) existingCompletedMap.set(topicKey, t);
+                                        nextDay.push(t);
+                                    });
+                                    refreshedPlanner[dayKey] = nextDay;
+                                } else {
+                                    refreshedPlanner[dayKey] = [];
                                 }
-                            }
-                        });
-
-                        const nextPlan = [
-                            ...assignedTasks,
-                            ...newTasks
-                                .filter(t => {
-                                    const sid = normalizeTaskSid(getSafeCategoryKey(ensureCoachTaskId(t)));
-                                    return sid && !assignedIds.has(sid);
-                                })
-                                .map(t => {
-                                    const sid = normalizeTaskSid(getSafeCategoryKey(ensureCoachTaskId(t)));
-                                    const topicKey = extractTopicKeyFromSid(sid);
-                                    const prevCompleted = (sid && existingCompletedMap.get(sid)) || (topicKey ? existingCompletedMap.get(topicKey) : null);
-                                    if (prevCompleted) {
-                                        return { ...t, completed: true, completedAt: prevCompleted.completedAt };
-                                    }
-                                    return t;
-                                })
-                        ];
-
-                        const hasPlanChanged = plannerTelemetryUpdated ||
-                            plannerChanged ||
-                            existingPlan.length !== nextPlan.length ||
-                            existingPlan.some((t, i) => {
-                                const next = nextPlan[i];
-                                if (!next) return true;
-                                const sid1 = getSafeCategoryKey(ensureCoachTaskId(t));
-                                const sid2 = getSafeCategoryKey(ensureCoachTaskId(next));
-                                return sid1 !== sid2 ||
-                                    t.text !== next.text ||
-                                    t.priority !== next.priority ||
-                                    Boolean(t.completed) !== Boolean(next.completed) ||
-                                    !isAnalysisEqual(t.analysis || null, next.analysis || null);
                             });
 
-                        if (hasPlanChanged || !currentData?.coachPlanner) {
-                            patchData(() => ({
-                                coachPlan: nextPlan,
-                                coachPlanner: refreshedPlanner
-                            }));
+                            // Preservar status de tarefas previamente concluídas no backlog
+                            const existingCompletedMap = new Map();
+                            existingPlan.forEach(t => {
+                                if (t && t.completed && isTaskCategoryValid(t)) {
+                                    const sid = normalizeTaskSid(getSafeCategoryKey(ensureCoachTaskId(t)));
+                                    if (sid) {
+                                        existingCompletedMap.set(sid, t);
+                                        const topicKey = extractTopicKeyFromSid(sid);
+                                        if (topicKey) existingCompletedMap.set(topicKey, t);
+                                    }
+                                }
+                            });
+
+                            const nextPlan = [
+                                ...assignedTasks,
+                                ...newTasks
+                                    .filter(t => {
+                                        const sid = normalizeTaskSid(getSafeCategoryKey(ensureCoachTaskId(t)));
+                                        return sid && !assignedIds.has(sid);
+                                    })
+                                    .map(t => {
+                                        const sid = normalizeTaskSid(getSafeCategoryKey(ensureCoachTaskId(t)));
+                                        const topicKey = extractTopicKeyFromSid(sid);
+                                        const prevCompleted = (sid && existingCompletedMap.get(sid)) || (topicKey ? existingCompletedMap.get(topicKey) : null);
+                                        if (prevCompleted) {
+                                            return { ...t, completed: true, completedAt: prevCompleted.completedAt };
+                                        }
+                                        return t;
+                                    })
+                            ];
+
+                            const hasPlanChanged = plannerTelemetryUpdated ||
+                                plannerChanged ||
+                                existingPlan.length !== nextPlan.length ||
+                                existingPlan.some((t, i) => {
+                                    const next = nextPlan[i];
+                                    if (!next) return true;
+                                    const sid1 = getSafeCategoryKey(ensureCoachTaskId(t));
+                                    const sid2 = getSafeCategoryKey(ensureCoachTaskId(next));
+                                    return sid1 !== sid2 ||
+                                        t.text !== next.text ||
+                                        t.priority !== next.priority ||
+                                        Boolean(t.completed) !== Boolean(next.completed) ||
+                                        !isAnalysisEqual(t.analysis || null, next.analysis || null);
+                                });
+
+                            if (hasPlanChanged || !currentData?.coachPlanner) {
+                                patchData(() => ({
+                                    coachPlan: nextPlan,
+                                    coachPlanner: refreshedPlanner
+                                }));
+                            }
                         }
                     }
+                } catch (errGoals) {
+                    console.warn('[Coach] Erro ao gerar metas do coach automaticamente:', errGoals);
                 }
-            } catch (errGoals) {
-                console.warn('[Coach] Erro ao gerar metas do coach automaticamente:', errGoals);
+
+                if (collectedMetrics.length > 0) {
+                    metricsTimer = setTimeout(() => {
+                        if (!isMountedRef.current) return;
+                        collectedMetrics.forEach((metric) => {
+                            persistCalibrationMetric(metric);
+                        });
+                    }, 1000); // Cooldown de 1s para deixar o dashboard respirar entre análises
+                }
+            } catch (err) {
+                console.error('[Coach] Falha ao processar redes e análise do Coach:', err);
+            } finally {
+                setIsAnalyzing(false);
             }
+        }, 0);
 
-            if (collectedMetrics.length > 0) {
-                metricsTimer = setTimeout(() => {
-                    if (!isMountedRef.current) return;
-                    collectedMetrics.forEach((metric) => {
-                        persistCalibrationMetric(metric);
-                    });
-                }, 1000); // Cooldown de 1s para deixar o dashboard respirar entre análises
-            }
-        } catch (err) {
-            console.error('[Coach] Falha ao processar redes e análise do Coach:', err);
-        } finally {
-            setIsAnalyzing(false);
-        }
-    }, 0);
+        return () => {
+            clearTimeout(analysisTimer);
+            if (metricsTimer) clearTimeout(metricsTimer);
+            nestedTimeouts.forEach(clearTimeout);
+        };
+        // FIX-#185: mcStatsContext removed — it's read via mcStatsContextRef.current inside
+        // the effect body, so it never needs to be a reactive dependency.
+    }, [
+        isHydrated,
+        activeId,
+        data?.categories,
+        data?.simuladoRows,
+        data?.simulados,
+        categories,
+        combinedHistory,
+        studyLogs,
+        data?.user,
+        currentMaxScore,
+        currentMinScore,
+        data?.settings?.adaptiveCalibrationEnabled,
+        targetScorePoints,
+        flashcardDue,
+        flashcardDecks,
+        persistCalibrationMetric,
+        patchData,
+        planRefreshTick,
+        flagRevision,
+        mcStatsSyncKey
+    ]);
 
-    return () => {
-        clearTimeout(analysisTimer);
-        if (metricsTimer) clearTimeout(metricsTimer);
-        nestedTimeouts.forEach(clearTimeout);
-    };
-    // FIX-#185: mcStatsContext removed — it's read via mcStatsContextRef.current inside
-    // the effect body, so it never needs to be a reactive dependency.
-}, [
-    isHydrated,
-    activeId,
-    data?.categories,
-    data?.simuladoRows,
-    data?.simulados,
-    categories,
-    combinedHistory,
-    studyLogs,
-    data?.user,
-    currentMaxScore,
-    currentMinScore,
-    data?.settings?.adaptiveCalibrationEnabled,
-    targetScorePoints,
-    flashcardDue,
-    flashcardDecks,
-    persistCalibrationMetric,
-    patchData,
-    planRefreshTick,
-    flagRevision,
-    mcStatsSyncKey
-]);
-
-useEffect(() => {
-    if (!isMcStatsReady) return;
-    if (typeof projectedScore !== 'number' || Number.isNaN(projectedScore)) return;
-    const persistedScore = (data?.coachScore !== null && data?.coachScore !== undefined && data?.coachScore !== '')
-        ? Number(data.coachScore)
-        : NaN;
-    if (Number.isFinite(persistedScore) && Math.abs(projectedScore - persistedScore) <= 0.01) {
-        lastPushedScoreRef.current = projectedScore;
-        return;
-    }
-    if (projectedScore !== lastPushedScoreRef.current) {
-        if (lastPushedScoreRef.current === null || Math.abs(projectedScore - lastPushedScoreRef.current) > 0.01) {
+    useEffect(() => {
+        if (!isMcStatsReady) return;
+        if (typeof projectedScore !== 'number' || Number.isNaN(projectedScore)) return;
+        const persistedScore = (data?.coachScore !== null && data?.coachScore !== undefined && data?.coachScore !== '')
+            ? Number(data.coachScore)
+            : NaN;
+        if (Number.isFinite(persistedScore) && Math.abs(projectedScore - persistedScore) <= 0.01) {
             lastPushedScoreRef.current = projectedScore;
-            const timer = setTimeout(() => {
-                if (updateCoachScore) updateCoachScore(projectedScore);
-            }, 0);
-            return () => clearTimeout(timer);
+            return;
         }
+        if (projectedScore !== lastPushedScoreRef.current) {
+            if (lastPushedScoreRef.current === null || Math.abs(projectedScore - lastPushedScoreRef.current) > 0.01) {
+                lastPushedScoreRef.current = projectedScore;
+                const timer = setTimeout(() => {
+                    if (updateCoachScore) updateCoachScore(projectedScore);
+                }, 0);
+                return () => clearTimeout(timer);
+            }
+        }
+    }, [isMcStatsReady, projectedScore, data?.coachScore, updateCoachScore]);
+
+
+
+    const handleChangeTab = useCallback((tab) => {
+        if (tab === 'analytics') setActiveTab('analytics');
+        else if (tab === 'control' && showControlCenter) setActiveTab('control');
+        else setActiveTab('insights');
+    }, [showControlCenter]);
+
+
+
+    // BUG-8 FIX: Merge both operations into a single patchData call to prevent desync
+    const handleClearHistory = useCallback(() => {
+        clearMcCache();
+        clearUrgencyCache();
+        clearTopicsCache();
+        patchData(() => ({
+            coachPlan: [],
+            coachPlanner: { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] }
+        }));
+    }, [patchData]);
+
+    const handleRegeneratePlan = useCallback(() => {
+        clearMcCache();
+        clearUrgencyCache();
+        clearTopicsCache();
+        setPlanRefreshTick(t => t + 1);
+    }, []);
+
+
+
+    // BUG-FIX: antes, se o concurso não tinha `categories` (usuário novo), o efeito de
+    // análise retornava cedo, isAnalyzing nunca virava false e o loader girava para sempre.
+    if (!isHydrated || (isAnalyzing && data?.categories)) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+                <div className="relative">
+                    <div className="w-16 h-16 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
+                    <Brain className="absolute inset-0 m-auto text-indigo-500 animate-pulse" size={24} />
+                </div>
+                <div className="flex flex-col items-center">
+                    <span className="text-white font-black uppercase tracking-widest text-xs">Sincronizando Redes Neurais</span>
+                    <span className="text-slate-500 text-[10px] mt-1 uppercase font-bold animate-pulse">Processando Probabilidades...</span>
+                </div>
+            </div>
+        );
     }
-}, [isMcStatsReady, projectedScore, data?.coachScore, updateCoachScore]);
 
-
-
-const handleChangeTab = useCallback((tab) => {
-    if (tab === 'analytics') setActiveTab('analytics');
-    else if (tab === 'control' && showControlCenter) setActiveTab('control');
-    else setActiveTab('insights');
-}, [showControlCenter]);
-
-
-
-// BUG-8 FIX: Merge both operations into a single patchData call to prevent desync
-const handleClearHistory = useCallback(() => {
-    clearMcCache();
-    clearUrgencyCache();
-    clearTopicsCache();
-    patchData(() => ({
-        coachPlan: [],
-        coachPlanner: { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] }
-    }));
-}, [patchData]);
-
-const handleRegeneratePlan = useCallback(() => {
-    clearMcCache();
-    clearUrgencyCache();
-    clearTopicsCache();
-    setPlanRefreshTick(t => t + 1);
-}, []);
-
-
-
-// BUG-FIX: antes, se o concurso não tinha `categories` (usuário novo), o efeito de
-// análise retornava cedo, isAnalyzing nunca virava false e o loader girava para sempre.
-if (!isHydrated || (isAnalyzing && data?.categories)) {
     return (
-        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-            <div className="relative">
-                <div className="w-16 h-16 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
-                <Brain className="absolute inset-0 m-auto text-indigo-500 animate-pulse" size={24} />
-            </div>
-            <div className="flex flex-col items-center">
-                <span className="text-white font-black uppercase tracking-widest text-xs">Sincronizando Redes Neurais</span>
-                <span className="text-slate-500 text-[10px] mt-1 uppercase font-bold animate-pulse">Processando Probabilidades...</span>
-            </div>
-        </div>
-    );
-}
+        <PageErrorBoundary pageName="Coach">
+            <div ref={topRef} className="max-w-[1560px] mx-auto px-3 sm:px-5 lg:px-6 pt-1 sm:pt-2 pb-10 sm:pb-16">
+                <div className="relative z-40 flex flex-col lg:flex-row lg:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-5">
+                    <PageHeader
+                        title="Análise do Coach"
+                        description="Mentor estatístico processando seu desempenho para otimizar sua aprovação."
+                    />
 
-return (
-    <PageErrorBoundary pageName="Coach">
-        <div ref={topRef} className="max-w-[1560px] mx-auto px-3 sm:px-5 lg:px-6 pt-1 sm:pt-2 pb-10 sm:pb-16">
-            <div className="relative z-40 flex flex-col lg:flex-row lg:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-5">
-                <PageHeader
-                    title="Análise do Coach"
-                    description="Mentor estatístico processando seu desempenho para otimizar sua aprovação."
-                />
-
-                <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 sm:gap-3 bg-slate-900/80 border border-white/10 p-2 sm:p-2.5 rounded-2xl backdrop-blur-xl w-full lg:w-auto shadow-xl">
-                    <div className="flex items-center justify-between sm:justify-start gap-2 sm:gap-3 px-1 w-full sm:w-auto">
-                        <QuickStat label="Volatilidade" value={`${Number.isFinite(normalizedVolatility) ? normalizedVolatility.toFixed(1) : '0.0'}pp`} color="text-amber-400" icon={<Zap size={13} />} />
-                        <div className="w-px h-5 bg-white/10 shrink-0" />
-                        <QuickStat
-                            label="Tendência"
-                            value={formattedDrift}
-                            color={normalizedDrift >= 0 ? "text-emerald-400" : "text-rose-400"}
-                            icon={normalizedDrift >= 0 ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
-                        />
-                        <div className="w-px h-5 bg-white/10 shrink-0" />
-                        <QuickStat label="Simulados" value={totalSimulados} color="text-indigo-400" icon={<Dna size={13} />} />
-                    </div>
-                    <div className="hidden sm:block w-px h-5 bg-white/10 shrink-0" />
-                    <div className="w-full sm:w-auto flex justify-end border-t border-white/5 pt-1.5 sm:pt-0 sm:border-t-0">
-                        <MonteCarloDebugger stats={mcStats} />
+                    <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 sm:gap-3 bg-slate-900/80 border border-white/10 p-2 sm:p-2.5 rounded-2xl backdrop-blur-xl w-full lg:w-auto shadow-xl">
+                        <div className="flex items-center justify-between sm:justify-start gap-2 sm:gap-3 px-1 w-full sm:w-auto">
+                            <QuickStat label="Volatilidade" value={`${Number.isFinite(normalizedVolatility) ? normalizedVolatility.toFixed(1) : '0.0'}pp`} color="text-amber-400" icon={<Zap size={13} />} />
+                            <div className="w-px h-5 bg-white/10 shrink-0" />
+                            <QuickStat
+                                label="Tendência"
+                                value={formattedDrift}
+                                color={normalizedDrift >= 0 ? "text-emerald-400" : "text-rose-400"}
+                                icon={normalizedDrift >= 0 ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
+                            />
+                            <div className="w-px h-5 bg-white/10 shrink-0" />
+                            <QuickStat label="Simulados" value={totalSimulados} color="text-indigo-400" icon={<Dna size={13} />} />
+                        </div>
+                        <div className="hidden sm:block w-px h-5 bg-white/10 shrink-0" />
+                        <div className="w-full sm:w-auto flex justify-end border-t border-white/5 pt-1.5 sm:pt-0 sm:border-t-0">
+                            <MonteCarloDebugger stats={mcStats} />
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            {/* VIS-FIX: a condição fica no pai para o AnimatePresence conseguir animar a saída */}
-            <AnimatePresence>
-                {degradedCount > 0 && <GovernanceBanner key="governance-banner" degradedCount={degradedCount} />}
-            </AnimatePresence>
+                {/* VIS-FIX: a condição fica no pai para o AnimatePresence conseguir animar a saída */}
+                <AnimatePresence>
+                    {degradedCount > 0 && <GovernanceBanner key="governance-banner" degradedCount={degradedCount} />}
+                </AnimatePresence>
 
-            <div className="space-y-4 sm:space-y-5">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                    <AdaptiveMaturityBadge compact />
-                </div>
-                <div className="w-full">
-                    <CoachMenuNav activeTab={safeActiveTab} onChangeTab={handleChangeTab} isPremium={isPremium} showControlCenter={showControlCenter} />
+                <div className="space-y-4 sm:space-y-5">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                        <AdaptiveMaturityBadge compact />
+                    </div>
+                    <div className="w-full">
+                        <CoachMenuNav activeTab={safeActiveTab} onChangeTab={handleChangeTab} isPremium={isPremium} showControlCenter={showControlCenter} />
 
-                    <AnimatePresence mode="wait">
-                        <Motion.div
-                            key={safeActiveTab}
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            transition={{ duration: 0.2, ease: "easeOut" }}
-                            style={{ transform: 'none', filter: 'none', willChange: 'auto' }}
-                            className="min-h-[200px]"
-                        >
-                            <div
-                                role="tabpanel"
-                                id={`coach-panel-${safeActiveTab}`}
-                                aria-labelledby={`coach-tab-${safeActiveTab}`}
-                                tabIndex={0}
+                        <AnimatePresence mode="wait">
+                            <Motion.div
+                                key={safeActiveTab}
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 0.2, ease: "easeOut" }}
+                                style={{ transform: 'none', filter: 'none', willChange: 'auto' }}
+                                className="min-h-[200px]"
                             >
-                                {safeActiveTab === 'insights' ? (
-                                    <>
-                                        {flashcardDue > 0 && (
-                                            <div className="mb-3 flex flex-wrap sm:flex-nowrap items-center gap-3 rounded-xl border border-amber-500/20 bg-amber-500/5 px-3.5 py-2.5 text-xs sm:text-sm">
-                                                <BookOpen className="text-amber-400 shrink-0" size={16} />
-                                                <div className="flex-1 min-w-[180px] text-amber-200">
-                                                    <span className="font-semibold">{flashcardDue} flashcard{flashcardDue === 1 ? '' : 's'}</span> pendente{flashcardDue === 1 ? '' : 's'} para hoje. SRS melhora retenção e o modelo.
+                                <div
+                                    role="tabpanel"
+                                    id={`coach-panel-${safeActiveTab}`}
+                                    aria-labelledby={`coach-tab-${safeActiveTab}`}
+                                    tabIndex={0}
+                                >
+                                    {safeActiveTab === 'insights' ? (
+                                        <>
+                                            {flashcardDue > 0 && (
+                                                <div className="mb-3 flex flex-wrap sm:flex-nowrap items-center gap-3 rounded-xl border border-amber-500/20 bg-amber-500/5 px-3.5 py-2.5 text-xs sm:text-sm">
+                                                    <BookOpen className="text-amber-400 shrink-0" size={16} />
+                                                    <div className="flex-1 min-w-[180px] text-amber-200">
+                                                        <span className="font-semibold">{flashcardDue} flashcard{flashcardDue === 1 ? '' : 's'}</span> pendente{flashcardDue === 1 ? '' : 's'} para hoje. SRS melhora retenção e o modelo.
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => navigate('/flashcards')}
+                                                        className="shrink-0 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-bold text-amber-200 hover:bg-amber-500/20 transition"
+                                                    >
+                                                        Revisar agora
+                                                    </button>
                                                 </div>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => navigate('/flashcards')}
-                                                    className="shrink-0 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-bold text-amber-200 hover:bg-amber-500/20 transition"
-                                                >
-                                                    Revisar agora
-                                                </button>
-                                            </div>
-                                        )}
+                                            )}
 
-                                        {/* Visual global MC context */}
-                                        {globalProjection && (
-                                            <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-3.5 py-2 text-xs">
-                                                <span className="font-black uppercase tracking-[0.15em] text-[10px] text-emerald-300">Projeção Global</span>
-                                                <span className="font-mono text-sm sm:text-base font-bold text-emerald-200 tabular-nums">
-                                                    {globalProjection.points.toFixed(1)}
-                                                    <span className="text-emerald-400/60 text-xs"> / {globalProjection.max} pts</span>
-                                                </span>
-                                                <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 font-mono font-bold text-emerald-300 tabular-nums text-xs">{Math.round(globalProjection.pct)}%</span>
-                                                {globalProjection.probability !== null && (
-                                                    <span className="text-emerald-400/70 text-xs">· prob. de atingir a meta <span className="font-mono font-bold text-emerald-200">{Math.round(globalProjection.probability)}%</span></span>
-                                                )}
-                                            </div>
-                                        )}
-                                        <AICoachView
-                                            suggestedFocus={suggestedFocus}
-                                            onClearHistory={handleClearHistory}
-                                            onRegeneratePlan={handleRegeneratePlan}
+                                            {/* Visual global MC context */}
+                                            {globalProjection && (
+                                                <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-3.5 py-2 text-xs">
+                                                    <span className="font-black uppercase tracking-[0.15em] text-[10px] text-emerald-300">Projeção Global</span>
+                                                    <span className="font-mono text-sm sm:text-base font-bold text-emerald-200 tabular-nums">
+                                                        {globalProjection.points.toFixed(1)}
+                                                        <span className="text-emerald-400/60 text-xs"> / {globalProjection.max} pts</span>
+                                                    </span>
+                                                    <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 font-mono font-bold text-emerald-300 tabular-nums text-xs">{Math.round(globalProjection.pct)}%</span>
+                                                    {globalProjection.probability !== null && (
+                                                        <span className="text-emerald-400/70 text-xs">· prob. de atingir a meta <span className="font-mono font-bold text-emerald-200">{Math.round(globalProjection.probability)}%</span></span>
+                                                    )}
+                                                </div>
+                                            )}
+                                            <AICoachView
+                                                suggestedFocus={suggestedFocus}
+                                                onClearHistory={handleClearHistory}
+                                                onRegeneratePlan={handleRegeneratePlan}
+                                            />
+                                        </>
+                                    ) : safeActiveTab === 'control' && showControlCenter ? (
+                                        <CoachControlCenter
+                                            embedded
+                                            contestId={activeId}
+                                            categories={categories}
+                                            simulados={combinedHistory}
+                                            studyLogs={studyLogs}
+                                            maxScore={currentMaxScore}
+                                            minScore={currentMinScore}
+                                            targetScore={targetScorePoints}
+                                            calibrationAuditLog={data?.calibrationAuditLog}
+                                            calibrationHistoryByCategory={data?.calibrationHistoryByCategory}
                                         />
-                                    </>
-                                ) : safeActiveTab === 'control' && showControlCenter ? (
-                                    <CoachControlCenter
-                                        embedded
-                                        contestId={activeId}
-                                        categories={categories}
-                                        simulados={combinedHistory}
-                                        studyLogs={studyLogs}
-                                        maxScore={currentMaxScore}
-                                        minScore={currentMinScore}
-                                        targetScore={targetScorePoints}
-                                        calibrationAuditLog={data?.calibrationAuditLog}
-                                        calibrationHistoryByCategory={data?.calibrationHistoryByCategory}
-                                    />
-                                ) : (
-                                    <RaioXDashboard data={data} />
-                                )}
-                            </div>
-                        </Motion.div>
-                    </AnimatePresence>
+                                    ) : (
+                                        <RaioXDashboard data={data} />
+                                    )}
+                                </div>
+                            </Motion.div>
+                        </AnimatePresence>
+                    </div>
                 </div>
             </div>
-        </div>
-    </PageErrorBoundary>
-);
+        </PageErrorBoundary>
+    );
 }
 
 // QuickStat, StatRow e GovernanceBanner extraídos para src/components/coach/CoachHeaderWidgets.jsx
@@ -1365,7 +1365,7 @@ export function RaioXDashboard({ data }) {
             ? rawAudit
             : (rawAudit && typeof rawAudit === 'object' ? Object.values(rawAudit) : []);
         return source
-            .filter(log => log && isActiveCategoryEntry(log.categoryName || log.categoryId))
+            .filter(log => log && (isActiveCategoryEntry(log.categoryId) || isActiveCategoryEntry(log.categoryName)))
             .sort((a, b) => toTimestampMs(b?.timestamp) - toTimestampMs(a?.timestamp));
     }, [data?.calibrationAuditLog, isActiveCategoryEntry]);
 
@@ -1402,9 +1402,11 @@ export function RaioXDashboard({ data }) {
             }
         };
 
-        // 1. Ingest from sortedLogs (audit log)
+        // 1. Ingest from sortedLogs (audit log) — prefer categoryId when it maps to a renamed active category
         sortedLogs.forEach(log => {
-            const rawCat = log?.categoryName || log?.categoryId;
+            const rawCat = (log?.categoryId && isActiveCategoryEntry(log.categoryId))
+                ? log.categoryId
+                : (log?.categoryName || log?.categoryId);
             addPoint(rawCat, log);
         });
 
@@ -1454,22 +1456,30 @@ export function RaioXDashboard({ data }) {
 
     // FIX: Prefer reliability diagram for the selected category, fall back to newest with reliability
     const activeReliabilityLog = useMemo(() => {
+        const resolveLogCanonicalName = (log) => {
+            if (!log) return '';
+            const primary = (log.categoryId && isActiveCategoryEntry(log.categoryId))
+                ? log.categoryId
+                : (log.categoryName || log.categoryId);
+            return displaySubject(primary, categories);
+        };
+
         const historyEntries = Object.entries(data?.calibrationHistoryByCategory || {})
             .filter(([rawCat]) => isActiveCategoryEntry(rawCat))
             .flatMap(([rawCat, hist]) => {
                 const arr = Array.isArray(hist) ? hist : (hist && typeof hist === 'object' ? Object.values(hist) : []);
                 return arr.filter(Boolean).map(item => ({
                     ...item,
-                    categoryId: item.categoryId || rawCat,
+                    categoryId: rawCat || item.categoryId,
                     categoryName: item.categoryName || rawCat
                 }));
-            })
-            .sort((a, b) => toTimestampMs(b?.timestamp) - toTimestampMs(a?.timestamp));
+            });
 
-        const combinedSources = [...sortedLogs, ...historyEntries];
+        const combinedSources = [...sortedLogs, ...historyEntries]
+            .sort((a, b) => toTimestampMs(b?.timestamp) - toTimestampMs(a?.timestamp));
         if (effectiveCategory) {
             const match = combinedSources.find(log => {
-                const name = displaySubject(log?.categoryName || log?.categoryId, categories);
+                const name = resolveLogCanonicalName(log);
                 return name === effectiveCategory && Array.isArray(log?.reliability) && log.reliability.length > 0;
             });
             // Quando uma disciplina específica está selecionada, nunca vazar a curva/ECE de outra disciplina
@@ -1480,7 +1490,12 @@ export function RaioXDashboard({ data }) {
 
     const avgEce = useMemo(() => {
         if (effectiveCategory) {
-            const targetLogs = sortedLogs.filter(log => displaySubject(log?.categoryName || log?.categoryId, categories) === effectiveCategory);
+            const targetLogs = sortedLogs.filter(log => {
+                const primary = (log?.categoryId && isActiveCategoryEntry(log.categoryId))
+                    ? log.categoryId
+                    : (log?.categoryName || log?.categoryId);
+                return displaySubject(primary, categories) === effectiveCategory;
+            });
             const eceValues = targetLogs
                 .map(log => toFiniteNumber(log?.ece, null))
                 .filter(val => val !== null);
@@ -1505,7 +1520,7 @@ export function RaioXDashboard({ data }) {
             .map(s => toFiniteNumber(s.avgEce, null))
             .filter(val => val !== null);
         return summaryEces.length ? (summaryEces.reduce((a, b) => a + b, 0) / summaryEces.length) : null;
-    }, [sortedLogs, calibrationSummary, effectiveCategory, categories, activeReliabilityLog]);
+    }, [sortedLogs, calibrationSummary, effectiveCategory, categories, activeReliabilityLog, isActiveCategoryEntry]);
 
     return (
         <div className="space-y-12 animate-fade-in">

@@ -161,7 +161,12 @@ export const TimeSpentChart = React.memo(function TimeSpentChart({ subjectAggDat
             }
         }
         if (hasTopicWithTime && topicsTimedQ > 0) return { ts: topicsTs, tq: topicsTimedQ };
-        let tot = Number(entry?.total ?? entry?.questoes ?? entry?.totalQuestoes ?? entry?.questions) || 0;
+        const explicitRootTimedQ = typeof entry?.timedQuestoes === 'number' && entry.timedQuestoes > 0
+            ? entry.timedQuestoes
+            : (Number.isFinite(Number(entry?.timedQuestoes)) && Number(entry.timedQuestoes) > 0 ? Number(entry.timedQuestoes) : 0);
+        let tot = explicitRootTimedQ > 0
+            ? explicitRootTimedQ
+            : (Number(entry?.total ?? entry?.questoes ?? entry?.totalQuestoes ?? entry?.questions) || 0);
         if (tot === 0 && safeTopics.length > 0) {
             tot = safeTopics.reduce((s, t) => s + (Number(t?.total ?? t?.questoes ?? t?.totalQuestoes ?? t?.questions) || 0), 0);
         }
@@ -196,9 +201,10 @@ export const TimeSpentChart = React.memo(function TimeSpentChart({ subjectAggDat
                 const todayKey = getDateKey(new Date());
                 const todayNoonMs = toDateMs(todayKey) || nowMs;
                 const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
-                const history = timeWindow !== 'all'
+                const history = (timeWindow !== 'all'
                     ? filterHistoryByTimeWindow(cat.simuladoStats?.history || [], timeWindow)
-                    : Object.values(cat.simuladoStats?.history || {}).filter(h => h && h.valid !== false);
+                    : Object.values(cat.simuladoStats?.history || {}).filter(h => h && h.valid !== false && h.validated !== false)
+                ).filter(h => h && h.materia !== 'Simulado Personalizado');
 
                 const recentStats = history.reduce((acc, h) => {
                     const hKey = getDateKey(h.date || h.createdAt);
@@ -224,9 +230,10 @@ export const TimeSpentChart = React.memo(function TimeSpentChart({ subjectAggDat
 
             if (cat) {
                 const todayKey = getDateKey(new Date());
-                const baseHistory = timeWindow !== 'all'
+                const baseHistory = (timeWindow !== 'all'
                     ? filterHistoryByTimeWindow(cat.simuladoStats?.history || [], timeWindow)
-                    : Object.values(cat.simuladoStats?.history || {}).filter(h => h && h.valid !== false);
+                    : Object.values(cat.simuladoStats?.history || {}).filter(h => h && h.valid !== false && h.validated !== false)
+                ).filter(h => h && h.materia !== 'Simulado Personalizado');
 
                 const allValidTimed = baseHistory
                     .filter(h => toDateMs(h.date || h.createdAt) != null && extractEntryTiming(h, catMax) !== null);
@@ -329,19 +336,26 @@ export const TimeSpentChart = React.memo(function TimeSpentChart({ subjectAggDat
 
     const legendStats = useMemo(() => {
         return chartData.reduce((acc, item) => {
-            if (item.displaySeconds != null && Number.isFinite(Number(item.displaySeconds))) {
+            // Média Geral pondera o avgSeconds global (não displaySeconds de 7 dias) pelo volume total cronometrado
+            if (item.avgSeconds != null && Number.isFinite(Number(item.avgSeconds))) {
                 const w = Number(item.timedQuestoes) > 0 ? Number(item.timedQuestoes) : 1;
-                acc.avgWeighted += Number(item.displaySeconds) * w;
+                acc.avgWeighted += Number(item.avgSeconds) * w;
                 acc.avgWeight += w;
             }
 
-            if (item.latestSeconds != null && Number.isFinite(Number(item.latestSeconds)) && Number(item.latestSeconds) > 0) {
-                acc.latest += Number(item.latestSeconds);
+            // Último Geral ("Última sessão de cada") usa absoluteLatestSeconds com fallback para latestSeconds
+            const lastSessionSec = (item.absoluteLatestSeconds != null && Number.isFinite(Number(item.absoluteLatestSeconds)) && Number(item.absoluteLatestSeconds) > 0)
+                ? Number(item.absoluteLatestSeconds)
+                : ((item.latestSeconds != null && Number.isFinite(Number(item.latestSeconds)) && Number(item.latestSeconds) > 0) ? Number(item.latestSeconds) : null);
+
+            if (lastSessionSec !== null) {
+                acc.latest += lastSessionSec;
                 acc.latestCount += 1;
 
-                const margin = Math.max(1, Math.round((Number(item.displaySeconds) || 0) * 0.05));
-                if (Number(item.latestSeconds) > Number(item.displaySeconds) + margin) acc.above += 1;
-                if (Number(item.latestSeconds) < Number(item.displaySeconds) - margin) acc.below += 1;
+                const refBaseline = Number(item.displaySeconds ?? item.avgSeconds) || 0;
+                const margin = Math.max(1, Math.round(refBaseline * 0.05));
+                if (lastSessionSec > refBaseline + margin) acc.above += 1;
+                if (lastSessionSec < refBaseline - margin) acc.below += 1;
             }
             return acc;
         }, { avgWeighted: 0, avgWeight: 0, latest: 0, above: 0, below: 0, latestCount: 0 });

@@ -19,9 +19,13 @@ import {
   EXAM_BOARDS,
 } from '../../../engine/adaptive/irtEngine';
 import { useAppStore } from '../../../store/useAppStore';
-import { normalize } from '../../../utils/normalization';
+import { normalize, isSubjectMatch } from '../../../utils/normalization';
+import { getDateKey, toDateMs } from '../../../utils/dateHelper';
+import { parseNoonLocal, addDaysNoon } from '../../../utils/parseNoonLocal';
 
 const safeArr = (v) => (Array.isArray(v) ? v : (v && typeof v === 'object' ? Object.values(v) : [])).filter(Boolean);
+const isStrictNum = (v) =>
+  v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
 
 function getThetaBand(theta) {
   if (theta >= 1.2) return { label: 'Alto domínio', cls: 'bg-emerald-500/15 border-emerald-500/35 text-emerald-300' };
@@ -83,6 +87,7 @@ export const IRTPsychometricChart = React.memo(function IRTPsychometricChart({
   simuladoRows = [],
   focusCategory = null,
   showOnlyFocus = false,
+  timeWindow = 'all',
   minScore = 0,
   maxScore = 100,
   examBoard: propBoard = 'PADRAO',
@@ -116,30 +121,109 @@ export const IRTPsychometricChart = React.memo(function IRTPsychometricChart({
     if (r.categoryId != null && focusCategory.id != null) {
       return String(r.categoryId) === String(focusCategory.id);
     }
-    const rSubj = normalize(r.subject || r.categoryName || r.materia || '');
-    const fName = normalize(focusCategory.name || '');
-    return Boolean(rSubj && fName && rSubj === fName);
+    const rSubj = r.subject || r.categoryName || r.materia || '';
+    const fName = focusCategory.name || '';
+    return Boolean(rSubj && fName && isSubjectMatch(rSubj, fName));
+  };
+
+  const cutoffMs = useMemo(() => {
+    if (!timeWindow || timeWindow === 'all') return null;
+    const days = Number.parseInt(String(timeWindow), 10);
+    if (!Number.isFinite(days) || days <= 0) return null;
+    const todayKey = getDateKey(new Date());
+    const todayNoon = todayKey ? parseNoonLocal(todayKey) : new Date();
+    const cutoffNoon = todayNoon ? addDaysNoon(todayNoon, -days) : null;
+    const cutoffKey = cutoffNoon ? getDateKey(cutoffNoon) : null;
+    return cutoffKey ? toDateMs(cutoffKey) : null;
+  }, [timeWindow]);
+
+  const filterByWindow = (list) => {
+    if (!cutoffMs) return list;
+    return list.filter((item) => {
+      const dk = getDateKey(item?.date || item?.createdAt);
+      if (!dk) return true;
+      const ms = toDateMs(dk);
+      return !Number.isFinite(ms) || ms >= cutoffMs;
+    });
   };
 
   const irtEntries = useMemo(() => {
-    const targetCats = showOnlyFocus && focusCategory ? [focusCategory] : safeArr(categories);
-    const fromHist = targetCats.flatMap((c) => safeArr(c?.simuladoStats?.history));
-    const fromRows = safeArr(simuladoRows).filter(
-      (r) => r && r.valid !== false && r.validated !== false && rowMatchesFocus(r)
+    const safeCats = safeArr(categories);
+    const targetCats = showOnlyFocus && focusCategory ? [focusCategory] : safeCats;
+    const gMin = isStrictNum(minScore) ? Number(minScore) : 0;
+    const gMax = isStrictNum(maxScore) && Number(maxScore) > gMin ? Number(maxScore) : Math.max(gMin + 1, 100);
+
+    const resolveCatForRow = (r) => {
+      if (r.categoryId != null) {
+        const byId = safeCats.find((c) => c?.id != null && String(c.id) === String(r.categoryId));
+        if (byId) return byId;
+      }
+      const subj = r.subject || r.categoryName || r.materia || '';
+      if (!subj) return null;
+      return safeCats.find((c) => c?.name && isSubjectMatch(subj, c.name)) || null;
+    };
+
+    const withCatScale = (entry, cat) => {
+      const cMin = isStrictNum(cat?.minScore) ? Number(cat.minScore) : gMin;
+      const cMax = isStrictNum(cat?.maxScore) && Number(cat.maxScore) > cMin ? Number(cat.maxScore) : gMax;
+      return {
+        ...entry,
+        minScore: isStrictNum(entry?.minScore) ? Number(entry.minScore) : cMin,
+        maxScore: isStrictNum(entry?.maxScore) && Number(entry.maxScore) > cMin ? Number(entry.maxScore) : cMax,
+      };
+    };
+
+    const fromRows = filterByWindow(
+      safeArr(simuladoRows).filter(
+        (r) => r && r.valid !== false && r.validated !== false && rowMatchesFocus(r)
+      )
+    ).map((r) => withCatScale(r, resolveCatForRow(r)));
+
+    const rowCoveredCats = new Set(
+      fromRows.map((r) => {
+        const matched = resolveCatForRow(r);
+        return matched?.id != null ? String(matched.id) : normalize(r.subject || r.categoryName || r.materia || '');
+      }).filter(Boolean)
     );
-    return fromRows.length > 0 ? fromRows : fromHist;
+
+    const fromHist = targetCats.flatMap((c) => {
+      const catKey = c?.id != null ? String(c.id) : normalize(c?.name || '');
+      const hasRowsForCat = Boolean(catKey && rowCoveredCats.has(catKey));
+      return filterByWindow(
+        safeArr(c?.simuladoStats?.history).filter((h) => h && h.valid !== false && h.validated !== false)
+      )
+        .filter((h) => !hasRowsForCat || Boolean(h.difficulty || h.dificuldade))
+        .map((h) => withCatScale(h, c));
+    });
+
+    if (fromRows.length === 0) return fromHist;
+    if (fromHist.length === 0) return fromRows;
+    // Deduplicate overlapping (dateKey, total, score) entries already in fromRows
+    const rowSigs = new Set(
+      fromRows.map((r) => `${getDateKey(r.date || r.createdAt) || ''}|${r.total ?? ''}|${r.correct ?? ''}|${r.score ?? ''}`)
+    );
+    const extraHist = fromHist.filter((h) => {
+      const sig = `${getDateKey(h.date || h.createdAt) || ''}|${h.total ?? ''}|${h.correct ?? ''}|${h.score ?? ''}`;
+      return !rowSigs.has(sig);
+    });
+    return [...fromRows, ...extraHist];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [categories, simuladoRows, focusCategory, showOnlyFocus]);
+  }, [categories, simuladoRows, focusCategory, showOnlyFocus, cutoffMs, minScore, maxScore]);
 
   const irt = useMemo(() => estimateIRTAbility(irtEntries, { minScore, maxScore }), [irtEntries, minScore, maxScore]);
   const thetaBand = getThetaBand(irt.theta);
+  const iccDomain = useMemo(() => {
+    const xMin = Math.min(-2.2, Math.floor((irt.theta - 0.4) * 5) / 5);
+    const xMax = Math.max(2.4, Math.ceil((irt.theta + 0.4) * 5) / 5);
+    return [Number(xMin.toFixed(1)), Number(xMax.toFixed(1))];
+  }, [irt.theta]);
 
   const allQuestionTelemetry = useMemo(() => {
-    return safeArr(simuladoRows)
-      .filter((r) => r && r.valid !== false && r.validated !== false && rowMatchesFocus(r))
-      .flatMap((r) => safeArr(r?.questionTelemetry));
+    return filterByWindow(
+      safeArr(simuladoRows).filter((r) => r && r.valid !== false && r.validated !== false && rowMatchesFocus(r))
+    ).flatMap((r) => safeArr(r?.questionTelemetry));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [simuladoRows, focusCategory, showOnlyFocus]);
+  }, [simuladoRows, focusCategory, showOnlyFocus, cutoffMs]);
 
   const guessing = useMemo(
     () => computeGuessingStrategy(allQuestionTelemetry, { penaltyPerWrong: penalty }),
@@ -227,7 +311,7 @@ export const IRTPsychometricChart = React.memo(function IRTPsychometricChart({
                     <ReferenceArea y1={65} y2={78} fill="#10b981" fillOpacity={0.08} />
                     <XAxis
                       type="number"
-                      domain={[-2.2, 2.4]}
+                      domain={iccDomain}
                       dataKey="b"
                       stroke="#64748b"
                       fontSize={10}

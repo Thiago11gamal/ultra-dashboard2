@@ -1,10 +1,12 @@
 import { useMemo } from 'react';
 import { getDateKey, normalizeDate } from '../utils/dateHelper';
 import { computeCategoryStats, computeBayesianLevel } from '../engine/stats';
-import { getSafeScore, getSyntheticTotal } from '../utils/scoreHelper';
+import { getSafeScore, getSyntheticTotal, resolveEffectiveCorrect } from '../utils/scoreHelper';
 
 const EMPTY_OBJECT = Object.freeze({});
 const EMPTY_ARRAY = Object.freeze([]);
+const isStrictNum = (v) =>
+    v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
 
 const getHistoryArray = (cat) => Object.values(cat?.simuladoStats?.history || EMPTY_OBJECT).filter(Boolean).filter(r => r.valid !== false && r.validated !== false);
 const getHistoryDate = (entry) => entry?.date || entry?.createdAt || null;
@@ -69,7 +71,7 @@ export function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100
     // ── PASSO 1: agregar por data em UMA passagem ──────────────────
     const aggregatedByDate = new Map();
     for (const h of history) {
-        if (!h || h.valid === false) continue;
+        if (!h || h.valid === false || h.validated === false) continue;
         const key = getDateKey(getHistoryDate(h));
         if (!key) continue;
         let rawTotal = Math.max(0, Number(h?.total ?? h?.questoes ?? h?.totalQuestoes ?? h?.questions) || 0);
@@ -113,11 +115,15 @@ export function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100
             compTotal = getSyntheticTotal(safeMax);
             compCorrect = toRatio(score) * compTotal;
         } else if (rawTotal > 0) {
-            if (!h?.isPercentage && hasCorrect && Number.isFinite(parsedCorrect)) {
-                compCorrect = rawCorrect;
-            } else if (hasScore) {
-                compCorrect = Math.round(toRatio(score) * rawTotal);
-            }
+            compCorrect = resolveEffectiveCorrect(
+                h,
+                score,
+                rawTotal,
+                hasCorrect && Number.isFinite(parsedCorrect),
+                rawCorrect,
+                safeMax,
+                safeMin
+            );
         }
         compCorrect = Math.max(0, Math.min(compTotal, Number.isFinite(compCorrect) ? compCorrect : 0));
 
@@ -260,6 +266,10 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
             mix(Number(h?.timeSpent ?? 0));
             mix(h?.isPercentage ? 1 : 0);
             mix(h?.valid === false ? 0 : 1);
+            mix(h?.validated === false ? 0 : 1);
+            mix(Math.round(Number(h?.penaltyPerWrong ?? 0) * 100));
+            mix(Number(h?.blanks ?? 0));
+            mix(Math.round(Number(h?.netPoints ?? 0) * 100));
             const su = String(h?.scoreUnit ?? h?.unit ?? '');
             for (let ui = 0; ui < su.length; ui++) mix(su.charCodeAt(ui));
             const rawTopics = Array.isArray(h?.topics)
@@ -273,6 +283,7 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
                 mix(Math.round(Number(t.score ?? t.scorePoints ?? t.scorePct ?? t.value ?? 0) * 100));
                 mix(t.isPercentage ? 1 : 0);
                 mix(t.valid === false ? 0 : 1);
+                mix(t.validated === false ? 0 : 1);
             });
             const dStr = String(h?.date || h?.createdAt || '');
             for (let i = 0; i < dStr.length; i++) {
@@ -289,20 +300,20 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
             if (t > 0) return t;
             const topicFallback = extractTopicsTotals(h, catMax, catMin);
             if (topicFallback.total > 0) return topicFallback.total;
-            if (h?.score != null || h?.scorePoints != null || topicFallback.hasTopicsScore) return getSyntheticTotal(catMax);
+            if (isStrictNum(h?.score) || isStrictNum(h?.scorePoints) || isStrictNum(h?.scorePct) || isStrictNum(h?.netPoints) || isStrictNum(h?.value) || topicFallback.hasTopicsScore) return getSyntheticTotal(catMax);
             return 0;
         };
         const volMap = new Map();
         const valid = categories.filter(c => {
-            const catMax = Number(c?.maxScore) > 0 ? Number(c.maxScore) : safeMax;
-            const catMin = Number.isFinite(Number(c?.minScore)) ? Number(c.minScore) : safeMin;
+            const catMax = isStrictNum(c?.maxScore) && Number(c.maxScore) > 0 ? Number(c.maxScore) : safeMax;
+            const catMin = isStrictNum(c?.minScore) ? Number(c.minScore) : safeMin;
             const history = getHistoryArray(c);
             const hasValidEntry = history.some(entry => {
                 if (!entry || typeof entry !== 'object') return false;
-                const hasScore = Number.isFinite(Number(entry.score ?? entry.scorePoints));
+                const hasScore = isStrictNum(entry.score) || isStrictNum(entry.scorePoints) || isStrictNum(entry.scorePct) || isStrictNum(entry.netPoints) || isStrictNum(entry.value);
                 const entryTot = Number(entry.total ?? entry.questoes ?? entry.totalQuestoes ?? entry.questions);
                 const hasTotal = Number.isFinite(entryTot) && entryTot > 0;
-                const hasCorrect = Number.isFinite(Number(entry.correct ?? entry.acertos ?? entry.correctCount));
+                const hasCorrect = isStrictNum(entry.correct) || isStrictNum(entry.acertos) || isStrictNum(entry.correctCount);
                 if (hasScore || hasTotal || hasCorrect) return true;
                 const topicFallback = extractTopicsTotals(entry, catMax, catMin);
                 return topicFallback.total > 0 || topicFallback.hasTopicsScore;
@@ -350,8 +361,8 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
                 return (dA?.getTime() || 0) - (dB?.getTime() || 0);
             });
             if (!history.length) return;
-            const catMax = Number(cat.maxScore) > 0 ? Number(cat.maxScore) : safeMax;
-            const catMin = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : safeMin;
+            const catMax = isStrictNum(cat.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : safeMax;
+            const catMin = isStrictNum(cat.minScore) ? Number(cat.minScore) : safeMin;
             const catRange = Math.max(1e-9, catMax - catMin);
             const toCatRatio = (score) => {
                 const n = Number(score);
@@ -393,16 +404,23 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
                 if (!Number.isFinite(score)) return;
                 if (!exactByDate[key]) exactByDate[key] = { correct: 0, total: 0, compCorrect: 0, compTotal: 0 };
                 let corrNorm;
+                let compTotal = rawTotal;
+                let compCorrect;
                 if (rawTotal > 0) {
                     corrNorm = (!h.isPercentage && hasCorrect && Number.isFinite(parsedCorrect))
                         ? rawC
                         : Math.max(0, Math.min(rawTotal, Math.round(toCatRatio(score) * rawTotal)));
+                    compCorrect = resolveEffectiveCorrect(
+                        h,
+                        score,
+                        rawTotal,
+                        hasCorrect && Number.isFinite(parsedCorrect),
+                        rawC,
+                        catMax,
+                        catMin
+                    );
                 } else {
                     corrNorm = 0;
-                }
-                let compTotal = rawTotal;
-                let compCorrect = corrNorm;
-                if (rawTotal === 0) {
                     compTotal = getSyntheticTotal(catMax);
                     compCorrect = toCatRatio(score) * compTotal;
                 }
@@ -515,8 +533,8 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
         });
 
         const rows = activeCategories.map(cat => {
-            const catMax = Number(cat.maxScore) > 0 ? Number(cat.maxScore) : safeMax;
-            const catMin = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : safeMin;
+            const catMax = isStrictNum(cat.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : safeMax;
+            const catMin = isStrictNum(cat.minScore) ? Number(cat.minScore) : safeMin;
             const catRange = Math.max(1e-9, catMax - catMin);
             const toCatRatio = (score) => {
                 const n = Number(score);
@@ -560,10 +578,16 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
                 if (isSyntheticEntry) {
                     if (tot <= 0) tot = getSyntheticTotal(catMax);
                     corrNorm = toCatRatio(score) * tot;
-                } else if (!h.isPercentage && hasCorrect && Number.isFinite(parsedCorrect)) {
-                    corrNorm = Math.max(0, Math.min(tot, raw));
                 } else {
-                    corrNorm = tot > 0 ? Math.round(toCatRatio(score) * tot) : raw;
+                    corrNorm = resolveEffectiveCorrect(
+                        h,
+                        score,
+                        tot,
+                        hasCorrect && Number.isFinite(parsedCorrect),
+                        raw,
+                        catMax,
+                        catMin
+                    );
                 }
                 dayMap[key].correct += corrNorm;
                 dayMap[key].total += tot;
@@ -613,8 +637,8 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
             }
         }
         activeCategories.forEach(cat => {
-            const catMax = Number(cat.maxScore) > 0 ? Number(cat.maxScore) : safeMax;
-            const catMin = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : safeMin;
+            const catMax = isStrictNum(cat.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : safeMax;
+            const catMin = isStrictNum(cat.minScore) ? Number(cat.minScore) : safeMin;
             const catRange = Math.max(1e-9, catMax - catMin);
             const toCatRatio = (score) => {
                 const n = Number(score);
@@ -657,11 +681,16 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
                 if (isSyntheticVolume) {
                     if (tot <= 0) tot = getSyntheticTotal(catMax);
                     corrNorm = toCatRatio(score) * tot;
-                } else if (!h.isPercentage && hasExplicitC && Number.isFinite(rawParsedC)) {
-                    corrNorm = Math.max(0, Math.min(tot, rawParsedC));
                 } else {
-                    const raw = Math.max(0, Number.isFinite(rawParsedC) ? rawParsedC : 0);
-                    corrNorm = tot > 0 ? Math.round(toCatRatio(score) * tot) : raw;
+                    corrNorm = resolveEffectiveCorrect(
+                        h,
+                        score,
+                        tot,
+                        hasExplicitC && Number.isFinite(rawParsedC),
+                        rawParsedC,
+                        catMax,
+                        catMin
+                    );
                 }
                 // FIX 2B: blindagem extra contra NaN em corrNorm e tot
                 if (!Number.isFinite(corrNorm)) return;

@@ -893,6 +893,11 @@ export function estimateUpliftByAction(events = [], options = {}) {
     let poolForAction = groupEvents;
     let controlsInPool = controlsInGroup;
     if (treatedInGroup.length > 0 && controlsInGroup.length === 0) {
+      // Ações mode_* compartilham exatamente os mesmos intervalos de simulados que task/volume;
+      // emprestar controles de tarefa/volume parearia o mesmo intervalo consigo mesmo (uplift falso 0.00).
+      if (isStudyModeAction(actionType)) {
+        return;
+      }
       const relevantControls =
         actionType === 'study_volume'
           ? (volumeControls.length > 0 ? volumeControls : globalControls)

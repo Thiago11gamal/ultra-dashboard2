@@ -4,10 +4,10 @@ import {
     Tooltip, ResponsiveContainer, ReferenceLine, Legend, Cell, Brush
 } from 'recharts';
 import { TrendingUp, BarChart3, HelpCircle, Zap } from 'lucide-react';
-import { getSafeScore, formatValue, getSyntheticTotal, extractTopicsTotals } from "../../../utils/scoreHelper";
+import { getSafeScore, formatValue, getSyntheticTotal, extractTopicsTotals, resolveEffectiveCorrect } from "../../../utils/scoreHelper";
 import WeeklyPerformanceChart from './WeeklyPerformanceChart';
 import { computeTopRegressions, computeTrendKpi } from '../../../utils/weeklyEvolutionInsights.js';
-import { parseNoonLocal, getDateKey } from '../../../utils/dateHelper';
+import { getMondayKey } from '../../../utils/heatmapAggregation.js';
 import { toArray, getHistoryDate } from '../../../utils/evolutionGuards';
 import { filterHistoryByTimeWindow } from '../../../hooks/useSubjectAggData';
 import { ratioToPoints } from '../../../utils/scoreHelper.conversions';
@@ -104,18 +104,12 @@ const WeeklyTooltip = React.memo(({ active, payload, label, hiddenKeys = {}, uni
 });
 
 const getMondayStr = (dateStr) => {
-    const dt = parseNoonLocal(dateStr);
-    if (!dt || isNaN(dt.getTime())) {
+    const monday = getMondayKey(dateStr);
+    if (!monday || monday.startsWith('sem-')) {
         console.warn(`[WeeklyEvolution] Data inválida ignorada: ${dateStr}`);
         return null;
     }
-    const dayOfWeek = dt.getDay();
-    const diff = dt.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
-    dt.setDate(diff);
-    const y = dt.getFullYear();
-    const m = String(dt.getMonth() + 1).padStart(2, '0');
-    const d = String(dt.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
+    return monday;
 };
 
 const formatWeek = (isoString) => {
@@ -273,7 +267,7 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
             if (!Array.isArray(historyArray) || !itemId) return;
             const cRange = Math.max(1e-9, cMax - cMin);
             historyArray.forEach(h => {
-                if (!h || h.valid === false) return;
+                if (!h || h.valid === false || h.validated === false) return;
                 const weekStr = getMondayStr(getHistoryDate(h));
                 if (!weekStr) return;
 
@@ -282,9 +276,8 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
 
                 let totalQ = Math.max(0, Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions) || 0);
                 let corr = 0;
-                const hasValidC = (h.correct !== undefined && h.correct !== null && String(h.correct).trim() !== '') ||
-                                  (h.acertos !== undefined && h.acertos !== null && String(h.acertos).trim() !== '') ||
-                                  (h.correctCount !== undefined && h.correctCount !== null && String(h.correctCount).trim() !== '');
+                const rawCorrVal = h.correct ?? h.acertos ?? h.correctCount;
+                const hasValidC = rawCorrVal !== undefined && rawCorrVal !== null && String(rawCorrVal).trim() !== '';
                 if (totalQ === 0 && h?.topics != null) {
                     const tf = extractTopicsTotals(h, cMax, cMin);
                     if (tf.total > 0) {
@@ -302,18 +295,31 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
                         return;
                     }
                 }
-                if (hasValidC && !h.isPercentage) {
-                    const rawC = Math.max(0, Number(h.correct ?? h.acertos ?? h.correctCount) || 0);
-                    if (totalQ === 0) totalQ = rawC > 0 ? rawC : getSyntheticTotal(cMax);
-                    corr = Math.min(totalQ, Number.isFinite(rawC) ? rawC : 0);
+                const score = getSafeScore(h, cMax, cMin);
+                if (totalQ > 0 && hasValidC && !h.isPercentage) {
+                    const rawC = Math.max(0, Number(rawCorrVal) || 0);
+                    corr = resolveEffectiveCorrect(h, score, totalQ, true, rawC, cMax, cMin);
                 } else {
-                    const score = getSafeScore(h, cMax, cMin);
-                    if (!Number.isFinite(score)) return;
-                    if (totalQ === 0 && hasValidNumber(h.score)) {
-                        totalQ = getSyntheticTotal(cMax);
+                    if (totalQ === 0 && hasValidC && !h.isPercentage) {
+                        const rawC = Math.max(0, Number(rawCorrVal) || 0);
+                        const hasExplicitScore = hasValidNumber(h.score) || hasValidNumber(h.scorePoints) || hasValidNumber(h.scorePct);
+                        if (rawC > 0 && !hasExplicitScore) {
+                            totalQ = rawC;
+                            corr = rawC;
+                        }
                     }
-                    if (totalQ === 0) return;
-                    corr = Math.max(0, Math.min(1, (score - cMin) / cRange)) * totalQ;
+                    if (totalQ === 0 || !hasValidC || h.isPercentage) {
+                        if (totalQ > 0 && corr > 0) {
+                            // já resolvido acima
+                        } else {
+                            if (!Number.isFinite(score)) return;
+                            if (totalQ === 0 && (hasValidNumber(h.score) || hasValidNumber(h.scorePoints) || hasValidNumber(h.scorePct) || h.isPercentage)) {
+                                totalQ = getSyntheticTotal(cMax);
+                            }
+                            if (totalQ === 0) return;
+                            corr = Math.max(0, Math.min(1, (score - cMin) / cRange)) * totalQ;
+                        }
+                    }
                 }
                 if (totalQ === 0) return;
 
@@ -337,10 +343,12 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
                 const cRange = Math.max(1e-9, cMax - cMin);
                 const hArray2 = filterHistoryByTimeWindow(cat.simuladoStats?.history || [], timeWindow);
                 hArray2.forEach(h => {
+                    if (!h || h.valid === false || h.validated === false) return;
                     const topics = toArray(h.topics);
                     
                     if (topics.length > 0) {
                         topics.forEach(t => {
+                            if (!t || t.valid === false || t.validated === false) return;
                             const tName = resolveTopicEntryName(cat.tasks, t);
                             if (!tName) return;
                             const tId = toSafeKey(tName);
@@ -351,21 +359,33 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
 
                             let totalQ = Math.max(0, Number(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions) || 0);
                             let corr = 0;
-                            const hasValidC = (t.correct !== undefined && t.correct !== null && String(t.correct).trim() !== '') ||
-                                              (t.acertos !== undefined && t.acertos !== null && String(t.acertos).trim() !== '') ||
-                                              (t.correctCount !== undefined && t.correctCount !== null && String(t.correctCount).trim() !== '');
-                            if (hasValidC && !t.isPercentage) {
-                                const rawC = Math.max(0, Number(t.correct ?? t.acertos ?? t.correctCount) || 0);
-                                if (totalQ === 0) totalQ = rawC > 0 ? rawC : getSyntheticTotal(cMax);
-                                corr = Math.min(totalQ, Number.isFinite(rawC) ? rawC : 0);
+                            const rawCorrVal = t.correct ?? t.acertos ?? t.correctCount;
+                            const hasValidC = rawCorrVal !== undefined && rawCorrVal !== null && String(rawCorrVal).trim() !== '';
+                            const topicScore = getSafeScore(t, cMax, cMin);
+                            if (totalQ > 0 && hasValidC && !t.isPercentage) {
+                                const rawC = Math.max(0, Number(rawCorrVal) || 0);
+                                corr = resolveEffectiveCorrect(t, topicScore, totalQ, true, rawC, cMax, cMin);
                             } else {
-                                const topicScore = getSafeScore(t, cMax, cMin);
-                                if (!Number.isFinite(topicScore)) return;
-                                if (totalQ === 0 && hasValidNumber(t.score)) {
-                                    totalQ = getSyntheticTotal(cMax);
+                                if (totalQ === 0 && hasValidC && !t.isPercentage) {
+                                    const rawC = Math.max(0, Number(rawCorrVal) || 0);
+                                    const hasExplicitScore = hasValidNumber(t.score) || hasValidNumber(t.scorePoints) || hasValidNumber(t.scorePct);
+                                    if (rawC > 0 && !hasExplicitScore) {
+                                        totalQ = rawC;
+                                        corr = rawC;
+                                    }
                                 }
-                                if (totalQ === 0) return;
-                                corr = Math.max(0, Math.min(1, (topicScore - cMin) / cRange)) * totalQ;
+                                if (totalQ === 0 || !hasValidC || t.isPercentage) {
+                                    if (totalQ > 0 && corr > 0) {
+                                        // já resolvido acima
+                                    } else {
+                                        if (!Number.isFinite(topicScore)) return;
+                                        if (totalQ === 0 && (hasValidNumber(t.score) || hasValidNumber(t.scorePoints) || hasValidNumber(t.scorePct) || t.isPercentage)) {
+                                            totalQ = getSyntheticTotal(cMax);
+                                        }
+                                        if (totalQ === 0) return;
+                                        corr = Math.max(0, Math.min(1, (topicScore - cMin) / cRange)) * totalQ;
+                                    }
+                                }
                             }
                             if (totalQ === 0) return;
                             weeksTemp[weekStr][tId].total += totalQ;
@@ -398,10 +418,13 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
                 displayDate: formatWeek(weekObj.week)
             };
 
-            const currentWeekDate = parseNoonLocal(weekObj.week);
-            const expectedPrevDate = currentWeekDate ? new Date(currentWeekDate) : null;
-            if (expectedPrevDate) expectedPrevDate.setDate(expectedPrevDate.getDate() - 7);
-            const expectedPrevKey = expectedPrevDate ? getDateKey(expectedPrevDate) : null;
+            const [wy, wm, wd] = String(weekObj.week || '').split('-').map(Number);
+            const expectedPrevDt = (Number.isFinite(wy) && Number.isFinite(wm) && Number.isFinite(wd))
+                ? new Date(Date.UTC(wy, wm - 1, wd - 7))
+                : null;
+            const expectedPrevKey = (expectedPrevDt && !Number.isNaN(expectedPrevDt.getTime()))
+                ? `${expectedPrevDt.getUTCFullYear()}-${String(expectedPrevDt.getUTCMonth() + 1).padStart(2, '0')}-${String(expectedPrevDt.getUTCDate()).padStart(2, '0')}`
+                : null;
             
             validIds.forEach(id => {
                 const currentData = weekObj[id];

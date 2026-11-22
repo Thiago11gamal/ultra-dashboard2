@@ -28,6 +28,9 @@ export default function Activity() {
     const studyLogsArray = Array.isArray(data?.studyLogs) ? data.studyLogs : Object.values(data?.studyLogs || {});
     const studySessionsArray = Array.isArray(data?.studySessions) ? data.studySessions : Object.values(data?.studySessions || {});
     const simuladoRowsArray = Array.isArray(data?.simuladoRows) ? data.simuladoRows : Object.values(data?.simuladoRows || {});
+    const categoriesArray = Array.isArray(data?.categories) ? data.categories : Object.values(data?.categories || {});
+    const contestMinScore = data?.minScore ?? data?.settings?.minScore ?? 0;
+    const contestMaxScore = data?.maxScore ?? data?.settings?.maxScore ?? 100;
 
     const handleResetXP = () => {
         setData(prev => ({
@@ -130,11 +133,12 @@ export default function Activity() {
 
             {/* Heatmap Circadiano (Dia da semana × Faixa horária) */}
             <CircadianHeatmapChart
+                categories={categoriesArray}
                 studyLogs={studyLogsArray}
                 studySessions={studySessionsArray}
                 simuladoRows={simuladoRowsArray}
-                minScore={data?.minScore ?? 0}
-                maxScore={data?.maxScore ?? 100}
+                minScore={contestMinScore}
+                maxScore={contestMaxScore}
             />
 
             {/* Monitor Adaptativo de Carga & Burnout (ACWR) */}

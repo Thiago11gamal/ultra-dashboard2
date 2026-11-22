@@ -5,7 +5,7 @@ import {
     LineChart, Line, Legend
 } from "recharts";
 import { normalizeDate, getDateKey, formatDisplayDate, parseNoonLocal } from "../../../utils/dateHelper";
-import { getSafeScore, formatValue, getSyntheticTotal } from "../../../utils/scoreHelper";
+import { getSafeScore, formatValue, getSyntheticTotal, resolveEffectiveCorrect } from "../../../utils/scoreHelper";
 import { toArray, getHistoryDate } from "../../../utils/evolutionGuards";
 import { filterHistoryByTimeWindow } from "../../../hooks/useSubjectAggData";
 import { ChartFrame } from "../ChartFrame";
@@ -42,12 +42,9 @@ const CustomLineTooltip = React.memo(({ active, payload, label, targetScorePct }
         return (
             <div className="bg-slate-950/95 border border-white/10 p-4 rounded-2xl shadow-[0_15px_40px_rgba(0,0,0,0.7)] backdrop-blur-xl min-w-[320px] z-50">
                 {(() => {
-                  const candidate = typeof label === 'number' ? new Date(label) : parseNoonLocal(label);
-                  const parsedLabel = Number.isFinite(candidate?.getTime?.()) ? candidate : new Date(label);
-                
-                  const formattedLabel = Number.isFinite(parsedLabel?.getTime?.())
-                    ? `${String(parsedLabel.getDate()).padStart(2, '0')}/${String(parsedLabel.getMonth() + 1).padStart(2, '0')}`
-                    : String(label);
+                  const formattedLabel = (typeof label === 'string' && /^\d{4}-\d{2}-\d{2}/.test(label))
+                    ? formatDisplayDate(label)
+                    : (getDateKey(label) ? formatDisplayDate(getDateKey(label)) : String(label));
                 
                   return (
                     <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest mb-3 border-b border-white/10 pb-2 flex justify-between items-center">
@@ -62,6 +59,7 @@ const CustomLineTooltip = React.memo(({ active, payload, label, targetScorePct }
                         const topicKey = entry.dataKey;
                         const total = Math.round(Number(entry.payload[`${topicKey}_total`]) || 0);
                         const correct = Math.round(Number(entry.payload[`${topicKey}_correct`]) || 0);
+                        const isSyntheticPoint = Boolean(entry.payload[`${topicKey}_synthetic`]);
                         const delta = entry.payload[`${topicKey}_delta`];
                         
                         const isTargetMet = pct >= targetScorePct;
@@ -77,7 +75,9 @@ const CustomLineTooltip = React.memo(({ active, payload, label, targetScorePct }
                                             {isTargetMet && <span title="Meta atingida" className="text-[10px] shrink-0 drop-shadow-md">🔥</span>}
                                         </span>
                                         <span className="text-[9px] text-slate-400 font-mono ml-4 flex items-center gap-1.5">
-                                            <span className="bg-slate-900 px-1 rounded border border-white/5">Vol: {correct}/{total}</span>
+                                            {!isSyntheticPoint && total > 0 && (
+                                                <span className="bg-slate-900 px-1 rounded border border-white/5">Vol: {correct}/{total}</span>
+                                            )}
                                             {gap > 0 && <span className="text-rose-400/70">Falta {safeFix(gap, 1)}%</span>}
                                         </span>
                                     </div>
@@ -144,7 +144,7 @@ export const SubtopicsPerformanceChart = React.memo(({
         : (globalMaxScorePct > safeMinScorePct ? globalMaxScorePct : safeMinScorePct + 1);
     const safeRangePct = Math.max(1e-9, safeMaxScorePct - safeMinScorePct);
     
-    const safeTargetScorePctRaw = (focusedCategory && hasValidNumber(focusedCategory.minCutoff))
+    const safeTargetScorePctRaw = (focusedCategory && hasValidNumber(focusedCategory.minCutoff) && Number(focusedCategory.minCutoff) > safeMinScorePct)
       ? Number(focusedCategory.minCutoff)
       : (hasValidNumber(targetScore)
           ? (safeMaxScorePct === globalMaxScorePct && safeMinScorePct === globalMinScorePct
@@ -219,14 +219,13 @@ export const SubtopicsPerformanceChart = React.memo(({
                     }
 
                     const rawTotParsed = parseInt(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions, 10) || 0;
+                    const hasTopicScore = hasValidNumber(t.score) || hasValidNumber(t.scorePoints) || hasValidNumber(t.scorePct);
                     const isSynthTopic = rawTotParsed <= 0;
                     let total = rawTotParsed;
-                    if (t.isPercentage) {
-                        if (total === 0) total = getSyntheticTotal(catMax);
-                    } else if (total === 0 && hasValidNumber(t.score)) {
+                    if (isSynthTopic && (t.isPercentage || hasTopicScore)) {
                         total = getSyntheticTotal(catMax);
                     }
-                    if (total === 0) return;
+                    if (total <= 0) return;
                     
                     const hasValidC = !t.isPercentage && (
                         (t.correct !== null && t.correct !== undefined && String(t.correct).trim() !== '') ||
@@ -234,15 +233,17 @@ export const SubtopicsPerformanceChart = React.memo(({
                         (t.correctCount !== null && t.correctCount !== undefined && String(t.correctCount).trim() !== '')
                     );
                     const parsedC = Number(t.correct ?? t.acertos ?? t.correctCount);
-                    let correctCount = hasValidC && Number.isFinite(parsedC) ? parsedC : NaN;
-
-                    if (!Number.isFinite(correctCount)) {
-                        const rawScore = getSafeScore(t, catMax, catMin);
-                        const score = Number.isFinite(rawScore) ? rawScore : catMin;
-                        const normalizedScore = Math.max(catMin, Math.min(catMax, score));
-                        correctCount = total > 0 ? ((normalizedScore - catMin) / catRange) * total : 0;
+                    const rawScore = getSafeScore(t, catMax, catMin);
+                    let correctCount;
+                    if (isSynthTopic) {
+                        if (!Number.isFinite(rawScore)) return;
+                        correctCount = ((Math.max(catMin, Math.min(catMax, rawScore)) - catMin) / catRange) * total;
+                    } else {
+                        if (!hasValidC && !Number.isFinite(rawScore)) return;
+                        correctCount = resolveEffectiveCorrect(t, rawScore, total, hasValidC && Number.isFinite(parsedC), parsedC, catMax, catMin);
                     }
-                    correctCount = Math.max(0, Math.min(total, Number.isFinite(correctCount) ? correctCount : 0));
+                    if (!Number.isFinite(correctCount)) return;
+                    correctCount = Math.max(0, Math.min(total, correctCount));
 
                     topicMap[key].total += total;
                     topicMap[key].correct += correctCount;
@@ -345,13 +346,32 @@ export const SubtopicsPerformanceChart = React.memo(({
                     const topicName = rawName ? rawName.charAt(0).toUpperCase() + rawName.slice(1) : '';
                     if (!topicName || topicName.toLowerCase() === 'nenhum') return;
                     
-                    let total = parseInt(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions, 10) || 0;
-                    if (t.isPercentage) {
-                        if (total === 0) total = getSyntheticTotal(catMax);
-                    } else if (total === 0 && hasValidNumber(t.score)) {
+                    const rawTotParsed = parseInt(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions, 10) || 0;
+                    const hasTopicScore = hasValidNumber(t.score) || hasValidNumber(t.scorePoints) || hasValidNumber(t.scorePct);
+                    const isSynthTopic = rawTotParsed <= 0;
+                    let total = rawTotParsed;
+                    if (isSynthTopic && (t.isPercentage || hasTopicScore)) {
                         total = getSyntheticTotal(catMax);
                     }
-                    if (total === 0) return;
+                    if (total <= 0) return;
+
+                    const hasValidC = !t.isPercentage && (
+                        (t.correct !== null && t.correct !== undefined && String(t.correct).trim() !== '') ||
+                        (t.acertos !== null && t.acertos !== undefined && String(t.acertos).trim() !== '') ||
+                        (t.correctCount !== null && t.correctCount !== undefined && String(t.correctCount).trim() !== '')
+                    );
+                    const parsedC = Number(t.correct ?? t.acertos ?? t.correctCount);
+                    const rawScore = getSafeScore(t, catMax, catMin);
+                    let correct;
+                    if (isSynthTopic) {
+                        if (!Number.isFinite(rawScore)) return;
+                        correct = ((Math.max(catMin, Math.min(catMax, rawScore)) - catMin) / catRange) * total;
+                    } else {
+                        if (!hasValidC && !Number.isFinite(rawScore)) return;
+                        correct = resolveEffectiveCorrect(t, rawScore, total, hasValidC && Number.isFinite(parsedC), parsedC, catMax, catMin);
+                    }
+                    if (!Number.isFinite(correct)) return;
+                    correct = Math.max(0, Math.min(total, correct));
 
                     const scopedId = scopeByCat ? `${cat.id || cat.name || ''}::${topicName}` : topicName;
                     const sKey = toTopicKey(scopedId);
@@ -360,31 +380,23 @@ export const SubtopicsPerformanceChart = React.memo(({
                     }
                     topicVolumeMap[sKey].volume += total;
 
-                    const hasValidC = !t.isPercentage && (
-                        (t.correct !== null && t.correct !== undefined && String(t.correct).trim() !== '') ||
-                        (t.acertos !== null && t.acertos !== undefined && String(t.acertos).trim() !== '') ||
-                        (t.correctCount !== null && t.correctCount !== undefined && String(t.correctCount).trim() !== '')
-                    );
-                    const parsedC = Number(t.correct ?? t.acertos ?? t.correctCount);
-                    let correct = hasValidC && Number.isFinite(parsedC) ? parsedC : NaN;
-
-                    if (!Number.isFinite(correct)) {
-                        const rawScore = getSafeScore(t, catMax, catMin);
-                        const score = Number.isFinite(rawScore) ? rawScore : catMin;
-                        const normalizedScore = Math.max(catMin, Math.min(catMax, score));
-                        correct = total > 0 ? ((normalizedScore - catMin) / catRange) * total : 0;
-                    }
-                    correct = Math.max(0, Math.min(total, Number.isFinite(correct) ? correct : 0));
-
                     const totKey = `${sKey}_total`;
                     const corKey = `${sKey}_correct`;
+                    const realTotKey = `${sKey}_real_total`;
+                    const realCorKey = `${sKey}_real_correct`;
 
                     if (dateMap[dateKey][totKey] === undefined) {
                         dateMap[dateKey][totKey] = 0;
                         dateMap[dateKey][corKey] = 0;
+                        dateMap[dateKey][realTotKey] = 0;
+                        dateMap[dateKey][realCorKey] = 0;
                     }
                     dateMap[dateKey][totKey] += total;
                     dateMap[dateKey][corKey] += correct;
+                    if (!isSynthTopic) {
+                        dateMap[dateKey][realTotKey] += total;
+                        dateMap[dateKey][realCorKey] += correct;
+                    }
                 });
             }
         });
@@ -409,13 +421,21 @@ export const SubtopicsPerformanceChart = React.memo(({
         let prevAccMap = {};
         series.forEach(entry => {
             topTopics.forEach(topic => {
-                const tot = entry[`${topic.key}_total`];
-                const cor = entry[`${topic.key}_correct`];
-                if (tot !== undefined && tot > 0) {
-                    const accRaw = (cor / tot) * 100;
+                const realTot = entry[`${topic.key}_real_total`] || 0;
+                const realCor = entry[`${topic.key}_real_correct`] || 0;
+                const allTot = entry[`${topic.key}_total`];
+                const allCor = entry[`${topic.key}_correct`];
+                const isSynth = realTot === 0;
+                const effTot = isSynth ? allTot : realTot;
+                const effCor = isSynth ? allCor : realCor;
+                if (effTot !== undefined && effTot > 0) {
+                    const accRaw = (effCor / effTot) * 100;
                     const safeAccRaw = Number.isFinite(accRaw) ? accRaw : 0;
                     const acc = Number(Math.max(0, Math.min(100, safeAccRaw)).toFixed(2));
                     entry[topic.key] = acc;
+                    entry[`${topic.key}_total`] = effTot;
+                    entry[`${topic.key}_correct`] = effCor;
+                    entry[`${topic.key}_synthetic`] = isSynth;
                     
                     if (prevAccMap[topic.key] !== undefined) {
                         entry[`${topic.key}_delta`] = Number((acc - prevAccMap[topic.key]).toFixed(2));
@@ -555,7 +575,10 @@ export const SubtopicsPerformanceChart = React.memo(({
                                     formatter={(value, name, props) => {
                                         const entry = props?.payload;
                                         if (!entry) return [value, name];
-                                        return [`${formatValue(value)}% (${entry.correct || 0}/${entry.total || 0} acertos)`, 'Precisão'];
+                                        if (entry.isSynthetic) {
+                                            return [`${formatValue(value)}% (simulado percentual)`, 'Precisão'];
+                                        }
+                                        return [`${formatValue(value)}% (${entry.realCorrect ?? entry.correct ?? 0}/${entry.realTotal ?? entry.total ?? 0} acertos)`, 'Precisão'];
                                     }}
                                     labelFormatter={(label) => <span className="font-black text-amber-400 tracking-wider uppercase text-[10px]">{label}</span>}
                                 />

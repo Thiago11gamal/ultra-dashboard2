@@ -13,8 +13,9 @@ import {
 } from 'recharts';
 import { Brain, AlertOctagon, Timer } from 'lucide-react';
 import { ChartFrame } from '../ChartFrame';
-import { normalize } from '../../../utils/normalization';
+import { normalize, isSubjectMatch } from '../../../utils/normalization';
 import { toDateMs, getDateKey } from '../../../utils/dateHelper';
+import { parseNoonLocal, addDaysNoon } from '../../../utils/parseNoonLocal';
 
 const safeArr = (v) => (Array.isArray(v) ? v : (v && typeof v === 'object' ? Object.values(v) : [])).filter(Boolean);
 
@@ -110,42 +111,72 @@ export const MetacognitionFatigueChart = React.memo(function MetacognitionFatigu
     if (timeWindow && timeWindow !== 'all') {
       const days = Number.parseInt(String(timeWindow), 10);
       if (Number.isFinite(days) && days > 0) {
-        const cutoff = new Date();
-        cutoff.setHours(12, 0, 0, 0);
-        cutoff.setDate(cutoff.getDate() - days);
-        cutoffMs = toDateMs(getDateKey(cutoff));
+        const todayKey = getDateKey(new Date());
+        const todayNoon = todayKey ? parseNoonLocal(todayKey) : new Date();
+        const cutoffNoon = todayNoon ? addDaysNoon(todayNoon, -days) : null;
+        const cutoffKey = cutoffNoon ? getDateKey(cutoffNoon) : null;
+        cutoffMs = cutoffKey ? toDateMs(cutoffKey) : null;
       }
     }
 
     const rows = safeArr(simuladoRows).filter((r) => {
       if (!r || r.valid === false || r.validated === false) return false;
       if (cutoffMs) {
-        const ms = toDateMs(r.date || r.createdAt);
+        const dk = getDateKey(r.date || r.createdAt);
+        const ms = dk ? toDateMs(dk) : NaN;
         if (Number.isFinite(ms) && ms < cutoffMs) return false;
       }
       if (showOnlyFocus && focusCategory) {
         if (r.categoryId != null && focusCategory.id != null) {
           return String(r.categoryId) === String(focusCategory.id);
         }
-        const rSubj = normalize(r.subject || r.categoryName || r.materia || '');
-        const fName = normalize(focusCategory.name || '');
-        return Boolean(rSubj && fName && rSubj === fName);
+        const rSubj = r.subject || r.categoryName || r.materia || '';
+        const fName = focusCategory.name || '';
+        return Boolean(rSubj && fName && isSubjectMatch(rSubj, fName));
       }
       return true;
     });
 
-    const items = [];
+    // Reagrupa linhas do mesmo simulado (mesmo batchId) para reconstruir os 4 quartis corretos
+    // quando um Simulado IA Misto foi dividido por matéria/tópico em várias simuladoRows curtas.
+    const runs = [];
+    const batchRunMap = new Map();
     rows.forEach((row) => {
-      const subject = row.subject || row.materia || 'Geral';
-      const rawTel = safeArr(row.questionTelemetry);
-      const hasExplicitIdx = rawTel.some((q) => Number.isFinite(Number(q?.questionIndex)));
+      const subject = row.subject || row.categoryName || row.materia || 'Geral';
+      const rawTel = safeArr(row.questionTelemetry).map((q) => ({ ...q, subject }));
+      if (!rawTel.length) return;
+      if (row.batchId) {
+        const bk = String(row.batchId);
+        if (!batchRunMap.has(bk)) {
+          const entry = [];
+          batchRunMap.set(bk, entry);
+          runs.push(entry);
+        }
+        batchRunMap.get(bk).push(...rawTel);
+      } else {
+        runs.push(rawTel);
+      }
+    });
+
+    const getExplicitIdx = (q) => {
+      const raw = q?.questionIndex ?? q?.idx;
+      if (raw === null || raw === undefined || raw === '' || typeof raw === 'boolean') return NaN;
+      const n = Number(raw);
+      return Number.isFinite(n) ? n : NaN;
+    };
+
+    const items = [];
+    runs.forEach((rawTel) => {
+      const hasExplicitIdx = rawTel.some((q) => Number.isFinite(getExplicitIdx(q)));
       const tel = hasExplicitIdx
         ? rawTel
           .map((q, origIdx) => ({ q, origIdx }))
           .sort((a, b) => {
-            const ia = Number.isFinite(Number(a.q?.questionIndex)) ? Number(a.q.questionIndex) : a.origIdx;
-            const ib = Number.isFinite(Number(b.q?.questionIndex)) ? Number(b.q.questionIndex) : b.origIdx;
-            return ia - ib;
+            const ia = getExplicitIdx(a.q);
+            const ib = getExplicitIdx(b.q);
+            const safeA = Number.isFinite(ia) ? ia : a.origIdx;
+            const safeB = Number.isFinite(ib) ? ib : b.origIdx;
+            return safeA - safeB;
           })
           .map((x) => x.q)
         : rawTel;
@@ -153,8 +184,8 @@ export const MetacognitionFatigueChart = React.memo(function MetacognitionFatigu
       tel.forEach((q, idx) => {
         items.push({
           ...q,
-          subject,
-          positionQuartile: totalInRun >= 4 ? Math.min(3, Math.floor((idx / totalInRun) * 4)) : Math.min(3, idx),
+          // Somente corridas com >= 4 questões entram nos 4 quartis de fadiga (drills de 1–3q ainda contam em metacognição e erros)
+          positionQuartile: totalInRun >= 4 ? Math.min(3, Math.floor((idx / totalInRun) * 4)) : null,
         });
       });
     });

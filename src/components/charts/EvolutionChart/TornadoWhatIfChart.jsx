@@ -104,11 +104,13 @@ export const TornadoWhatIfChart = React.memo(function TornadoWhatIfChart({
   }, [draftGroupCutoffs, minScore]);
 
   const subjects = useMemo(() => {
+    const isStrictNum = (v) =>
+      v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
     const gRange = Math.max(1e-6, maxScore - minScore);
     return safeArr(categories)
       .map((cat) => {
-        const cMin = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : minScore;
-        const cMax = Number(cat.maxScore) > cMin ? Number(cat.maxScore) : maxScore;
+        const cMin = isStrictNum(cat.minScore) ? Number(cat.minScore) : minScore;
+        const cMax = isStrictNum(cat.maxScore) && Number(cat.maxScore) > cMin ? Number(cat.maxScore) : maxScore;
         const cRange = Math.max(1e-6, cMax - cMin);
         const hist = safeArr(cat?.simuladoStats?.history)
           .filter((h) => h && h.valid !== false && h.validated !== false)
@@ -131,11 +133,12 @@ export const TornadoWhatIfChart = React.memo(function TornadoWhatIfChart({
         const sd = recentHist.length >= 2
           ? Math.max(cRange * 0.03, Math.sqrt(recentHist.reduce((acc, v) => acc + Math.pow(v - mean, 2), 0) / (recentHist.length - 1)))
           : cRange * 0.1;
-        const hasCutoff = cat.minCutoff !== null && cat.minCutoff !== undefined && Number(cat.minCutoff) > cMin;
-        const rawOverrideWeight = mcWeights && cat.id != null ? Number(mcWeights[cat.id]) : NaN;
+        const hasCutoff = isStrictNum(cat.minCutoff) && Number(cat.minCutoff) > cMin;
+        const rawOverrideWeight = mcWeights && cat.id != null && isStrictNum(mcWeights[cat.id]) ? Number(mcWeights[cat.id]) : NaN;
         const resolvedWeight = Number.isFinite(rawOverrideWeight) && rawOverrideWeight > 0
           ? rawOverrideWeight
-          : (Number(cat.weight) || 10);
+          : (isStrictNum(cat.weight) ? Number(cat.weight) : 10);
+        if (resolvedWeight <= 0) return null;
         return {
           id: cat.id || cat.name,
           name: cat.name,

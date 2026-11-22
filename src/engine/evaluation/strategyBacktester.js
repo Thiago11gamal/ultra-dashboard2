@@ -239,23 +239,48 @@ export function getGranularCoachStrategies() {
  * Constrói splits temporais para uma categoria.
  */
 export function buildCategorySplits(category, simulados = [], options = {}) {
+  const globalMax = Number(options.maxScore) > 0 ? Number(options.maxScore) : 100;
+  const rawGlobalMin = options.minScore;
+  const globalMin =
+    rawGlobalMin !== null && rawGlobalMin !== undefined && rawGlobalMin !== '' && typeof rawGlobalMin !== 'boolean' && Number.isFinite(Number(rawGlobalMin))
+      ? Math.min(Number(rawGlobalMin), globalMax)
+      : 0;
+  const globalDomain = Math.max(1e-6, globalMax - globalMin);
+
   const maxScore =
     Number(category?.maxScore) > 0
       ? Number(category.maxScore)
-      : Number(options.maxScore) > 0
-        ? Number(options.maxScore)
-        : 100;
-  const rawMin = category?.minScore ?? options.minScore;
+      : globalMax;
+  const rawMin = category?.minScore !== null && category?.minScore !== undefined && category?.minScore !== '' && typeof category?.minScore !== 'boolean'
+    ? category.minScore
+    : options.minScore;
   const minScore =
-    rawMin !== null && rawMin !== undefined && rawMin !== '' && Number.isFinite(Number(rawMin))
+    rawMin !== null && rawMin !== undefined && rawMin !== '' && typeof rawMin !== 'boolean' && Number.isFinite(Number(rawMin))
       ? Math.min(Number(rawMin), maxScore)
       : 0;
   const domain = Math.max(1e-6, maxScore - minScore);
+  const hasCatCutoff =
+    category?.minCutoff !== null &&
+    category?.minCutoff !== undefined &&
+    typeof category?.minCutoff !== 'boolean' &&
+    String(category.minCutoff).trim() !== '' &&
+    Number.isFinite(Number(category.minCutoff)) &&
+    Number(category.minCutoff) > minScore;
   const rawTarget = options.targetScore;
-  const targetScore =
-    rawTarget !== null && rawTarget !== undefined && rawTarget !== '' && Number.isFinite(Number(rawTarget))
-      ? Number(rawTarget)
-      : minScore + domain * 0.8;
+  let targetScore;
+  if (hasCatCutoff) {
+    targetScore = Math.max(minScore, Math.min(maxScore, Number(category.minCutoff)));
+  } else if (rawTarget !== null && rawTarget !== undefined && rawTarget !== '' && typeof rawTarget !== 'boolean' && Number.isFinite(Number(rawTarget))) {
+    const numTarget = Number(rawTarget);
+    if (maxScore === globalMax && minScore === globalMin) {
+      targetScore = Math.max(minScore, Math.min(maxScore, numTarget));
+    } else {
+      const ratio = Math.max(0, Math.min(1, (numTarget - globalMin) / globalDomain));
+      targetScore = minScore + ratio * domain;
+    }
+  } else {
+    targetScore = minScore + domain * 0.8;
+  }
 
   const minTrain = Math.max(3, Math.round(Number(options.minTrain) || 5));
   const maxSplits = Math.max(1, Math.round(Number(options.maxSplits) || 8));
@@ -274,21 +299,37 @@ export function buildCategorySplits(category, simulados = [], options = {}) {
       (category?.id && simulado.categoryId && String(simulado.categoryId) === String(category.id));
   });
 
-  const seenSplitKeys = new Set();
+  const seenSplitIds = new Set();
+  const seenCatDayScores = new Map();
+  const seenExtNoIdDayScores = new Set();
   const combinedCandidateSims = [];
-  [...catOwnHistory, ...matchingExternal].forEach((simulado, _idx) => {
-    if (!simulado || simulado.valid === false) return;
+  const pushSplitSim = (simulado, _idx, isExternal) => {
+    if (!simulado || simulado.valid === false || simulado.validated === false) return;
     const time = toTime(simulado?.date ?? simulado?.createdAt);
     const score = getSafeScore(simulado, maxScore, minScore);
-    const dedupKey = simulado.id && !String(simulado.id).startsWith('legacy-')
-      ? `id:${simulado.id}`
-      : Number.isFinite(time) && Number.isFinite(score)
-        ? `ts:${Math.floor(time / 86400000)}:${Math.round(score * 10)}`
-        : `idx:${_idx}`;
-    if (seenSplitKeys.has(dedupKey)) return;
-    seenSplitKeys.add(dedupKey);
+    const idSig = simulado.id && !String(simulado.id).startsWith('legacy-') ? String(simulado.id) : null;
+    const dayScoreSig = Number.isFinite(time) && Number.isFinite(score)
+      ? `${Math.floor(time / 86400000)}:${Math.round(score * 10)}`
+      : null;
+
+    if (idSig && seenSplitIds.has(idSig)) return;
+    if (isExternal) {
+      if (dayScoreSig && (seenCatDayScores.get(dayScoreSig) || 0) > 0) {
+        seenCatDayScores.set(dayScoreSig, seenCatDayScores.get(dayScoreSig) - 1);
+        if (idSig) seenSplitIds.add(idSig);
+        return;
+      }
+      if (!idSig && dayScoreSig && seenExtNoIdDayScores.has(dayScoreSig)) return;
+      if (!idSig && dayScoreSig) seenExtNoIdDayScores.add(dayScoreSig);
+    } else if (dayScoreSig) {
+      if (!idSig && (seenCatDayScores.get(dayScoreSig) || 0) > 0) return;
+      seenCatDayScores.set(dayScoreSig, (seenCatDayScores.get(dayScoreSig) || 0) + 1);
+    }
+    if (idSig) seenSplitIds.add(idSig);
     combinedCandidateSims.push({ simulado, _idx, time });
-  });
+  };
+  catOwnHistory.forEach((simulado, idx) => pushSplitSim(simulado, idx, false));
+  matchingExternal.forEach((simulado, idx) => pushSplitSim(simulado, catOwnHistory.length + idx, true));
 
   const hasDatedSimulados = combinedCandidateSims.some((entry) => Number.isFinite(entry.time));
 

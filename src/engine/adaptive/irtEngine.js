@@ -51,9 +51,10 @@ export function irtProbability(theta, b, a = 1.35) {
  * via Newton-Raphson a partir de simuladoRows / history entries com campo `difficulty`.
  */
 export function estimateIRTAbility(entries = [], options = {}) {
-  const minScore = Number.isFinite(Number(options.minScore)) ? Number(options.minScore) : 0;
-  const maxScore = Math.max(minScore + 1, Number(options.maxScore) || 100);
-  const range = Math.max(1e-6, maxScore - minScore);
+  const isStrictNum = (v) =>
+    v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
+  const minScore = isStrictNum(options.minScore) ? Number(options.minScore) : 0;
+  const maxScore = Math.max(minScore + 1, isStrictNum(options.maxScore) ? Number(options.maxScore) : 100);
 
   const tierStats = new Map(
     DIFFICULTY_TIERS.map((t) => [t.key, { ...t, total: 0, correct: 0 }])
@@ -61,6 +62,9 @@ export function estimateIRTAbility(entries = [], options = {}) {
 
   safeArr(entries).forEach((entry) => {
     if (!entry || entry.valid === false || entry.validated === false) return;
+    const eMin = isStrictNum(entry.minScore) ? Number(entry.minScore) : minScore;
+    const eMax = isStrictNum(entry.maxScore) && Number(entry.maxScore) > eMin ? Number(entry.maxScore) : maxScore;
+    const eRange = Math.max(1e-6, eMax - eMin);
     const tier = resolveDifficultyTier(entry.difficulty ?? entry.dificuldade);
     const bucket = tierStats.get(tier.key);
 
@@ -75,7 +79,7 @@ export function estimateIRTAbility(entries = [], options = {}) {
       Number.isFinite(Number(rawCorrectField));
     let explicitCorrect = hasExplicitCorrect ? Number(rawCorrectField) : NaN;
     if ((!Number.isFinite(rawTotal) || rawTotal <= 0) && entry.topics != null) {
-      const tf = extractTopicsTotals(entry, maxScore, minScore);
+      const tf = extractTopicsTotals(entry, eMax, eMin);
       if (tf.total > 0) {
         rawTotal = tf.total;
         explicitCorrect = tf.correct;
@@ -83,17 +87,19 @@ export function estimateIRTAbility(entries = [], options = {}) {
     }
     const rawBlanks = Math.max(0, Number(entry.blanks) || 0);
     if (Number.isFinite(rawTotal) && rawTotal > 0) {
-      // Desconta questões deixadas em branco (omissão estratégica CEBRASPE) do denominador TRI
-      const attempted = rawBlanks > 0 && rawBlanks < rawTotal ? (rawTotal - rawBlanks) : rawTotal;
+      // Desconta questões deixadas em branco (omissão estratégica CEBRASPE) do denominador TRI.
+      // Se todas foram deixadas em branco (rawBlanks >= rawTotal), nenhuma questão foi tentada -> ignorar.
+      const attempted = rawBlanks > 0 ? Math.max(0, rawTotal - rawBlanks) : rawTotal;
+      if (attempted <= 0) return;
       const corr = Number.isFinite(explicitCorrect)
         ? clamp(explicitCorrect, 0, attempted)
-        : clamp(((getSafeScore(entry, maxScore, minScore) - minScore) / range) * attempted, 0, attempted);
+        : clamp(((getSafeScore(entry, eMax, eMin) - eMin) / eRange) * attempted, 0, attempted);
       bucket.total += attempted;
       bucket.correct += corr;
     } else {
-      const sc = getSafeScore(entry, maxScore, minScore);
+      const sc = getSafeScore(entry, eMax, eMin);
       if (Number.isFinite(sc)) {
-        const ratio = clamp((sc - minScore) / range, 0, 1);
+        const ratio = clamp((sc - eMin) / eRange, 0, 1);
         bucket.total += 10;
         bucket.correct += ratio * 10;
       }
@@ -147,10 +153,12 @@ export function estimateIRTAbility(entries = [], options = {}) {
 
   const thetaSe = Number(clamp(1 / Math.sqrt(fisherInfo), 0.12, 1.2).toFixed(2));
 
-  // Build smooth ICC curve from b = -2.2 to +2.4
+  // Build smooth ICC curve covering [-2.2, +2.4] and always spanning current theta
+  const curveMinB = Math.min(-2.2, Math.floor((theta - 0.4) * 5) / 5);
+  const curveMaxB = Math.max(2.4, Math.ceil((theta + 0.4) * 5) / 5);
   const iccCurve = [];
   const maxFisherInfo = 1.35 * 1.35 * 0.25;
-  for (let b = -2.2; b <= 2.41; b += 0.2) {
+  for (let b = curveMinB; b <= curveMaxB + 0.01; b += 0.2) {
     const p = irtProbability(theta, b, 1.35);
     const info = 1.35 * 1.35 * p * (1 - p);
     iccCurve.push({

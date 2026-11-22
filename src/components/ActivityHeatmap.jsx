@@ -185,7 +185,14 @@ function ActivityHeatmap({ studyLogs = [] }) {
     }, []);
 
     const currentMonth = useMemo(() => {
-        const base = new Date(now.getFullYear(), now.getMonth(), 1);
+        const todayKey = getDateKey(now);
+        let base;
+        if (todayKey && /^\d{4}-\d{2}-\d{2}$/.test(todayKey)) {
+            const [y, m] = todayKey.split('-').map(Number);
+            base = new Date(y, m - 1, 1);
+        } else {
+            base = new Date(now.getFullYear(), now.getMonth(), 1);
+        }
         return monthOffset < 0 ? subMonths(base, Math.abs(monthOffset)) :
             monthOffset > 0 ? addMonths(base, monthOffset) : base;
     }, [monthOffset, now]);
@@ -194,6 +201,7 @@ function ActivityHeatmap({ studyLogs = [] }) {
         const start = startOfMonth(currentMonth);
         const end = endOfMonth(currentMonth);
         const days = eachDayOfInterval({ start, end });
+        const today = getDateKey(now) || format(now, 'yyyy-MM-dd');
 
         const studyMap = {};
         const sessionsMap = {};
@@ -208,9 +216,11 @@ function ActivityHeatmap({ studyLogs = [] }) {
             const rawDate = normalizeDate(rawDateInput);
             if (!rawDate) return;
             const dateKey = getDateKey(rawDateInput) || getDateKey(rawDate) || format(rawDate, 'yyyy-MM-dd');
+            if (today && dateKey > today) return;
             const rawMin = Number(log?.minutes ?? log?.minutos);
             const rawDur = Number(log?.duration);
-            const minutes = Math.max(0, (Number.isFinite(rawMin) && rawMin > 0) ? rawMin : (Number.isFinite(rawDur) && rawDur > 0 ? rawDur : 0));
+            const rawMinutes = Math.max(0, (Number.isFinite(rawMin) && rawMin > 0) ? rawMin : (Number.isFinite(rawDur) && rawDur > 0 ? rawDur : 0));
+            const minutes = Math.min(720, rawMinutes);
             if (minutes > 0) {
                 studyMap[dateKey] = (studyMap[dateKey] || 0) + minutes;
                 sessionsMap[dateKey] = (sessionsMap[dateKey] || 0) + 1;
@@ -234,8 +244,6 @@ function ActivityHeatmap({ studyLogs = [] }) {
         for (let i = 0; i < startDay; i++) {
             currentWeek.push(null);
         }
-
-        const today = getDateKey(now) || format(now, 'yyyy-MM-dd');
 
         days.forEach(day => {
             // Usar chave civil YYYY-MM-DD do dia do calendário (evita deslocamento -1 dia entre fusos locais e APP_TIMEZONE)

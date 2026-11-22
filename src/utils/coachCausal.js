@@ -293,26 +293,43 @@ export function buildTaskCausalEvents(categories = [], simulados = [], options =
       return matchesId || matchesSubj;
     });
 
-    const seenSimSigs = new Set();
+    const seenIds = new Set();
+    const seenCatDayScores = new Map();
+    const seenExtNoIdDayScores = new Set();
     const mergedCategorySimulados = [];
-    [...catHistoryList, ...externalMatchingSims].forEach((simulado, idx) => {
-      if (!simulado || simulado.valid === false) return;
+    const pushSim = (simulado, idx, isExternal) => {
+      if (!simulado || simulado.valid === false || simulado.validated === false) return;
       const time = toTime(simulado?.date ?? simulado?.createdAt);
       const rawScore = getSafeScore(simulado, catMax, catMin);
       if (!Number.isFinite(time) || !Number.isFinite(rawScore) || !isReasonableTime(time)) return;
       const score = normalizeScoreToGlobal(rawScore);
-      const sig = simulado.id && !String(simulado.id).startsWith('legacy-')
-        ? `id:${simulado.id}`
-        : `ts:${Math.floor(time / 86400000)}:${Math.round(score * 10)}`;
-      if (seenSimSigs.has(sig)) return;
-      seenSimSigs.add(sig);
+      const idSig = simulado.id && !String(simulado.id).startsWith('legacy-') ? String(simulado.id) : null;
+      const dayScoreSig = `${Math.floor(time / 86400000)}:${Math.round(score * 10)}`;
+
+      if (idSig && seenIds.has(idSig)) return;
+      if (isExternal) {
+        const catCount = seenCatDayScores.get(dayScoreSig) || 0;
+        if (catCount > 0) {
+          seenCatDayScores.set(dayScoreSig, catCount - 1);
+          if (idSig) seenIds.add(idSig);
+          return;
+        }
+        if (!idSig && seenExtNoIdDayScores.has(dayScoreSig)) return;
+        if (!idSig) seenExtNoIdDayScores.add(dayScoreSig);
+      } else {
+        if (!idSig && (seenCatDayScores.get(dayScoreSig) || 0) > 0) return;
+        seenCatDayScores.set(dayScoreSig, (seenCatDayScores.get(dayScoreSig) || 0) + 1);
+      }
+      if (idSig) seenIds.add(idSig);
       mergedCategorySimulados.push({
         index: idx,
         time,
         score,
         simulado,
       });
-    });
+    };
+    catHistoryList.forEach((simulado, idx) => pushSim(simulado, idx, false));
+    externalMatchingSims.forEach((simulado, idx) => pushSim(simulado, catHistoryList.length + idx, true));
 
     const categorySimulados = mergedCategorySimulados.sort((a, b) => a.time - b.time);
 
@@ -476,18 +493,25 @@ export function buildCausalEventsFromHistory(
   options = {}
 ) {
   const safeSimuladosInput = safeArray(simulados);
+  const hasOnlyGenericSims = safeSimuladosInput.length > 0 && safeSimuladosInput.every((s) => {
+    if (!s || typeof s !== 'object') return true;
+    if (s.categoryId != null && String(s.categoryId).trim() !== '') return false;
+    const subj = String(s.subject || s.categoryName || s.materia || '').trim().toLowerCase();
+    return !subj || subj === 'simulado geral' || subj === 'geral' || subj === 'global';
+  });
+  const catFlattenedSims = safeArray(categories).flatMap((cat) =>
+    safeArray(cat?.simuladoStats?.history)
+      .filter((h) => h && h.valid !== false && h.validated !== false)
+      .map((h) => ({
+        ...h,
+        categoryId: h?.categoryId ?? cat?.id,
+        subject: h?.subject || h?.categoryName || cat?.name || '',
+      }))
+  );
   const effectiveSimuladosForVolume =
-    safeSimuladosInput.length > 0
+    safeSimuladosInput.length > 0 && !(hasOnlyGenericSims && catFlattenedSims.length > 0)
       ? safeSimuladosInput
-      : safeArray(categories).flatMap((cat) =>
-          safeArray(cat?.simuladoStats?.history)
-            .filter((h) => h && h.valid !== false)
-            .map((h) => ({
-              ...h,
-              categoryId: h?.categoryId ?? cat?.id,
-              subject: h?.subject || h?.categoryName || cat?.name || '',
-            }))
-        );
+      : (catFlattenedSims.length > 0 ? catFlattenedSims : safeSimuladosInput);
 
   const taskEvents = buildTaskCausalEvents(categories, safeSimuladosInput, options);
   const volumeEvents = buildStudyVolumeCausalEvents(effectiveSimuladosForVolume, studyLogs, {
@@ -537,7 +561,8 @@ export function trainCausalModel(events = [], options = {}) {
     maxScore: options.maxScore ?? 100,
     minScore: options.minScore ?? 0,
     method: options.method || 'auto',
-    sampleSize: safeEvents.length,
+    sampleSize: Number.isFinite(Number(estimates?.sampleSize)) ? Number(estimates.sampleSize) : safeEvents.length,
+    totalEventsCount: Number.isFinite(Number(estimates?.totalEventsCount)) ? Number(estimates.totalEventsCount) : safeEvents.length,
     global: estimates.global,
     actions: estimates.actions,
     actionCounts: estimates.actionCounts,

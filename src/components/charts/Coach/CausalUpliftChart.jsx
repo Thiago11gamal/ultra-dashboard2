@@ -94,29 +94,33 @@ export const CausalUpliftChart = React.memo(function CausalUpliftChart({ causalM
   const chartData = useMemo(() => {
     const actions = causalModel?.actions;
     if (!actions || typeof actions !== 'object') return [];
+    const isStrictNum = (v) =>
+      v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
     return Object.entries(actions)
-      .filter(([, est]) => est && typeof est === 'object' && Number.isFinite(Number(est.uplift)))
+      .filter(([, est]) => est && typeof est === 'object' && isStrictNum(est.uplift))
       .map(([actionType, est]) => {
         const uplift = Number(est.uplift);
-        const low = Number(est?.ci?.low);
-        const high = Number(est?.ci?.high);
-        const hasCi = Number.isFinite(low) && Number.isFinite(high);
+        const hasCi = isStrictNum(est?.ci?.low) && isStrictNum(est?.ci?.high);
+        const low = hasCi ? Number(est.ci.low) : uplift;
+        const high = hasCi ? Number(est.ci.high) : uplift;
         const errMinus = hasCi ? Math.max(0, uplift - low) : 0;
         const errPlus = hasCi ? Math.max(0, high - uplift) : 0;
         return {
           actionType,
           label: formatActionLabel(actionType),
           uplift: Number(uplift.toFixed(3)),
-          errorBar: [Number(errMinus.toFixed(3)), Number(errPlus.toFixed(3))],
+          errorBar: hasCi ? [Number(errMinus.toFixed(3)), Number(errPlus.toFixed(3))] : null,
           hasCi,
-          ciLow: hasCi ? low : uplift,
-          ciHigh: hasCi ? high : uplift,
+          ciLow: low,
+          ciHigh: high,
           sampleSize: est.sampleSize ?? 0,
           method: est.method || 'observational',
         };
       })
       .sort((a, b) => b.uplift - a.uplift);
   }, [causalModel]);
+
+  const hasAnyCi = useMemo(() => chartData.some((d) => d.hasCi), [chartData]);
 
   if (!chartData.length) {
     return (
@@ -144,7 +148,9 @@ export const CausalUpliftChart = React.memo(function CausalUpliftChart({ causalM
                   fillOpacity={0.85}
                 />
               ))}
-              <ErrorBar dataKey="errorBar" width={6} strokeWidth={1.5} stroke="#e2e8f0" direction="x" />
+              {hasAnyCi && (
+                <ErrorBar dataKey="errorBar" width={6} strokeWidth={1.5} stroke="#e2e8f0" direction="x" />
+              )}
             </Bar>
           </BarChart>
         </ResponsiveContainer>
