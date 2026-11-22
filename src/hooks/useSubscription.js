@@ -5,13 +5,14 @@ import { isAdminUser } from '../utils/adminAccess';
 
 export function useSubscription(user) {
     const hasTokenProvider = typeof user?.getIdTokenResult === 'function';
-    const isVerifiedIdentity = Boolean(isLocalMode || import.meta.env.VITE_DEV_PREMIUM_BYPASS === 'true' || hasTokenProvider);
+    const isLocalUserSession = Boolean(isLocalMode && user?.uid === 'local-user');
+    const isVerifiedIdentity = Boolean(import.meta.env.VITE_DEV_PREMIUM_BYPASS === 'true' || isLocalUserSession || hasTokenProvider);
     const isAdminEmail = isAdminUser(user);
 
     // G-17 FIX: Recalcular isDevBypass quando user muda (apenas identidades reais ou modo local explícito)
     const isDevBypass = useMemo(() =>
         import.meta.env.VITE_DEV_PREMIUM_BYPASS === 'true' ||
-        isLocalMode ||
+        import.meta.env.VITE_LOCAL_MODE === 'true' ||
         (isVerifiedIdentity && user?.uid === 'local-user') ||
         isAdminEmail,
         [user?.uid, isVerifiedIdentity, isAdminEmail]
@@ -21,7 +22,7 @@ export function useSubscription(user) {
     const [subState, setSubState] = useState(() => ({
         uid: isDevBypass ? targetUid : null,
         isPremium: isDevBypass,
-        loading: Boolean(!isDevBypass && targetUid && db),
+        loading: Boolean(!isDevBypass && targetUid && (db || hasTokenProvider)),
     }));
     const fallbackUnsubRef = useRef(null);
 
@@ -211,7 +212,7 @@ export function useSubscription(user) {
 
     if (isDevBypass) return { isPremium: true, loading: false };
     if (!targetUid) return { isPremium: false, loading: false };
-    if (!db) {
+    if (!db && !hasTokenProvider) {
         console.warn('[Stripe] Firestore indisponível. Mantendo modo não premium.');
         return { isPremium: false, loading: false };
     }

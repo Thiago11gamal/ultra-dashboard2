@@ -46,7 +46,7 @@ export function calculateETA(timeLeft, speed = 1) {
   const safeSpeed = SPEED_OPTIONS.includes(Number(speed)) ? Number(speed) : 1;
   const msRemaining = (safeTime * 1000) / safeSpeed;
   const d = new Date(Date.now() + msRemaining);
-  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
 const stripDupSuffix = (val) => String(val || '').replace(/-dup\d+-[a-zA-Z0-9_-]+$/, '');

@@ -46,7 +46,8 @@ export function getConfiguredAdminEmails(extraEnvValue = null) {
  */
 export function isVerifiedAuthIdentity(user) {
   const isDevBypassEnv = typeof import.meta !== 'undefined' && import.meta.env?.VITE_DEV_PREMIUM_BYPASS === 'true';
-  if (isLocalMode || isDevBypassEnv) return true;
+  if (isDevBypassEnv) return true;
+  if (isLocalMode && user?.uid === 'local-user') return true;
   return Boolean(user?.uid && typeof user?.getIdTokenResult === 'function');
 }
 
