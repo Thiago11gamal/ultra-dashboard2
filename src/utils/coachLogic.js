@@ -1516,6 +1516,8 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
         ? `Você estudou ${recentHours.toFixed(1)}h esta semana (seu normal é ~${baselineHoursPerWeek.toFixed(1)}h), mas a nota estagnou.`
         : '';
     const isBurnoutRisk = (isHighVolume || (isHighFrequency && recentHours > 5.0)) && isStagnant && recentStudyDays >= 3;
+    const hasSimulados = relevantSimulados.length > 0;
+    const hasData = hasSimulados || categoryStudyLogs.length > 0;
     // Ordem corrigida: crítico > burnout > SRS > cruzeiro seguro
     if (mcHasData && mcRiskLabel === 'critical') {
         const burnoutNote = isBurnoutRisk ? ` (⚠️ ${burnoutMsg || 'Sinais de estafa — mude o método.'})` : '';
@@ -1528,20 +1530,33 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
         recommendation = `${srsLabel} - Não pule essa revisão!`;
     } else if (mcHasData && mcRiskLabel === 'safe') {
         recommendation = `🏆 Cruzeiro Seguro (${formatPercent(mcProbability)} nas projeções). Modo de manutenção ativado.`;
-    } else if (mssdVolatility > cfg.MC_VOLATILITY_HIGH * (domain / 100) && trend > 0) {
+    } else if (hasSimulados && mssdVolatility > cfg.MC_VOLATILITY_HIGH * (domain / 100) && trend > 0) {
         recommendation = "Desempenho Oscilante: Foque em preencher lacunas de base";
-    } else if (trend < -trendThreshold) {
+    } else if (hasSimulados && trend < -trendThreshold) {
         recommendation = normalized > 50
             ? `Nota caindo (${formatValue(trend)} pts) - Atenção urgente`
             : `Queda recente (${formatValue(trend)} pts) - Atenção preventiva recomendada`;
-    } else if (averageScore < targetScore - (0.2 * domain)) {
+    } else if (hasSimulados && averageScore < targetScore - (0.2 * domain)) {
         recommendation = `Nota Crítica: ${formatPercent(((averageScore - minScore) / domain) * 100)} (Meta ${formatPercent(((targetScore - minScore) / domain) * 100)})`;
-    } else if (averageScore >= targetScore) {
+    } else if (hasSimulados && averageScore >= targetScore) {
         recommendation = "No caminho certo! Continue consolidando";
+    } else if (!hasSimulados) {
+        if (hasHighPriorityTasks) {
+            recommendation = recencyUnknown
+                ? "Tarefa de prioridade alta pendente — inicie os estudos nesta matéria"
+                : (daysSinceLastStudy > 0
+                    ? `Tarefa de prioridade alta pendente (${daysSinceLastStudy}d sem estudar)`
+                    : "Tarefa de prioridade alta pendente — avance no edital");
+        } else if (recencyUnknown) {
+            recommendation = "Matéria ainda não iniciada — comece pelos tópicos pendentes";
+        } else if (daysSinceLastStudy >= 7) {
+            recommendation = `Há ${daysSinceLastStudy} dias sem estudo — retome a prática nesta matéria`;
+        } else {
+            recommendation = "Pratique com regularidade e realize simulados para calibrar sua nota";
+        }
     } else {
         recommendation = "Pratique com regularidade";
     }
-    const hasData = relevantSimulados.length > 0 || categoryStudyLogs.length > 0;
     const result = {
         score: weightedRaw,
         normalizedScore: normalized,
@@ -1654,10 +1669,10 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
                 instabilityWeight: safeFixedNumber(metrics.backtestWeights?.instabilityWeight, 3)
             },
             humanReadable: {
-                "Média": formatPercent(((averageScore - minScore) / domain) * 100),
+                "Média": hasSimulados ? formatPercent(((averageScore - minScore) / domain) * 100) : "Sem dados",
                 "Recência": recencyUnknown ? "Nunca" : (daysSinceLastStudy === 0 ? "Hoje" : `${daysSinceLastStudy} dias`),
-                "Tendência": trend > (0.5 * (domain / 100)) ? `↑ +${formatValue(trend)}` : trend < (-0.5 * (domain / 100)) ? `↓ ${formatValue(trend)}` : "→ Estável",
-                "Instabilidade": `±${formatValue(mssdVolatility)} pts`,
+                "Tendência": hasSimulados ? (trend > (0.5 * (domain / 100)) ? `↑ +${formatValue(trend)}` : trend < (-0.5 * (domain / 100)) ? `↓ ${formatValue(trend)}` : "→ Estável") : "Sem dados",
+                "Instabilidade": hasSimulados ? `±${formatValue(mssdVolatility)} pts` : "Sem dados",
                 "Probabilidade (MC)": mcHasData ? formatPercent(mcProbability) : "Dados insuf.",
                 "Contexto Global MC": globalProjectedPct != null ? formatPercent(globalProjectedPct) : null,
                 "Peso da Matéria": weightLabel,

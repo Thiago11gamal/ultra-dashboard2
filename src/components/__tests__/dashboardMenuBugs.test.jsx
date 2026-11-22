@@ -757,16 +757,20 @@ describe('Meu Painel (Dashboard) Menu Bugs Audit & Fixes', () => {
     });
 
     describe('14. Deep Meu Painel Audit Fixes (Recency, Efficiency, Streak, Pomodoro Sync & Renaming)', () => {
-        it('calculateUrgency exposes recencyUnknown=true and Recência="Nunca" for brand new discipline', async () => {
+        it('calculateUrgency exposes recencyUnknown=true and Recência="Nunca" for brand new discipline without false Nota Crítica', async () => {
             const { calculateUrgency } = await import('../../utils/coachLogic.js');
             const category = {
                 id: 'cat-new',
                 name: 'Direito Tributário',
-                tasks: [{ id: 't-1', text: 'CTN', completed: false, priority: 'medium' }]
+                tasks: [{ id: 't-1', text: 'CTN', completed: false, priority: 'high' }]
             };
-            const urgency = calculateUrgency(category, [], []);
+            const urgency = calculateUrgency(category, [], [], { targetScore: 75, maxScore: 100, minScore: 0 });
             expect(urgency.details.recencyUnknown).toBe(true);
+            expect(urgency.details.hasSimulados).toBe(false);
             expect(urgency.details.humanReadable['Recência']).toBe('Nunca');
+            expect(urgency.details.humanReadable['Média']).toBe('Sem dados');
+            expect(urgency.recommendation).not.toContain('Nota Crítica');
+            expect(urgency.recommendation).toContain('prioridade alta');
         });
 
         it('analyzeEfficiency ignores flashcard logs and falls back to category.totalMinutes', async () => {
