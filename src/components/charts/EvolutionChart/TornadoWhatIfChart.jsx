@@ -209,7 +209,11 @@ export const TornadoWhatIfChart = React.memo(function TornadoWhatIfChart({
   const handleSaveCutoffsClick = () => {
     if (typeof onSaveGroupCutoffs === 'function') {
       const nextCutoffs = effectiveGroupCutoffs || {};
-      const nextKey = `${nextCutoffs?.basicos ?? ''}|${nextCutoffs?.especificos ?? ''}|${nextCutoffs?.discursiva ?? ''}`;
+      const nextKey = JSON.stringify({
+        basicos: nextCutoffs?.basicos ?? '',
+        especificos: nextCutoffs?.especificos ?? '',
+        discursiva: nextCutoffs?.discursiva ?? '',
+      });
       setLastSavedCutoffsKey(nextKey);
       onSaveGroupCutoffs(nextCutoffs);
       setSavedCutoffs(true);
