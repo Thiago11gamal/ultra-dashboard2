@@ -109,6 +109,7 @@ export const CriticalTopicsAnalysis = React.memo(({
             for (let i = 0; i < recentHistory.length; i++) {
                 const h = recentHistory[i];
                 let topicList = toArray(h.topics);
+                const parentPenalty = Number(h.penaltyPerWrong) || 0;
                 if (topicList.length === 0) {
                     const matchedTask = h.taskId ? tasksList.find(tk => tk && tk.id === h.taskId) : null;
                     const fallbackTopicName = matchedTask?.title || matchedTask?.text || matchedTask?.name || h.topic || h.assunto || h.subtopic || h.topicName;
@@ -118,9 +119,16 @@ export const CriticalTopicsAnalysis = React.memo(({
                             total: h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions,
                             correct: h.correct ?? h.acertos ?? h.correctCount,
                             score: h.score,
+                            scorePoints: h.scorePoints,
+                            scorePct: h.scorePct,
+                            penaltyPerWrong: h.penaltyPerWrong,
+                            blanks: h.blanks,
+                            netPoints: h.netPoints,
                             isPercentage: h.isPercentage
                         }];
                     }
+                } else if (parentPenalty > 0) {
+                    topicList = topicList.map(t => (t && t.penaltyPerWrong == null ? { ...t, penaltyPerWrong: parentPenalty } : t));
                 }
 
                 topicList.forEach(t => {
@@ -146,7 +154,7 @@ export const CriticalTopicsAnalysis = React.memo(({
                     } else if (total === 0) {
                         return;
                     }
-                    
+
                     if (total <= 0) return;
                     const hasExplicitCorrect = !t.isPercentage && (
                         (t.correct !== null && t.correct !== undefined && String(t.correct).trim() !== '') ||
@@ -247,7 +255,7 @@ export const CriticalTopicsAnalysis = React.memo(({
                 } else if (t === 0) {
                     continue;
                 }
-                
+
                 const hasExplicitCorrect = !h.isPercentage && (
                     (h.correct !== null && h.correct !== undefined && String(h.correct).trim() !== '') ||
                     (h.acertos !== null && h.acertos !== undefined && String(h.acertos).trim() !== '') ||
@@ -263,17 +271,17 @@ export const CriticalTopicsAnalysis = React.memo(({
                     if (!hasExplicitCorrect && !Number.isFinite(score)) continue;
                     correctCount = resolveEffectiveCorrect(h, score, t, hasExplicitCorrect && Number.isFinite(parsedHCorrect), parsedHCorrect, catMax, catMin);
                 }
-                
+
                 if (!Number.isFinite(correctCount)) continue;
                 const safeCorrect = Math.max(0, Math.min(t, correctCount));
                 total += t;
                 correct += safeCorrect;
             }
-            
+
             const accuracy = total > 0 ? correct / total : 0;
             const erroAbsoluto = total - correct;
             const criticidade = erroAbsoluto * (1 - accuracy);
-            
+
             return {
                 name: cat.name,
                 value: criticidade,
@@ -299,33 +307,33 @@ export const CriticalTopicsAnalysis = React.memo(({
     }, [effectiveCategories, startDateKey, endDateKey, timeWindow, maxScore, minScore]);
 
     const hasData = useMemo(() => {
-      if (!effectiveCategories) return false;
-    
-      return effectiveCategories.some(cat => {
-        const windowHistory = filterHistoryByTimeWindow(cat.simuladoStats?.history || [], timeWindow);
-    
-        return windowHistory.some(h => {
-          const k = getDateKey(getHistoryDate(h));
-          const topics = toArray(h.topics);
-    
-          const hasTopicData = topics.some(
-            t => Number(t?.total ?? t?.questoes ?? t?.totalQuestoes ?? t?.questions) > 0 || hasValidNumber(t?.score) || hasValidNumber(t?.scorePoints) || hasValidNumber(t?.scorePct)
-          );
-    
-          return (
-            k &&
-            k >= startDateKey &&
-            k <= endDateKey &&
-            (
-              parseInt(h?.total ?? h?.questoes ?? h?.totalQuestoes ?? h?.questions, 10) > 0 ||
-              hasValidNumber(h?.score) ||
-              hasValidNumber(h?.scorePoints) ||
-              hasValidNumber(h?.scorePct) ||
-              hasTopicData
-            )
-          );
+        if (!effectiveCategories) return false;
+
+        return effectiveCategories.some(cat => {
+            const windowHistory = filterHistoryByTimeWindow(cat.simuladoStats?.history || [], timeWindow);
+
+            return windowHistory.some(h => {
+                const k = getDateKey(getHistoryDate(h));
+                const topics = toArray(h.topics);
+
+                const hasTopicData = topics.some(
+                    t => Number(t?.total ?? t?.questoes ?? t?.totalQuestoes ?? t?.questions) > 0 || hasValidNumber(t?.score) || hasValidNumber(t?.scorePoints) || hasValidNumber(t?.scorePct)
+                );
+
+                return (
+                    k &&
+                    k >= startDateKey &&
+                    k <= endDateKey &&
+                    (
+                        parseInt(h?.total ?? h?.questoes ?? h?.totalQuestoes ?? h?.questions, 10) > 0 ||
+                        hasValidNumber(h?.score) ||
+                        hasValidNumber(h?.scorePoints) ||
+                        hasValidNumber(h?.scorePct) ||
+                        hasTopicData
+                    )
+                );
+            });
         });
-      });
     }, [effectiveCategories, startDateKey, endDateKey, timeWindow]);
 
     const renderLeakageLabel = useCallback((props) => {
@@ -379,11 +387,10 @@ export const CriticalTopicsAnalysis = React.memo(({
                                     type="button"
                                     onClick={() => setSelectedWeekOffset(w.offset)}
                                     aria-pressed={isActive}
-                                    className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all whitespace-nowrap ${
-                                        isActive
-                                            ? 'bg-indigo-500/20 text-indigo-200 border-indigo-400/40 shadow-sm'
-                                            : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
-                                    }`}
+                                    className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all whitespace-nowrap ${isActive
+                                        ? 'bg-indigo-500/20 text-indigo-200 border-indigo-400/40 shadow-sm'
+                                        : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
+                                        }`}
                                 >
                                     {w.label}
                                 </button>

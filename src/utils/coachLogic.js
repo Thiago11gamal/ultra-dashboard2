@@ -2,7 +2,7 @@
 import { calculateMSSD, calculateSlope } from '../engine/projection.js';
 import { useAppStore } from '../store/useAppStore.js';
 import { computeForgettingRisk } from '../engine/diagnostics.js';
-import { getSafeScore, getSyntheticTotal, formatValue, formatPercent } from './scoreHelper.js';
+import { getSafeScore, getSyntheticTotal, resolveEffectiveCorrect, formatValue, formatPercent } from './scoreHelper.js';
 import { safeDateParse as _safeDateParse, normalizeDate, getDateKey, isFlashcardDue } from './dateHelper.js';
 import { normalize, isSubjectMatch } from './normalization.js';
 import { normalizePriority } from './colorHelper.js';
@@ -291,7 +291,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
     const source1DateScores = new Set();
     const source1Dates = new Set();
     rawCatHistory.forEach((h, idx) => {
-        if (!h || h.valid === false) return;
+        if (!h || h.valid === false || h.validated === false) return;
         const score = getSafeScore(h, maxScore, minScore);
         if (!Number.isFinite(score)) return;
         const realDateKey = getDateKey(h.date || h.createdAt);
@@ -325,7 +325,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
         const stageDateScores = new Set();
         const stageDates = new Set();
         safeArray(list).forEach(s => {
-            if (!s || s.valid === false) return;
+            if (!s || s.valid === false || s.validated === false) return;
             const matches = (safeCategory.id && s.categoryId && String(s.categoryId) === String(safeCategory.id)) ||
                 (catName && isSubjectMatch(s.subject || s.categoryName || s.materia || s.disciplina || '', catName));
             if (!matches) return;
@@ -359,7 +359,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
 
     // 3. Linhas de simuladoRows (agrupadas por batchId ou data)
     const rawRows = safeArray(safeOptions.simuladoRows || safeOptions.history);
-    const rowsForCat = rawRows.filter(r => r && r.valid !== false && (
+    const rowsForCat = rawRows.filter(r => r && r.valid !== false && r.validated !== false && (
         (safeCategory.id && r.categoryId && String(r.categoryId) === String(safeCategory.id)) ||
         (catName && isSubjectMatch(r.subject || r.categoryName || r.materia || r.disciplina || '', catName))
     ));
@@ -367,22 +367,29 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
         const grouped = {};
         rowsForCat.forEach(r => {
             const groupKey = r.batchId || getDateKey(r.date || r.createdAt) || r.id;
-            const parsedExplicitScore = sanitizeNum(r.score ?? r.scorePoints ?? r.scorePct);
-            const rowExplicit = Number.isFinite(parsedExplicitScore) ? getSafeScore(r, maxScore, minScore) : null;
+            const rowSafeScore = getSafeScore(r, maxScore, minScore);
+            const rowExplicit = Number.isFinite(rowSafeScore) ? rowSafeScore : null;
             if (!grouped[groupKey]) {
                 grouped[groupKey] = {
                     date: r.date || r.createdAt,
                     correct: 0,
+                    effCorrect: 0,
                     total: 0,
                     batchId: r.batchId,
                     explicitScores: []
                 };
             }
             const rTotal = Math.max(0, Number(r.total ?? r.questoes ?? r.totalQuestoes ?? r.questions) || 0);
-            const rCorrect = rTotal > 0
-                ? Math.min(rTotal, Math.max(0, Number(r.correct ?? r.acertos ?? r.correctCount) || 0))
+            const rawC = r.correct ?? r.acertos ?? r.correctCount;
+            const hasRC = rawC !== undefined && rawC !== null && String(rawC).trim() !== '' && typeof rawC !== 'boolean';
+            const rCorrect = rTotal > 0 && hasRC
+                ? Math.min(rTotal, Math.max(0, Number(rawC) || 0))
+                : 0;
+            const effC = rTotal > 0
+                ? resolveEffectiveCorrect(r, rowExplicit, rTotal, !r.isPercentage && hasRC, rCorrect, maxScore, minScore)
                 : 0;
             grouped[groupKey].correct += rCorrect;
+            grouped[groupKey].effCorrect += effC;
             grouped[groupKey].total += rTotal;
             if (Number.isFinite(rowExplicit)) {
                 grouped[groupKey].explicitScores.push(rowExplicit);
@@ -396,7 +403,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
                 ? kahanSum(gData.explicitScores) / gData.explicitScores.length
                 : null;
             const score = gData.total > 0
-                ? minScore + (gData.correct / gData.total) * (maxScore - minScore)
+                ? minScore + (gData.effCorrect / gData.total) * (maxScore - minScore)
                 : (Number.isFinite(avgExplicit) ? avgExplicit : minScore);
             const realDateKey = getDateKey(gData.date);
             const dsKey = realDateKey ? `${realDateKey}_${Math.round(score * 10)}` : null;
@@ -409,7 +416,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
                 categoryId: safeCategory.id,
                 subject: catName,
                 score,
-                correct: gData.correct,
+                correct: gData.effCorrect,
                 total: gData.total,
                 batchId: gData.batchId
             });
@@ -418,8 +425,8 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
 
     const relevantAllPreSort = catSims.length > 0 ? catSims : (
         catName
-            ? safeSimulados.filter(s => s && s.valid !== false && isSubjectMatch(s.subject || s.categoryName || s.materia || s.disciplina || "", catName))
-            : safeSimulados.filter(s => s && s.valid !== false)
+            ? safeSimulados.filter(s => s && s.valid !== false && s.validated !== false && isSubjectMatch(s.subject || s.categoryName || s.materia || s.disciplina || "", catName))
+            : safeSimulados.filter(s => s && s.valid !== false && s.validated !== false)
     );
 
     const relevantAll = relevantAllPreSort
@@ -444,17 +451,17 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
     const validCatIds = new Set(safeAllCats.map(c => c?.id != null ? String(c.id) : "").filter(Boolean));
     let allSimsForBaseline = (validCatNorms.size > 0 || validCatIds.size > 0)
         ? safeSimulados.filter(s => {
-            if (!s || s.valid === false) return false;
+            if (!s || s.valid === false || s.validated === false) return false;
             if (s.categoryId != null && validCatIds.has(String(s.categoryId))) return true;
             const rawSub = s.subject || s.categoryName || s.materia || s.disciplina || "";
             if (!rawSub) return false;
             return validCatNorms.has(normalize(rawSub)) || validCatNames.some(cn => isSubjectMatch(rawSub, cn));
         })
-        : safeSimulados.filter(s => s && s.valid !== false);
+        : safeSimulados.filter(s => s && s.valid !== false && s.validated !== false);
     if (allSimsForBaseline.length === 0 && safeAllCats.length > 0) {
         allSimsForBaseline = safeAllCats.flatMap(c =>
             safeArray(c?.simuladoStats?.history)
-                .filter(h => h && h.valid !== false)
+                .filter(h => h && h.valid !== false && h.validated !== false)
                 .map(h => ({
                     ...h,
                     categoryId: h?.categoryId ?? c?.id,
@@ -483,17 +490,13 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
             const sMin = rawSMin !== null ? Math.min(rawSMin, sMax) : Math.min(globalMinScore, sMax);
             const sRange = Math.max(1e-9, sMax - sMin);
 
-            const sTotal = s?.total ?? s?.questoes ?? s?.totalQuestoes ?? s?.questions;
-            const sCorrect = s?.correct ?? s?.acertos ?? s?.correctCount;
-            if (!s?.isPercentage && sCorrect != null && sTotal != null && Number(sTotal) > 0) {
-                const c = sanitizeNum(sCorrect);
-                const t = sanitizeNum(sTotal);
-                if (Number.isFinite(c) && Number.isFinite(t) && t > 0) {
-                    return Math.max(0, Math.min(1, c / t));
-                }
-            }
-
             const score = getSafeScore(s, sMax, sMin);
+            const sTotal = sanitizeNum(s?.total ?? s?.questoes ?? s?.totalQuestoes ?? s?.questions);
+            const sCorrect = sanitizeNum(s?.correct ?? s?.acertos ?? s?.correctCount);
+            if (Number.isFinite(sTotal) && sTotal > 0 && Number.isFinite(sCorrect) && !s?.isPercentage) {
+                const effC = resolveEffectiveCorrect(s, score, sTotal, true, sCorrect, sMax, sMin);
+                return Math.max(0, Math.min(1, effC / sTotal));
+            }
             if (!Number.isFinite(score)) return null;
             return Math.max(0, Math.min(1, (score - sMin) / sRange));
         })
@@ -2200,14 +2203,14 @@ function _buildSortedTopics(category, simulados = [], maxScore = 100, minScore =
         ? options.simuladoRows
         : Object.values(options?.simuladoRows || {});
     const catNameForSims = safeCat.name || safeCat.id || '';
-    const matchesCatSim = (s) => s && s.valid !== false && (
+    const matchesCatSim = (s) => s && s.valid !== false && s.validated !== false && (
         (safeCat.id && s.categoryId && String(s.categoryId) === String(safeCat.id)) ||
         (catNameForSims && isSubjectMatch(s.subject || s.categoryName || s.materia || s.disciplina || '', catNameForSims))
     );
-    const safeSims = catNameForSims ? allSafeSims.filter(matchesCatSim) : allSafeSims.filter(s => s && s.valid !== false);
+    const safeSims = catNameForSims ? allSafeSims.filter(matchesCatSim) : allSafeSims.filter(s => s && s.valid !== false && s.validated !== false);
     const optAllSims = catNameForSims ? optAllSimsRaw.filter(matchesCatSim) : [];
     const optSimRows = catNameForSims ? optSimRowsRaw.filter(matchesCatSim) : [];
-    const rawCatHistForHash = safeArray(safeCat.simuladoStats?.history).filter(h => h && h.valid !== false);
+    const rawCatHistForHash = safeArray(safeCat.simuladoStats?.history).filter(h => h && h.valid !== false && h.validated !== false);
     const allSourcesForHash = [...rawCatHistForHash, ...safeSims, ...optAllSims, ...optSimRows];
     let lastSimTimestamp = 0;
     const historyVolume = allSourcesForHash.length;
@@ -2298,7 +2301,10 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100, minSc
         if (!entry) return [];
         const rawTopics = entry.topics;
         if (Array.isArray(rawTopics) && rawTopics.length > 0 && rawTopics.some(t => t && (t.name || t.topic || t.assunto || t.subtopic || t.topicName))) {
-            return rawTopics;
+            const parentPenalty = Number(entry.penaltyPerWrong) || 0;
+            return parentPenalty > 0
+                ? rawTopics.map(t => (t && t.penaltyPerWrong == null ? { ...t, penaltyPerWrong: parentPenalty } : t))
+                : rawTopics;
         }
         const singleTopicName = entry.topic || entry.assunto || entry.subtopic || entry.topicName;
         if (singleTopicName) {
@@ -2307,6 +2313,11 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100, minSc
                 total: entry.total ?? entry.questoes ?? entry.totalQuestoes ?? entry.questions,
                 correct: entry.correct ?? entry.acertos ?? entry.correctCount,
                 score: entry.score,
+                scorePoints: entry.scorePoints,
+                scorePct: entry.scorePct,
+                penaltyPerWrong: entry.penaltyPerWrong,
+                blanks: entry.blanks,
+                netPoints: entry.netPoints,
                 isPercentage: entry.isPercentage
             }];
         }
@@ -2322,7 +2333,7 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100, minSc
         if (!Array.isArray(sourceList) || sourceList.length === 0) return;
         const sourceDateTopics = new Set();
         sourceList.forEach((entry) => {
-            if (!entry || entry.valid === false) return;
+            if (!entry || entry.valid === false || entry.validated === false) return;
             const entryId = entry.id && !String(entry.id).startsWith('legacy-') ? String(entry.id) : null;
             if (entryId && seenEntryIds.has(entryId)) return;
             const entryTopics = extractEntryTopics(entry);
@@ -2375,15 +2386,22 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100, minSc
                     total: entry.total ?? entry.questoes ?? entry.totalQuestoes ?? entry.questions,
                     correct: entry.correct ?? entry.acertos ?? entry.correctCount,
                     score: entry.score,
+                    scorePoints: entry.scorePoints,
+                    scorePct: entry.scorePct,
+                    penaltyPerWrong: entry.penaltyPerWrong,
+                    blanks: entry.blanks,
+                    netPoints: entry.netPoints,
                     isPercentage: entry.isPercentage
                 }];
             } else {
                 topics = [];
             }
         }
+        const entryPenalty = Number(entry.penaltyPerWrong) || 0;
         topics.forEach(t => {
             if (!t) return;
-            let rawName = t.name || t.topic || t.assunto || t.subtopic || t.topicName;
+            const tEff = (t.penaltyPerWrong == null && entryPenalty > 0) ? { ...t, penaltyPerWrong: entryPenalty } : t;
+            let rawName = tEff.name || tEff.topic || tEff.assunto || tEff.subtopic || tEff.topicName;
             if (typeof rawName !== 'string' || !rawName) rawName = "Tópico Desconhecido";
             const name = rawName.trim();
             const topicKey = normalize(name) || name.toLowerCase();
@@ -2405,23 +2423,24 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100, minSc
             ) {
                 topicMap[topicKey].displayName = name;
             }
-            const candidateTotal = t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions;
+            const candidateTotal = tEff.total ?? tEff.questoes ?? tEff.totalQuestoes ?? tEff.questions;
             let rawTotal = Number(candidateTotal);
             let topicTotal = Number.isFinite(rawTotal) && rawTotal > 0 ? rawTotal : 0;
             let topicCorrect = 0;
             const isTotalMissing = candidateTotal === undefined || candidateTotal === null || String(candidateTotal).trim() === "" || Number(candidateTotal) === 0;
-            const candidateCorrect = t.correct ?? t.acertos ?? t.correctCount;
-            const resolvedScoreRaw = t.score ?? t.scorePoints ?? t.scorePct;
+            const candidateCorrect = tEff.correct ?? tEff.acertos ?? tEff.correctCount;
+            const resolvedScoreRaw = tEff.score ?? tEff.scorePoints ?? tEff.scorePct;
             const isScoreMissing = resolvedScoreRaw === undefined || resolvedScoreRaw === null || (typeof resolvedScoreRaw === 'string' && resolvedScoreRaw.trim() === '');
             if (!isScoreMissing && isTotalMissing) {
                 topicTotal = getSyntheticTotal(catMax);
-                topicCorrect = ((getSafeScore(t, catMax, catMin) - catMin) / catRange) * topicTotal;
+                topicCorrect = ((getSafeScore(tEff, catMax, catMin) - catMin) / catRange) * topicTotal;
             } else if (topicTotal > 0) {
                 const rawC = sanitizeNum(candidateCorrect);
-                if (!t.isPercentage && Number.isFinite(rawC)) {
-                    topicCorrect = Math.min(topicTotal, rawC);
-                } else if (!isScoreMissing) {
-                    topicCorrect = ((getSafeScore(t, catMax, catMin) - catMin) / catRange) * topicTotal;
+                const tScore = getSafeScore(tEff, catMax, catMin);
+                if (!tEff.isPercentage && Number.isFinite(rawC)) {
+                    topicCorrect = resolveEffectiveCorrect(tEff, tScore, topicTotal, true, rawC, catMax, catMin);
+                } else if (!isScoreMissing && Number.isFinite(tScore)) {
+                    topicCorrect = ((tScore - catMin) / catRange) * topicTotal;
                 } else if (Number.isFinite(rawC)) {
                     topicCorrect = Math.min(topicTotal, rawC);
                 } else {
@@ -2844,11 +2863,11 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
 
         // ✅ FIX: Incluir simulados de safeSimulados E category.simuladoStats.history (com deduplicação e isSubjectMatch)
         const catHistorySims = safeArray(category?.simuladoStats?.history).filter(h =>
-            h && (normalizeDate(h?.date || h?.createdAt) || new Date(0)).getTime() >= cutoffTime
+            h && h.valid !== false && h.validated !== false && (normalizeDate(h?.date || h?.createdAt) || new Date(0)).getTime() >= cutoffTime
         );
         const globalMatchingSims = (categoryId || catName)
             ? safeSimulados.filter(s => {
-                if (!s) return false;
+                if (!s || s.valid === false || s.validated === false) return false;
                 const matchesId = categoryId !== undefined && categoryId !== null && s?.categoryId !== undefined && s?.categoryId !== null && (
                     s.categoryId === categoryId || String(s.categoryId) === String(categoryId)
                 );

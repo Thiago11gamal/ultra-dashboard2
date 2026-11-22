@@ -255,7 +255,15 @@ export function normalizeScoreValue(row, maxScore, minScore = 0) {
 
   // ── 1) total/correct ──────────────────────────────────────
   if (total > 0 && (hasExplicitCorrect || !hasAnyScoreField)) {
-    const ratio = Math.max(0, Math.min(1, correct / total));
+    const penaltyPerWrong = Number(r.penaltyPerWrong) || 0;
+    const ratio = penaltyPerWrong > 0
+      ? computeEffectiveScoreRatio(correct, total, {
+          blanks: Number(r.blanks) || 0,
+          penaltyPerWrong,
+          minScore: domain.min,
+          maxScore: domain.max,
+        }).ratio
+      : Math.max(0, Math.min(1, correct / total));
     return {
       points: domain.min + ratio * domain.range,
       pct: ratio * 100,
@@ -388,23 +396,33 @@ export function extractTopicsTotals(entry, maxScore = 100, minScore = 0) {
   let scoreSum = 0;
   let scoreCount = 0;
 
+  const parentPenalty = Number(entry?.penaltyPerWrong) || 0;
+
   for (const t of topicsList) {
     if (!t || typeof t !== "object") continue;
-    const tTot = Math.max(0, Number(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions) || 0);
+    const tEff = (t.penaltyPerWrong == null && parentPenalty > 0)
+      ? { ...t, penaltyPerWrong: parentPenalty }
+      : t;
+    const tTot = Math.max(0, Number(tEff.total ?? tEff.questoes ?? tEff.totalQuestoes ?? tEff.questions) || 0);
     const hasTC =
-      (t.correct !== undefined && t.correct !== null && String(t.correct).trim() !== "") ||
-      (t.acertos !== undefined && t.acertos !== null && String(t.acertos).trim() !== "") ||
-      (t.correctCount !== undefined && t.correctCount !== null && String(t.correctCount).trim() !== "");
-    const parsedTC = Number(t.correct ?? t.acertos ?? t.correctCount);
-    const tScore = getSafeScore(t, safeMax, safeMin);
+      (tEff.correct !== undefined && tEff.correct !== null && String(tEff.correct).trim() !== "") ||
+      (tEff.acertos !== undefined && tEff.acertos !== null && String(tEff.acertos).trim() !== "") ||
+      (tEff.correctCount !== undefined && tEff.correctCount !== null && String(tEff.correctCount).trim() !== "");
+    const parsedTC = Number(tEff.correct ?? tEff.acertos ?? tEff.correctCount);
+    const tScore = getSafeScore(tEff, safeMax, safeMin);
     if (tTot > 0) {
+      if (!hasTC && !Number.isFinite(tScore)) continue;
       sumTotal += tTot;
-      if (!t.isPercentage && hasTC && Number.isFinite(parsedTC)) {
-        sumCorrect += Math.max(0, Math.min(tTot, parsedTC));
-      } else if (Number.isFinite(tScore)) {
-        const ratio = Math.max(0, Math.min(1, (tScore - safeMin) / safeRange));
-        sumCorrect += Math.round(ratio * tTot);
-      }
+      const effC = resolveEffectiveCorrect(
+        tEff,
+        tScore,
+        tTot,
+        !tEff.isPercentage && hasTC && Number.isFinite(parsedTC),
+        parsedTC,
+        safeMax,
+        safeMin
+      );
+      sumCorrect += Math.max(0, Math.min(tTot, effC));
     } else if (Number.isFinite(tScore)) {
       scoreSum += tScore;
       scoreCount += 1;

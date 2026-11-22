@@ -22,7 +22,7 @@ function notifyFlagListeners(contestId) {
 
 /** Registra listener para mudanças em feature flags. Retorna função de unsubscribe. */
 export function subscribeFlags(listener) {
-  if (typeof listener !== 'function') return () => {};
+  if (typeof listener !== 'function') return () => { };
   _flagListeners.add(listener);
   return () => {
     _flagListeners.delete(listener);
@@ -51,9 +51,18 @@ function getRegistry(contestId = getCoachFeatureContestScope()) {
   return globalThis[FLAG_REGISTRY_KEY][scope];
 }
 
-/** Lê flags de forma atômica (snapshot imutável). */
+function peekRegistry(contestId = getCoachFeatureContestScope()) {
+  if (typeof globalThis === 'undefined') return null;
+  const root = globalThis[FLAG_REGISTRY_KEY];
+  if (!root || typeof root !== 'object') return null;
+  const scope = String(contestId || 'default');
+  return root[scope] && typeof root[scope] === 'object' ? root[scope] : null;
+}
+
+/** Lê flags de forma atômica (snapshot imutável) sem alocar escopo vazio. */
 export function readFlags(contestId) {
-  return { ...getRegistry(contestId) };
+  const existing = peekRegistry(contestId);
+  return existing ? { ...existing } : {};
 }
 
 /** Atualiza flags atomicamente. Retorna o novo snapshot. */
@@ -112,14 +121,14 @@ export function getFlag(key, fallback = false, contestId) {
   if (typeof key !== 'string') return fallback;
   // FIX (BUG-16): proteger contra prototype pollution
   if (key === '__proto__' || key === 'constructor' || key === 'prototype') return fallback;
-  // FIX: proteger contra registry corrompido (ex: localStorage com JSON inválido)
+  // FIX: proteger contra registry corrompido sem alocar escopos desnecessários
   let registry;
   try {
-    registry = getRegistry(contestId);
+    registry = peekRegistry(contestId);
   } catch {
     return fallback;
   }
-  return typeof registry[key] === 'boolean' ? registry[key] : fallback;
+  return registry && typeof registry[key] === 'boolean' ? registry[key] : fallback;
 }
 
 /** Limpa todo o registro em memória de feature flags (usado no logout). */

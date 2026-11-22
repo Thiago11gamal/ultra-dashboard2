@@ -93,7 +93,7 @@ export function buildStudyVolumeCausalEvents(simulados = [], studyLogs = [], opt
   const seenVolSigs = new Set();
   const safeSimulados = safeArray(simulados)
     .filter((simulado) => {
-      if (!simulado || simulado.valid === false) return false;
+      if (!simulado || simulado.valid === false || simulado.validated === false) return false;
       if (!categoryId && !categoryName) return true;
       if (categoryId && simulado?.categoryId != null && (simulado.categoryId === categoryId || String(simulado.categoryId) === String(categoryId))) {
         return true;

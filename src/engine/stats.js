@@ -14,7 +14,7 @@ function toHistoryArray(history) {
     const raw = Array.isArray(history)
         ? history
         : (history && typeof history === 'object' ? Object.values(history) : []);
-    return raw.filter(h => h != null && (typeof h !== 'object' || h.valid !== false));
+    return raw.filter(h => h != null && (typeof h !== 'object' || (h.valid !== false && h.validated !== false)));
 }
 
 function safeFinite(value, fallback = 0) {
@@ -1127,8 +1127,13 @@ export const calculateTimeWeightedEMA = (historicData, lambda = 0.05, maxScore =
     const getTime = (d) => {
         if (d?.timestamp != null && Number.isFinite(Number(d.timestamp))) return Number(d.timestamp);
 
-        if (d?.date != null) {
-            const ms = new Date(d.date).getTime();
+        const rawDate = d?.date ?? d?.createdAt;
+        if (rawDate != null) {
+            const parsed = safeDateParse(rawDate);
+            if (parsed instanceof Date && Number.isFinite(parsed.getTime())) {
+                return parsed.getTime();
+            }
+            const ms = new Date(rawDate).getTime();
             return Number.isFinite(ms) ? ms : NaN;
         }
 

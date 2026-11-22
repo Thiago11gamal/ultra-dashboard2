@@ -34,7 +34,7 @@ const hasValidNumber = (v) =>
 
 const CustomLineTooltip = React.memo(({ active, payload, label, targetScorePct }) => {
     const safeFix = (v, d = 0) => (Number.isFinite(Number(v)) ? Number(v).toFixed(d) : "0");
-    
+
     if (active && payload && payload.length) {
         const validPayload = payload.filter(entry => entry && hasValidNumber(entry.value));
         if (validPayload.length === 0) return null;
@@ -44,16 +44,16 @@ const CustomLineTooltip = React.memo(({ active, payload, label, targetScorePct }
         return (
             <div className="bg-slate-950/95 border border-white/10 p-4 rounded-2xl shadow-[0_15px_40px_rgba(0,0,0,0.7)] backdrop-blur-xl min-w-[320px] z-50">
                 {(() => {
-                  const formattedLabel = (typeof label === 'string' && /^\d{4}-\d{2}-\d{2}/.test(label))
-                    ? formatDisplayDate(label)
-                    : (getDateKey(label) ? formatDisplayDate(getDateKey(label)) : String(label));
-                
-                  return (
-                    <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest mb-3 border-b border-white/10 pb-2 flex justify-between items-center">
-                      <span>📅 {formattedLabel}</span>
-                      <span>Meta: {safeFix(targetScorePct, 1)}%</span>
-                    </p>
-                  );
+                    const formattedLabel = (typeof label === 'string' && /^\d{4}-\d{2}-\d{2}/.test(label))
+                        ? formatDisplayDate(label)
+                        : (getDateKey(label) ? formatDisplayDate(getDateKey(label)) : String(label));
+
+                    return (
+                        <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest mb-3 border-b border-white/10 pb-2 flex justify-between items-center">
+                            <span>📅 {formattedLabel}</span>
+                            <span>Meta: {safeFix(targetScorePct, 1)}%</span>
+                        </p>
+                    );
                 })()}
                 <div className="space-y-4">
                     {sortedPayload.map((entry, index) => {
@@ -63,10 +63,10 @@ const CustomLineTooltip = React.memo(({ active, payload, label, targetScorePct }
                         const correct = Math.round(Number(entry.payload[`${topicKey}_correct`]) || 0);
                         const isSyntheticPoint = Boolean(entry.payload[`${topicKey}_synthetic`]);
                         const delta = entry.payload[`${topicKey}_delta`];
-                        
+
                         const isTargetMet = pct >= targetScorePct;
                         const gap = isTargetMet ? 0 : Math.max(0, targetScorePct - pct);
-                        
+
                         return (
                             <div key={`item-${index}`} className="flex flex-col gap-1.5">
                                 <div className="flex justify-between items-end">
@@ -95,8 +95,8 @@ const CustomLineTooltip = React.memo(({ active, payload, label, targetScorePct }
                                     </div>
                                 </div>
                                 <div className="w-full h-1.5 bg-slate-900/80 rounded-full overflow-hidden border border-white/5 shadow-inner mt-0.5">
-                                    <div 
-                                        className="h-full rounded-full transition-all duration-500 ease-out relative" 
+                                    <div
+                                        className="h-full rounded-full transition-all duration-500 ease-out relative"
                                         style={{ width: `${pct}%`, backgroundColor: entry.color, boxShadow: `0 0 10px ${entry.color}88` }}
                                     >
                                         <div className="absolute right-0 top-0 bottom-0 w-4 bg-gradient-to-l from-white/30 to-transparent"></div>
@@ -112,19 +112,19 @@ const CustomLineTooltip = React.memo(({ active, payload, label, targetScorePct }
     return null;
 });
 
-export const SubtopicsPerformanceChart = React.memo(({ 
-    categories = [], 
-    focusSubjectId, 
-    showOnlyFocus, 
-    timeWindow, 
-    targetScore = 80, 
+export const SubtopicsPerformanceChart = React.memo(({
+    categories = [],
+    focusSubjectId,
+    showOnlyFocus,
+    timeWindow,
+    targetScore = 80,
     minScore = 0,
-    maxScore = 100 
+    maxScore = 100
 }) => {
     const instanceId = useId().replace(/:/g, "");
     const [viewMode, setViewMode] = useState('bars');
     const accuracyUnit = '%';
-    
+
     const safeCategories = useMemo(
         () => toArray(categories).filter(Boolean),
         [categories]
@@ -145,26 +145,26 @@ export const SubtopicsPerformanceChart = React.memo(({
         ? Number(focusedCategory.maxScore)
         : (globalMaxScorePct > safeMinScorePct ? globalMaxScorePct : safeMinScorePct + 1);
     const safeRangePct = Math.max(1e-9, safeMaxScorePct - safeMinScorePct);
-    
+
     const safeTargetScorePctRaw = (focusedCategory && hasValidNumber(focusedCategory.minCutoff) && Number(focusedCategory.minCutoff) > safeMinScorePct)
-      ? Number(focusedCategory.minCutoff)
-      : (hasValidNumber(targetScore)
-          ? (safeMaxScorePct === globalMaxScorePct && safeMinScorePct === globalMinScorePct
-              ? Number(targetScore)
-              : safeMinScorePct + ((Number(targetScore) - globalMinScorePct) / globalRangePct) * safeRangePct)
-          : safeMinScorePct);
-    
+        ? Number(focusedCategory.minCutoff)
+        : (hasValidNumber(targetScore)
+            ? (safeMaxScorePct === globalMaxScorePct && safeMinScorePct === globalMinScorePct
+                ? Number(targetScore)
+                : safeMinScorePct + ((Number(targetScore) - globalMinScorePct) / globalRangePct) * safeRangePct)
+            : safeMinScorePct);
+
     const safeTargetScorePctClamped = Math.max(
-      safeMinScorePct,
-      Math.min(safeMaxScorePct, safeTargetScorePctRaw)
+        safeMinScorePct,
+        Math.min(safeMaxScorePct, safeTargetScorePctRaw)
     );
-    
+
     const targetScorePct = Math.max(
-      0,
-      Math.min(
-        100,
-        ((safeTargetScorePctClamped - safeMinScorePct) / safeRangePct) * 100
-      )
+        0,
+        Math.min(
+            100,
+            ((safeTargetScorePctClamped - safeMinScorePct) / safeRangePct) * 100
+        )
     );
 
     const renderLineTooltip = useCallback(
@@ -194,6 +194,7 @@ export const SubtopicsPerformanceChart = React.memo(({
             for (let i = 0; i < recentHistory.length; i++) {
                 const h = recentHistory[i];
                 let topicList = toArray(h.topics);
+                const parentPenalty = Number(h.penaltyPerWrong) || 0;
                 if (topicList.length === 0) {
                     const matchedTask = h.taskId ? tasksList.find(tk => tk && tk.id === h.taskId) : null;
                     const fallbackName = matchedTask?.title || matchedTask?.text || matchedTask?.name || h.topic || h.assunto || h.subtopic || h.topicName;
@@ -203,9 +204,16 @@ export const SubtopicsPerformanceChart = React.memo(({
                             total: h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions,
                             correct: h.correct ?? h.acertos ?? h.correctCount,
                             score: h.score,
+                            scorePoints: h.scorePoints,
+                            scorePct: h.scorePct,
+                            penaltyPerWrong: h.penaltyPerWrong,
+                            blanks: h.blanks,
+                            netPoints: h.netPoints,
                             isPercentage: h.isPercentage
                         }];
                     }
+                } else if (parentPenalty > 0) {
+                    topicList = topicList.map(t => (t && t.penaltyPerWrong == null ? { ...t, penaltyPerWrong: parentPenalty } : t));
                 }
 
                 topicList.forEach(t => {
@@ -228,7 +236,7 @@ export const SubtopicsPerformanceChart = React.memo(({
                         total = getSyntheticTotal(catMax);
                     }
                     if (total <= 0) return;
-                    
+
                     const hasValidC = !t.isPercentage && (
                         (t.correct !== null && t.correct !== undefined && String(t.correct).trim() !== '') ||
                         (t.acertos !== null && t.acertos !== undefined && String(t.acertos).trim() !== '') ||
@@ -288,23 +296,23 @@ export const SubtopicsPerformanceChart = React.memo(({
     }, [relevantCategories, timeWindow, showOnlyFocus, maxScore, minScore]);
 
     const { timeSeriesData, uniqueTopics } = useMemo(() => {
-        const dateMap = {}; 
-        const topicVolumeMap = {}; 
+        const dateMap = {};
+        const topicVolumeMap = {};
         const safeMaxScore = Math.max(1, Number(maxScore) || 100);
         const safeMinScore = hasValidNumber(minScore) ? Number(minScore) : 0;
         const scopeByCat = !showOnlyFocus && relevantCategories.length > 1;
 
         const toTopicKey = (name) => {
-          const normalized = String(name || '').trim().toLowerCase();
-          const slug = normalized.replace(/[^a-z0-9]+/g, '_');
-          let h1 = 0x811c9dc5;
-          let h2 = 0x01000193;
-          for (let i = 0; i < normalized.length; i++) {
-            const c = normalized.charCodeAt(i);
-            h1 = Math.imul(h1 ^ c, 0x01000193);
-            h2 = Math.imul(h2 ^ c, 0x85ebca6b);
-          }
-          return `top_${slug}_${(h1 >>> 0).toString(36)}${(h2 >>> 0).toString(36)}`;
+            const normalized = String(name || '').trim().toLowerCase();
+            const slug = normalized.replace(/[^a-z0-9]+/g, '_');
+            let h1 = 0x811c9dc5;
+            let h2 = 0x01000193;
+            for (let i = 0; i < normalized.length; i++) {
+                const c = normalized.charCodeAt(i);
+                h1 = Math.imul(h1 ^ c, 0x01000193);
+                h2 = Math.imul(h2 ^ c, 0x85ebca6b);
+            }
+            return `top_${slug}_${(h1 >>> 0).toString(36)}${(h2 >>> 0).toString(36)}`;
         };
 
         relevantCategories.forEach(cat => {
@@ -329,6 +337,7 @@ export const SubtopicsPerformanceChart = React.memo(({
                 }
 
                 let topicList = toArray(h.topics);
+                const parentPenalty = Number(h.penaltyPerWrong) || 0;
                 if (topicList.length === 0) {
                     const matchedTask = h.taskId ? tasksList.find(tk => tk && tk.id === h.taskId) : null;
                     const fallbackName = matchedTask?.title || matchedTask?.text || matchedTask?.name || h.topic || h.assunto || h.subtopic || h.topicName;
@@ -338,16 +347,23 @@ export const SubtopicsPerformanceChart = React.memo(({
                             total: h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions,
                             correct: h.correct ?? h.acertos ?? h.correctCount,
                             score: h.score,
+                            scorePoints: h.scorePoints,
+                            scorePct: h.scorePct,
+                            penaltyPerWrong: h.penaltyPerWrong,
+                            blanks: h.blanks,
+                            netPoints: h.netPoints,
                             isPercentage: h.isPercentage
                         }];
                     }
+                } else if (parentPenalty > 0) {
+                    topicList = topicList.map(t => (t && t.penaltyPerWrong == null ? { ...t, penaltyPerWrong: parentPenalty } : t));
                 }
 
                 topicList.forEach(t => {
                     const rawName = String(t.name || '').replace(/^\[(.*?)\]\s*/i, '').replace(/<[^>]*>?/gm, '').trim();
                     const topicName = rawName ? rawName.charAt(0).toUpperCase() + rawName.slice(1) : '';
                     if (!topicName || topicName.toLowerCase() === 'nenhum') return;
-                    
+
                     const rawTotParsed = parseInt(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions, 10) || 0;
                     const hasTopicScore = hasValidNumber(t.score) || hasValidNumber(t.scorePoints) || hasValidNumber(t.scorePct);
                     const isSynthTopic = rawTotParsed <= 0;
@@ -438,7 +454,7 @@ export const SubtopicsPerformanceChart = React.memo(({
                     entry[`${topic.key}_total`] = effTot;
                     entry[`${topic.key}_correct`] = effCor;
                     entry[`${topic.key}_synthetic`] = isSynth;
-                    
+
                     if (prevAccMap[topic.key] !== undefined) {
                         entry[`${topic.key}_delta`] = Number((acc - prevAccMap[topic.key]).toFixed(2));
                     } else {
@@ -573,88 +589,88 @@ export const SubtopicsPerformanceChart = React.memo(({
                     <div className="min-w-[520px] lg:min-w-full relative" style={{ height: barsContainerHeight }}>
                         <ChartFrame minHeight={420} label="Analisando subtópicos">
                             <ResponsiveContainer width="100%" height="100%" minHeight={420} minWidth={1}>
-                            <BarChart data={chartData} layout="vertical" margin={{ top: 10, right: 110, left: 0, bottom: 0 }}>
-                                <defs>
-                                    <linearGradient id={`gradGood_${instanceId}`} x1="0" y1="0" x2="1" y2="0">
-                                        <stop offset="0%" stopColor="#10b981" stopOpacity={0.7}/>
-                                        <stop offset="100%" stopColor="#34d399" stopOpacity={1}/>
-                                    </linearGradient>
-                                    <linearGradient id={`gradWarn_${instanceId}`} x1="0" y1="0" x2="1" y2="0">
-                                        <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.7}/>
-                                        <stop offset="100%" stopColor="#fbbf24" stopOpacity={1}/>
-                                    </linearGradient>
-                                    <linearGradient id={`gradBad_${instanceId}`} x1="0" y1="0" x2="1" y2="0">
-                                        <stop offset="0%" stopColor="#ef4444" stopOpacity={0.7}/>
-                                        <stop offset="100%" stopColor="#f87171" stopOpacity={1}/>
-                                    </linearGradient>
-                                </defs>
-                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" horizontal={false} />
+                                <BarChart data={chartData} layout="vertical" margin={{ top: 10, right: 110, left: 0, bottom: 0 }}>
+                                    <defs>
+                                        <linearGradient id={`gradGood_${instanceId}`} x1="0" y1="0" x2="1" y2="0">
+                                            <stop offset="0%" stopColor="#10b981" stopOpacity={0.7} />
+                                            <stop offset="100%" stopColor="#34d399" stopOpacity={1} />
+                                        </linearGradient>
+                                        <linearGradient id={`gradWarn_${instanceId}`} x1="0" y1="0" x2="1" y2="0">
+                                            <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.7} />
+                                            <stop offset="100%" stopColor="#fbbf24" stopOpacity={1} />
+                                        </linearGradient>
+                                        <linearGradient id={`gradBad_${instanceId}`} x1="0" y1="0" x2="1" y2="0">
+                                            <stop offset="0%" stopColor="#ef4444" stopOpacity={0.7} />
+                                            <stop offset="100%" stopColor="#f87171" stopOpacity={1} />
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" horizontal={false} />
 
-                                <XAxis
-                                    type="number"
-                                    domain={[0, 100]}
-                                    stroke="#94a3b8"
-                                    tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }}
-                                    axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
-                                    tickLine={false}
-                                    tickFormatter={(v) => `${v}${accuracyUnit}`}
-                                    allowDataOverflow={true}
-                                />
-
-                                <YAxis
-                                    type="category"
-                                    dataKey="fullName"
-                                    stroke="#cbd5e1"
-                                    tick={renderYAxisTick}
-                                    axisLine={false}
-                                    tickLine={false}
-                                    width={150}
-                                />
-
-                                <Tooltip
-                                    offset={30}
-                                    cursor={{ fill: 'rgba(255,255,255,0.04)' }}
-                                    contentStyle={CustomTooltipStyle}
-                                    itemStyle={{ color: '#e2e8f0', fontWeight: 'bold' }}
-                                    formatter={(value, name, props) => {
-                                        const entry = props?.payload;
-                                        if (!entry) return [value, name];
-                                        const diff = Number(value) - targetScorePct;
-                                        const gapText = Number.isFinite(diff)
-                                            ? (diff >= 0 ? ` · +${formatValue(diff)}pp meta` : ` · ${formatValue(diff)}pp meta`)
-                                            : '';
-                                        if (entry.isSynthetic) {
-                                            return [`${formatValue(value)}% (simulado percentual)${gapText}`, 'Precisão'];
-                                        }
-                                        return [`${formatValue(value)}% (${entry.realCorrect ?? entry.correct ?? 0}/${entry.realTotal ?? entry.total ?? 0} acertos)${gapText}`, 'Precisão'];
-                                    }}
-                                    labelFormatter={(label) => <span className="font-black text-amber-400 tracking-wider uppercase text-[10px]">{label}</span>}
-                                />
-
-                                <ReferenceLine 
-                                    x={targetScorePct} 
-                                    stroke="#10b981" 
-                                    strokeDasharray="5 3" 
-                                    strokeWidth={2}
-                                    strokeOpacity={0.8}
-                                    label={{ position: 'top', value: 'META', fill: '#34d399', fontSize: 10, fontWeight: 'bold' }}
-                                />
-
-                                <Bar dataKey="accuracy" radius={[0, 8, 8, 0]} barSize={24} fill="#6366f1" background={{ fill: 'rgba(255,255,255,0.03)', radius: [0, 8, 8, 0] }} isAnimationActive={true} animationDuration={800}>
-                                    {chartData.map((entry, index) => {
-                                        let barColor = `url(#gradBad_${instanceId})`;
-                                        const warnThreshold = targetScorePct > 35 ? Math.max(25, targetScorePct * 0.75) : targetScorePct * 0.75;
-                                        if (entry.accuracy >= targetScorePct) barColor = `url(#gradGood_${instanceId})`;
-                                        else if (entry.accuracy >= warnThreshold) barColor = `url(#gradWarn_${instanceId})`;
-                                        return <Cell key={`cell-${index}`} fill={barColor} />;
-                                    })}
-                                    <LabelList
-                                        dataKey="accuracy"
-                                        position="right"
-                                        content={renderBarLabel}
+                                    <XAxis
+                                        type="number"
+                                        domain={[0, 100]}
+                                        stroke="#94a3b8"
+                                        tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }}
+                                        axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
+                                        tickLine={false}
+                                        tickFormatter={(v) => `${v}${accuracyUnit}`}
+                                        allowDataOverflow={true}
                                     />
-                                </Bar>
-                            </BarChart>
+
+                                    <YAxis
+                                        type="category"
+                                        dataKey="fullName"
+                                        stroke="#cbd5e1"
+                                        tick={renderYAxisTick}
+                                        axisLine={false}
+                                        tickLine={false}
+                                        width={150}
+                                    />
+
+                                    <Tooltip
+                                        offset={30}
+                                        cursor={{ fill: 'rgba(255,255,255,0.04)' }}
+                                        contentStyle={CustomTooltipStyle}
+                                        itemStyle={{ color: '#e2e8f0', fontWeight: 'bold' }}
+                                        formatter={(value, name, props) => {
+                                            const entry = props?.payload;
+                                            if (!entry) return [value, name];
+                                            const diff = Number(value) - targetScorePct;
+                                            const gapText = Number.isFinite(diff)
+                                                ? (diff >= 0 ? ` · +${formatValue(diff)}pp meta` : ` · ${formatValue(diff)}pp meta`)
+                                                : '';
+                                            if (entry.isSynthetic) {
+                                                return [`${formatValue(value)}% (simulado percentual)${gapText}`, 'Precisão'];
+                                            }
+                                            return [`${formatValue(value)}% (${entry.realCorrect ?? entry.correct ?? 0}/${entry.realTotal ?? entry.total ?? 0} acertos)${gapText}`, 'Precisão'];
+                                        }}
+                                        labelFormatter={(label) => <span className="font-black text-amber-400 tracking-wider uppercase text-[10px]">{label}</span>}
+                                    />
+
+                                    <ReferenceLine
+                                        x={targetScorePct}
+                                        stroke="#10b981"
+                                        strokeDasharray="5 3"
+                                        strokeWidth={2}
+                                        strokeOpacity={0.8}
+                                        label={{ position: 'top', value: 'META', fill: '#34d399', fontSize: 10, fontWeight: 'bold' }}
+                                    />
+
+                                    <Bar dataKey="accuracy" radius={[0, 8, 8, 0]} barSize={24} fill="#6366f1" background={{ fill: 'rgba(255,255,255,0.03)', radius: [0, 8, 8, 0] }} isAnimationActive={true} animationDuration={800}>
+                                        {chartData.map((entry, index) => {
+                                            let barColor = `url(#gradBad_${instanceId})`;
+                                            const warnThreshold = targetScorePct > 35 ? Math.max(25, targetScorePct * 0.75) : targetScorePct * 0.75;
+                                            if (entry.accuracy >= targetScorePct) barColor = `url(#gradGood_${instanceId})`;
+                                            else if (entry.accuracy >= warnThreshold) barColor = `url(#gradWarn_${instanceId})`;
+                                            return <Cell key={`cell-${index}`} fill={barColor} />;
+                                        })}
+                                        <LabelList
+                                            dataKey="accuracy"
+                                            position="right"
+                                            content={renderBarLabel}
+                                        />
+                                    </Bar>
+                                </BarChart>
                             </ResponsiveContainer>
                         </ChartFrame>
                     </div>
@@ -669,67 +685,67 @@ export const SubtopicsPerformanceChart = React.memo(({
                             <div className="min-w-[700px] lg:min-w-full">
                                 <ChartFrame minHeight={480} label="Analisando subtópicos">
                                     <ResponsiveContainer width="100%" height={480} minWidth={1}>
-                                    <LineChart data={timeSeriesData} margin={{ top: 15, right: 30, left: 0, bottom: 50 }}>
-                                        <CartesianGrid strokeDasharray="2 2" stroke="#1e2937" vertical={false} />
+                                        <LineChart data={timeSeriesData} margin={{ top: 15, right: 30, left: 0, bottom: 50 }}>
+                                            <CartesianGrid strokeDasharray="2 2" stroke="#1e2937" vertical={false} />
 
-                                        <XAxis
-                                            dataKey="dateKey"
-                                            stroke="#64748b"
-                                            tick={{ fontSize: 11, fill: '#94a3b8' }}
-                                            axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
-                                            tickLine={false}
-                                            tickFormatter={(val) => {
-                                                if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}/.test(val)) {
-                                                    return formatDisplayDate(val);
-                                                }
-                                                const candidate = typeof val === 'number' ? new Date(val) : parseNoonLocal(val);
-                                                const d = Number.isFinite(candidate?.getTime?.()) ? candidate : new Date(val);
-                                                if (!Number.isFinite(d?.getTime?.())) return String(val ?? '');
-                                                return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
-                                            }}
-                                        />
+                                            <XAxis
+                                                dataKey="dateKey"
+                                                stroke="#64748b"
+                                                tick={{ fontSize: 11, fill: '#94a3b8' }}
+                                                axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
+                                                tickLine={false}
+                                                tickFormatter={(val) => {
+                                                    if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}/.test(val)) {
+                                                        return formatDisplayDate(val);
+                                                    }
+                                                    const candidate = typeof val === 'number' ? new Date(val) : parseNoonLocal(val);
+                                                    const d = Number.isFinite(candidate?.getTime?.()) ? candidate : new Date(val);
+                                                    if (!Number.isFinite(d?.getTime?.())) return String(val ?? '');
+                                                    return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+                                                }}
+                                            />
 
-                                        <YAxis
-                                            stroke="#64748b"
-                                            domain={[0, 100]}
-                                            tick={{ fontSize: 11, fill: '#94a3b8' }}
-                                            axisLine={false}
-                                            tickLine={false}
-                                            tickFormatter={(v) => `${v}%`}
-                                            allowDataOverflow={true}
-                                        />
+                                            <YAxis
+                                                stroke="#64748b"
+                                                domain={[0, 100]}
+                                                tick={{ fontSize: 11, fill: '#94a3b8' }}
+                                                axisLine={false}
+                                                tickLine={false}
+                                                tickFormatter={(v) => `${v}%`}
+                                                allowDataOverflow={true}
+                                            />
 
-                                        <Tooltip
-                                            offset={40}
-                                            content={renderLineTooltip}
-                                            cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1, strokeDasharray: '4 4' }}
-                                        />
+                                            <Tooltip
+                                                offset={40}
+                                                content={renderLineTooltip}
+                                                cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1, strokeDasharray: '4 4' }}
+                                            />
 
-                                        <ReferenceLine y={targetScorePct} stroke="rgba(52, 211, 153, 0.4)" strokeDasharray="4 4" label={{ position: 'top', value: 'META', fill: '#6ee7b7', fontSize: 10 }} />
+                                            <ReferenceLine y={targetScorePct} stroke="rgba(52, 211, 153, 0.4)" strokeDasharray="4 4" label={{ position: 'top', value: 'META', fill: '#6ee7b7', fontSize: 10 }} />
 
-                                        <Legend
-                                            wrapperStyle={{ fontSize: '10px', paddingTop: '20px' }}
-                                            iconType="circle"
-                                        />
+                                            <Legend
+                                                wrapperStyle={{ fontSize: '10px', paddingTop: '20px' }}
+                                                iconType="circle"
+                                            />
 
-                                        {uniqueTopics.map((topic, index) => {
-                                            const color = MEGA_PALETTE[index % MEGA_PALETTE.length];
-                                            return (
-                                                <Line connectNulls
-                                                    key={topic.key || topic.name}
-                                                    type="monotoneX"
-                                                    dataKey={topic.key || topic.name}
-                                                    name={topic.name}
-                                                    stroke={color}
-                                                    strokeWidth={3}
-                                                    dot={{ r: 3, fill: '#0f172a', strokeWidth: 1.5, stroke: color }}
-                                                    activeDot={{ r: 5, fill: color, stroke: '#ffffff', strokeWidth: 2 }}
-                                                    animationDuration={1500}
-                                                    animationEasing="ease-in-out"
-                                                />
-                                            );
-                                        })}
-                                    </LineChart>
+                                            {uniqueTopics.map((topic, index) => {
+                                                const color = MEGA_PALETTE[index % MEGA_PALETTE.length];
+                                                return (
+                                                    <Line connectNulls
+                                                        key={topic.key || topic.name}
+                                                        type="monotoneX"
+                                                        dataKey={topic.key || topic.name}
+                                                        name={topic.name}
+                                                        stroke={color}
+                                                        strokeWidth={3}
+                                                        dot={{ r: 3, fill: '#0f172a', strokeWidth: 1.5, stroke: color }}
+                                                        activeDot={{ r: 5, fill: color, stroke: '#ffffff', strokeWidth: 2 }}
+                                                        animationDuration={1500}
+                                                        animationEasing="ease-in-out"
+                                                    />
+                                                );
+                                            })}
+                                        </LineChart>
                                     </ResponsiveContainer>
                                 </ChartFrame>
                             </div>

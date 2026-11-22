@@ -334,17 +334,21 @@ export const EvolutionHeatmap = React.memo(({
         worker.addEventListener('message', handleMessage);
         worker.addEventListener('error', handleError);
 
-        worker.postMessage({
-            id: msgId,
-            payload: {
-                filtered,
-                granularity,
-                targetScore: safeTarget,
-                targetScorePct,
-                minScore: safeMin,
-                maxScore: safeMax
-            }
-        });
+        try {
+            worker.postMessage({
+                id: msgId,
+                payload: {
+                    filtered,
+                    granularity,
+                    targetScore: safeTarget,
+                    targetScorePct,
+                    minScore: safeMin,
+                    maxScore: safeMax
+                }
+            });
+        } catch (err) {
+            handleError(err);
+        }
 
         return () => {
             worker.removeEventListener('message', handleMessage);

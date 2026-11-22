@@ -746,4 +746,77 @@ describe('Evolution Menu — Data-to-Visual Parity Verification Suite', () => {
     expect(corrHtml).toContain('1/1 matérias');
     expect(corrHtml).not.toContain('0/0');
   });
+
+  it('Memory leak, math & data integrity fixes: clearAllCoachFlags scope cleanup, Cebraspe penalty in normalizeScoreValue/extractTopicsTotals/CriticalTopics, Brazilian date EMA, and validated===false filtering', async () => {
+    const { clearAllCoachFlags, writeFlags, readFlags } = await import('../../../../utils/coachFeatureStore');
+    const { normalizeScoreValue, extractTopicsTotals } = await import('../../../../utils/measurement');
+    const { calculateTimeWeightedEMA } = await import('../../../../engine/stats');
+    const { buildStudyVolumeCausalEvents } = await import('../../../../utils/coachCausal');
+
+    // 1) clearAllCoachFlags() does not re-create cleared contest scopes when notifying listeners
+    writeFlags({ useStateSpace: true }, 'contest-leak-test');
+    expect(readFlags('contest-leak-test')).toEqual({ useStateSpace: true });
+    clearAllCoachFlags();
+    expect(Object.keys(globalThis.__COACH_FEATURE_REGISTRY__ || {})).toEqual([]);
+
+    // 2) normalizeScoreValue & extractTopicsTotals honor Cebraspe penaltyPerWrong
+    const cebraspeNorm = normalizeScoreValue({ total: 10, correct: 8, penaltyPerWrong: 1, blanks: 0 }, 100, 0);
+    expect(cebraspeNorm.pct).toBeCloseTo(60, 5);
+    expect(cebraspeNorm.points).toBeCloseTo(60, 5);
+
+    const topicsTotals = extractTopicsTotals({
+      penaltyPerWrong: 1,
+      topics: [{ name: 'Crase', total: 10, correct: 8 }],
+    }, 100, 0);
+    expect(topicsTotals.correct).toBeCloseTo(6, 5);
+    expect(topicsTotals.score).toBeCloseTo(60, 5);
+
+    // 3) calculateTimeWeightedEMA parses Brazilian DD/MM/YYYY dates via safeDateParse
+    const ema = calculateTimeWeightedEMA([
+      { date: '01/05/2026', score: 60 },
+      { date: '10/05/2026', score: 80 },
+    ]);
+    expect(Number.isFinite(ema)).toBe(true);
+    expect(ema).toBeGreaterThan(60);
+
+    // 4) buildStudyVolumeCausalEvents filters out validated: false simulados
+    const causalEvents = buildStudyVolumeCausalEvents(
+      [{ date: '2026-05-01', minutes: 120, categoryId: 'c1' }],
+      [
+        { id: 's1', date: '2026-05-01', categoryId: 'c1', score: 50 },
+        { id: 's2', date: '2026-05-05', categoryId: 'c1', score: 90, validated: false },
+        { id: 's3', date: '2026-05-08', categoryId: 'c1', score: 75, validated: true },
+      ],
+      { categoryId: 'c1' }
+    );
+    expect(causalEvents.length).toBe(1);
+    expect(causalEvents[0].deltaScore).toBeCloseTo(25, 5);
+
+    // 5) CriticalTopicsAnalysis single-topic fallback honors Cebraspe penaltyPerWrong
+    const critPenalizedHtml = renderToStaticMarkup(
+      <CriticalTopicsAnalysis
+        categories={[
+          {
+            id: 'c1',
+            name: 'Direito Constitucional',
+            simuladoStats: {
+              history: [
+                {
+                  date: '2026-05-09',
+                  topic: 'Controle de Constitucionalidade',
+                  total: 10,
+                  correct: 8,
+                  penaltyPerWrong: 1,
+                },
+              ],
+            },
+          },
+        ]}
+        targetScore={80}
+      />
+    );
+    // 8 correct out of 10 with penaltyPerWrong=1 => 60% net accuracy (below 80% target => critical)
+    expect(critPenalizedHtml).toContain('Controle de Constitucionalidade');
+    expect(critPenalizedHtml).toContain('60%');
+  });
 });

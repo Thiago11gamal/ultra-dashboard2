@@ -101,22 +101,22 @@ export function detectDataAnomalies(historyRaw = [], maxScore = 100, minScore = 
   finites.forEach(p => {
     const rawDate = p.date || p.createdAt;
     if (!rawDate) return;
-    
+
     const dayKey = getDateKey(rawDate);
     if (!dayKey) return;
-  
+
     const groupKey = [
       dayKey,
       p.categoryId || p.subject || 'geral',
     ].join('|');
-  
+
     // FIX-CONFLICT-01: incluir o id no grupo impedia o detector de disparar
     // exatamente no cenário alvo (mesmo dia + mesma matéria, ids distintos).
     // O id vai no payload do aviso, não na chave de agrupamento.
     if (!dateMap.has(groupKey)) dateMap.set(groupKey, []);
     dateMap.get(groupKey).push({ score: p.score, id: p.id || p.simuladoId || 'sem-id' });
   });
-  
+
   for (const [key, items] of dateMap) {
     // FIX-CONFLICT-02: ignorar scores não-finitos, senão undefined conta
     // como valor distinto e gera falso positivo.
@@ -348,7 +348,7 @@ export function computeKLDivergenceNormal(mu1, sd1, mu2, sd2) {
 // Delega para fsrsRetrievability, que é a mesma fórmula (1+t/9S)^-1,
 // mas sem o clamp inferior de 0.1 que a versão antiga aplicava.
 export function computeEbbinghausRetention(daysSince, stabilityDays) {
-    return fsrsRetrievability(daysSince, stabilityDays);
+  return fsrsRetrievability(daysSince, stabilityDays);
 }
 
 export function estimateMemoryStability(history, maxScore = 100, baselineScore = null, minScore = 0) {
@@ -625,26 +625,45 @@ export function computeConsistencyIndex(history, maxScore = 100, minScore = 0) {
 export function computeStudyEfficiency(studySessions, simulados, maxScore = 100, categoryId = null, normalizeSubject = null, minScore = 0) {
   const _noData = { efficiency: 0, questionsPerHour: 0, accuracyRate: 0, totalMinutes: 0, totalQuestions: 0, label: 'Sem dados' };
 
-  const sessions = (studySessions || []).filter((s) => !categoryId || s?.categoryId === categoryId);
+  const sessions = (studySessions || []).filter(
+    (s) => s && s.type !== 'flashcard' && (!categoryId || s?.categoryId === categoryId)
+  );
   const totalMinutes = sessions.reduce((acc, s) => acc + (Number(s?.duration ?? s?.minutes ?? s?.minutos) || 0), 0);
 
   const _normalize = typeof normalizeSubject === 'function'
     ? normalizeSubject
     : (value) => String(value || '').toLowerCase().trim();
 
+  const validSims = (simulados || []).filter((s) => s && s.valid !== false && s.validated !== false);
   const relevantSims = categoryId
-    ? (simulados || []).filter((s) => s?.categoryId === categoryId)
-    : (simulados || []);
+    ? validSims.filter((s) => s?.categoryId === categoryId)
+    : validSims;
 
-  const totalQuestions = relevantSims.reduce((acc, s) => acc + (Number(s?.total) || 0), 0);
+  const totalQuestions = relevantSims.reduce(
+    (acc, s) => acc + Math.max(0, Number(s?.total ?? s?.questoes ?? s?.totalQuestoes ?? s?.questions) || 0),
+    0
+  );
   const totalCorrect = relevantSims.reduce((acc, s) => {
-    const total = Number(s?.total) || 0;
+    const total = Math.max(0, Number(s?.total ?? s?.questoes ?? s?.totalQuestoes ?? s?.questions) || 0);
     if (total === 0) return acc;
-    if (s?.correct !== undefined && s?.correct !== null && String(s.correct).trim() !== '' && typeof s.correct !== 'boolean') {
-      const correctNum = Number(s.correct);
+    const safeVal = getSafeScore(s, maxScore, minScore);
+    const hasPenaltyOrAuthoritative =
+      (Number(s?.penaltyPerWrong) > 0) ||
+      s?.scorePoints != null ||
+      s?.scorePct != null;
+    const rawCorrect = s?.correct ?? s?.acertos ?? s?.correctCount;
+    if (
+      !hasPenaltyOrAuthoritative &&
+      !s?.isPercentage &&
+      rawCorrect !== undefined &&
+      rawCorrect !== null &&
+      String(rawCorrect).trim() !== '' &&
+      typeof rawCorrect !== 'boolean'
+    ) {
+      const correctNum = Number(rawCorrect);
       if (Number.isFinite(correctNum)) return acc + Math.min(total, Math.max(0, correctNum));
     }
-    const safeVal = getSafeScore(s, maxScore, minScore);
+    if (!Number.isFinite(safeVal)) return acc;
     const score = Math.min(1, Math.max(0, (safeVal - minScore) / Math.max(1e-6, maxScore - minScore)));
     return acc + score * total;
   }, 0);

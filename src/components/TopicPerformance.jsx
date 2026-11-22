@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { getSafeScore, formatValue, formatPercent, getSyntheticTotal } from '../utils/scoreHelper';
+import { getSafeScore, formatValue, formatPercent, getSyntheticTotal, resolveEffectiveCorrect } from '../utils/scoreHelper';
 import { BarChart2, Filter, ChevronDown, Trophy, AlertCircle } from 'lucide-react';
 
 const hasValidNum = (v) =>
@@ -46,10 +46,30 @@ export default function TopicPerformance({ categories = [], maxScore: globalMaxS
         history.forEach(entry => {
             if (!entry || entry.valid === false || entry.validated === false) return;
             // FIX T-04: h.topics pode ser objeto Firebase, não array.
-            const topics = Array.isArray(entry.topics) ? entry.topics : Object.values(entry.topics || {});
+            const rawTopics = Array.isArray(entry.topics) ? entry.topics : Object.values(entry.topics || {});
+            const parentPenalty = Number(entry.penaltyPerWrong) || 0;
+            let topics = rawTopics;
+            if (!topics.length) {
+                const fallbackName = entry.topic || entry.assunto || entry.subtopic || entry.topicName;
+                if (fallbackName) {
+                    topics = [{
+                        name: fallbackName,
+                        total: entry.total ?? entry.questoes ?? entry.totalQuestoes ?? entry.questions,
+                        correct: entry.correct ?? entry.acertos ?? entry.correctCount,
+                        score: entry.score,
+                        scorePoints: entry.scorePoints,
+                        scorePct: entry.scorePct,
+                        penaltyPerWrong: entry.penaltyPerWrong,
+                        blanks: entry.blanks,
+                        netPoints: entry.netPoints,
+                        isPercentage: entry.isPercentage,
+                    }];
+                }
+            }
             topics.forEach(t => {
                 if (!t) return;
-                const rawName = t.name;
+                const tEff = (t.penaltyPerWrong == null && parentPenalty > 0) ? { ...t, penaltyPerWrong: parentPenalty } : t;
+                const rawName = tEff.name || tEff.topic || tEff.assunto || tEff.subtopic || tEff.topicName;
                 const name = (typeof rawName === 'string' ? rawName : "Sem Nome").trim();
                 if (!name) return;
 
@@ -58,23 +78,25 @@ export default function TopicPerformance({ categories = [], maxScore: globalMaxS
                 }
                 
                 // FIX T-05: Usar getSafeScore com minScore da categoria.
-                const normalizedTopic = (t.score == null && t.scorePct != null)
-                    ? { ...t, score: t.scorePct, isPercentage: true }
-                    : t;
+                const normalizedTopic = (tEff.score == null && tEff.scorePct != null)
+                    ? { ...tEff, score: tEff.scorePct, isPercentage: true }
+                    : tEff;
                 const score = getSafeScore(normalizedTopic, catMaxScore, catMinScore);
                 if (!Number.isFinite(score)) return;
 
                 // FIX T-06: Proteger contra total=0 → getSyntheticTotal.
-                let total = Math.max(0, parseInt(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions, 10) || 0);
-                if (total === 0 && (t.score != null || t.scorePct != null)) {
+                let total = Math.max(0, parseInt(tEff.total ?? tEff.questoes ?? tEff.totalQuestoes ?? tEff.questions, 10) || 0);
+                const isSynth = total === 0 && (tEff.score != null || tEff.scorePoints != null || tEff.scorePct != null);
+                if (isSynth) {
                     total = getSyntheticTotal(catMaxScore);
                 }
                 if (total === 0) return;
 
-                const explicitCorrect = t.correct ?? t.acertos ?? t.correctCount;
+                const explicitCorrect = tEff.correct ?? tEff.acertos ?? tEff.correctCount;
                 let correctCount;
-                if (hasValidNum(explicitCorrect) && !t.isPercentage) {
-                    correctCount = Math.max(0, Math.min(total, Math.round(Number(explicitCorrect))));
+                if (!isSynth && hasValidNum(explicitCorrect) && !tEff.isPercentage) {
+                    const effC = resolveEffectiveCorrect(normalizedTopic, score, total, true, Number(explicitCorrect), catMaxScore, catMinScore);
+                    correctCount = Math.max(0, Math.min(total, Math.round(effC)));
                 } else {
                     const ratio = (score - catMinScore) / Math.max(1e-9, catMaxScore - catMinScore);
                     correctCount = Math.max(0, Math.min(total, Math.round(ratio * total)));

@@ -1,54 +1,9 @@
 import { useMemo } from 'react';
 import { toDateMs, getDateKey } from '../utils/dateHelper';
-import { getSafeScore, getSyntheticTotal, resolveEffectiveCorrect } from '../utils/scoreHelper';
+import { getSafeScore, getSyntheticTotal, resolveEffectiveCorrect, extractTopicsTotals } from '../utils/scoreHelper';
 
 const isStrictNum = (v) =>
   v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
-
-function extractTopicsTotals(entry, safeMax, safeMin) {
-  const rawTopics = entry?.topics;
-  const topicsList = Array.isArray(rawTopics)
-    ? rawTopics
-    : (rawTopics && typeof rawTopics === 'object' ? Object.values(rawTopics) : []);
-  if (!topicsList.length) return { total: 0, correct: 0, hasTopicsScore: false, score: NaN };
-
-  const safeRange = Math.max(1e-9, safeMax - safeMin);
-  let sumTotal = 0;
-  let sumCorrect = 0;
-  let scoreSum = 0;
-  let scoreCount = 0;
-
-  for (const t of topicsList) {
-    if (!t || typeof t !== 'object') continue;
-    const tTot = Math.max(0, Number(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions) || 0);
-    const hasTC = (t.correct !== undefined && t.correct !== null && String(t.correct).trim() !== '') ||
-                  (t.acertos !== undefined && t.acertos !== null && String(t.acertos).trim() !== '') ||
-                  (t.correctCount !== undefined && t.correctCount !== null && String(t.correctCount).trim() !== '');
-    const parsedTC = Number(t.correct ?? t.acertos ?? t.correctCount);
-    const tScore = getSafeScore(t, safeMax, safeMin);
-    if (tTot > 0) {
-      sumTotal += tTot;
-      if (!t.isPercentage && hasTC && Number.isFinite(parsedTC)) {
-        sumCorrect += Math.max(0, Math.min(tTot, parsedTC));
-      } else if (Number.isFinite(tScore)) {
-        const ratio = Math.max(0, Math.min(1, (tScore - safeMin) / safeRange));
-        sumCorrect += Math.round(ratio * tTot);
-      }
-    } else if (Number.isFinite(tScore)) {
-      scoreSum += tScore;
-      scoreCount += 1;
-    }
-  }
-
-  if (sumTotal > 0) {
-    const derivedScore = safeMin + (sumCorrect / sumTotal) * safeRange;
-    return { total: sumTotal, correct: sumCorrect, hasTopicsScore: true, score: derivedScore };
-  }
-  if (scoreCount > 0) {
-    return { total: 0, correct: 0, hasTopicsScore: true, score: scoreSum / scoreCount };
-  }
-  return { total: 0, correct: 0, hasTopicsScore: false, score: NaN };
-}
 
 /**
  * Filtra um histórico por janela de tempo ('30' | '60' | '90' | 'all').

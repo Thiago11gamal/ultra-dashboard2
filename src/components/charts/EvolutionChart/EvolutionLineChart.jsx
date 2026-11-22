@@ -247,7 +247,7 @@ export const EvolutionLineChart = React.memo(function EvolutionLineChart({
         [visibleCategories, lastValidIndexByCat]
     );
 
-    const rightMargin = showOnlyFocus || visibleCategories.length <= 1 ? 68 : 88;
+    const rightMargin = showOnlyFocus || visibleCategories.length <= 1 ? 80 : 88;
 
     const renderCustomLabel = useCallback((props, catId, displayColor, isFocused, hasFocus) => {
         const { x, y, index, value, viewBox } = props;

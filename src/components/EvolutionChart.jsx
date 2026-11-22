@@ -917,6 +917,8 @@ export default React.memo(function EvolutionChart({
     const startXRef = useRef(0);
     const scrollLeftRef = useRef(0);
     const hasDraggedRef = useRef(false);
+    const dragResetTimerRef = useRef(null);
+    const focusTabRafRef = useRef(null);
 
     const updateCarouselScrollState = useCallback(() => {
         const el = carouselRef.current;
@@ -1000,13 +1002,17 @@ export default React.memo(function EvolutionChart({
         }
         isDraggingRef.current = false;
         if (hasDraggedRef.current) {
-            setTimeout(() => {
+            if (dragResetTimerRef.current) {
+                clearTimeout(dragResetTimerRef.current);
+            }
+            dragResetTimerRef.current = setTimeout(() => {
                 hasDraggedRef.current = false;
+                dragResetTimerRef.current = null;
             }, 0);
         }
     }, []);
 
-    // FIX-CLEANUP-01: limpar timer de erro e refs de tab ao desmontar.
+    // FIX-CLEANUP-01: limpar timer de erro, timer de drag, rAF e refs de tab ao desmontar.
     useEffect(() => {
         isMountedRef.current = true;
         const tabRefs = engineTabRefs.current;
@@ -1016,12 +1022,24 @@ export default React.memo(function EvolutionChart({
                 clearTimeout(exportErrorTimerRef.current);
                 exportErrorTimerRef.current = null;
             }
+            if (dragResetTimerRef.current) {
+                clearTimeout(dragResetTimerRef.current);
+                dragResetTimerRef.current = null;
+            }
+            if (focusTabRafRef.current) {
+                cancelAnimationFrame(focusTabRafRef.current);
+                focusTabRafRef.current = null;
+            }
             tabRefs.clear();
         };
     }, []);
 
     const focusEngineTab = (id) => {
-      requestAnimationFrame(() => {
+      if (focusTabRafRef.current) {
+        cancelAnimationFrame(focusTabRafRef.current);
+      }
+      focusTabRafRef.current = requestAnimationFrame(() => {
+        focusTabRafRef.current = null;
         engineTabRefs.current.get(id)?.focus();
       });
     };
