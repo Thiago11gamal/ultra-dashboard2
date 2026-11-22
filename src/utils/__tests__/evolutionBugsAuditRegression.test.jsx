@@ -215,7 +215,7 @@ describe('Evolution Menu Full Bug Audit Regression Suite', () => {
 
   it('Bug #4: IRT psychometric chart & insight do not double-count same-day simuladoRows against aggregated history', () => {
     const d1 = daysAgoKey(2);
-    const categories = [
+    const categoriesWithAggHist = [
       {
         id: 'dir',
         name: 'Direito',
@@ -226,23 +226,58 @@ describe('Evolution Menu Full Bug Audit Regression Suite', () => {
         },
       },
     ];
-    const simuladoRows = [
+    const categoriesEmptyHist = [
+      { id: 'dir', name: 'Direito', simuladoStats: { history: [] } },
+    ];
+    const rowsWithoutDiff = [
       { id: 'r1', categoryId: 'dir', subject: 'Direito', date: d1, total: 10, correct: 8, score: 80 },
       { id: 'r2', categoryId: 'dir', subject: 'Direito', date: d1, total: 10, correct: 8, score: 80 },
     ];
+    const rowsWithDiff = rowsWithoutDiff.map((r) => ({ ...r, difficulty: 'dificil' }));
 
-    const { container } = render(
+    const { container: cCombined, unmount: uCombined } = render(
       <IRTPsychometricChart
-        categories={categories}
-        simuladoRows={simuladoRows}
-        focusCategory={categories[0]}
+        categories={categoriesWithAggHist}
+        simuladoRows={rowsWithoutDiff}
+        focusCategory={categoriesWithAggHist[0]}
         showOnlyFocus={false}
       />
     );
+    const combinedMatch = cCombined.textContent.match(/θ = [+-]?\d+\.\d+ \(±\d+\.\d+\)/)?.[0];
+    uCombined();
 
-    // Must count 2 simulados (fromRows), NOT 3 (fromRows + aggregated history)
-    expect(container.textContent).toContain('2 simulados');
-    expect(container.textContent).not.toContain('3 simulados');
+    const { container: cBaseline } = render(
+      <IRTPsychometricChart
+        categories={categoriesEmptyHist}
+        simuladoRows={rowsWithDiff}
+        focusCategory={categoriesEmptyHist[0]}
+        showOnlyFocus={false}
+      />
+    );
+    const baselineMatch = cBaseline.textContent.match(/θ = [+-]?\d+\.\d+ \(±\d+\.\d+\)/)?.[0];
+
+    // Must inherit difficulty from history AND match exact SE without double-counting the aggregated 20q entry
+    expect(combinedMatch).toBeTruthy();
+    expect(combinedMatch).toBe(baselineMatch);
+
+    // insightGenerator must match too
+    const insightCombined = generateEvolutionInsights({
+      timeline: [{ date: d1, raw_dir: 80, bay_dir: 80 }],
+      filteredChartData: [{ date: d1, raw_dir: 80, bay_dir: 80 }],
+      focusCategory: categoriesWithAggHist[0],
+      activeEngine: 'irt_psychometric',
+      categories: categoriesWithAggHist,
+      simuladoRows: rowsWithoutDiff,
+    });
+    const insightBaseline = generateEvolutionInsights({
+      timeline: [{ date: d1, raw_dir: 80, bay_dir: 80 }],
+      filteredChartData: [{ date: d1, raw_dir: 80, bay_dir: 80 }],
+      focusCategory: categoriesEmptyHist[0],
+      activeEngine: 'irt_psychometric',
+      categories: categoriesEmptyHist,
+      simuladoRows: rowsWithDiff,
+    });
+    expect(insightCombined.text).toBe(insightBaseline.text);
   });
 
   it('Bug #5: Save feedback stays visible when saving changed config in ExamPacingChart, IRTPsychometricChart, and TornadoWhatIfChart', () => {
@@ -260,7 +295,7 @@ describe('Evolution Menu Full Bug Audit Regression Suite', () => {
     const { unmount: u1 } = render(<PacingHost />);
     const durInput = screen.getByLabelText(/Duração/i);
     fireEvent.change(durInput, { target: { value: '300' } });
-    fireEvent.click(screen.getByRole('button', { name: /Salvar no concurso/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Salvar parâmetros/i }));
     expect(screen.getByText(/Salvo no concurso!/i)).toBeTruthy();
     u1();
 
@@ -276,7 +311,7 @@ describe('Evolution Menu Full Bug Audit Regression Suite', () => {
       return <IRTPsychometricChart categories={[]} simuladoRows={[]} examBoard={cfg.board} penaltyPerWrong={cfg.penalty} />;
     }
     const { unmount: u2 } = render(<IrtHost />);
-    fireEvent.click(screen.getByRole('button', { name: /CEBRASPE/i }));
+    fireEvent.change(screen.getByLabelText(/Selecionar banca examinadora/i), { target: { value: 'CEBRASPE' } });
     fireEvent.click(screen.getByRole('button', { name: /Salvar banca/i }));
     expect(screen.getByText(/Salvo!/i)).toBeTruthy();
     u2();
