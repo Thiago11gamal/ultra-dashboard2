@@ -748,6 +748,8 @@ describe('Evolution Menu — Data-to-Visual Parity Verification Suite', () => {
   });
 
   it('Memory leak, math & data integrity fixes: clearAllCoachFlags scope cleanup, Cebraspe penalty in normalizeScoreValue/extractTopicsTotals/CriticalTopics, Brazilian date EMA, and validated===false filtering', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-10T16:00:00.000Z'));
     const { clearAllCoachFlags, writeFlags, readFlags } = await import('../../../../utils/coachFeatureStore');
     const { normalizeScoreValue, extractTopicsTotals } = await import('../../../../utils/measurement');
     const { calculateTimeWeightedEMA } = await import('../../../../engine/stats');
@@ -781,42 +783,51 @@ describe('Evolution Menu — Data-to-Visual Parity Verification Suite', () => {
 
     // 4) buildStudyVolumeCausalEvents filters out validated: false simulados
     const causalEvents = buildStudyVolumeCausalEvents(
-      [{ date: '2026-05-01', minutes: 120, categoryId: 'c1' }],
       [
         { id: 's1', date: '2026-05-01', categoryId: 'c1', score: 50 },
         { id: 's2', date: '2026-05-05', categoryId: 'c1', score: 90, validated: false },
         { id: 's3', date: '2026-05-08', categoryId: 'c1', score: 75, validated: true },
       ],
+      [{ date: '2026-05-03', minutes: 120, categoryId: 'c1' }],
       { categoryId: 'c1' }
     );
     expect(causalEvents.length).toBe(1);
-    expect(causalEvents[0].deltaScore).toBeCloseTo(25, 5);
+    expect(causalEvents[0].outcomeDelta).toBeCloseTo(25, 5);
 
-    // 5) CriticalTopicsAnalysis single-topic fallback honors Cebraspe penaltyPerWrong
+    // 5) CriticalTopicsAnalysis & TopicPerformance single-topic fallback honor Cebraspe penaltyPerWrong
+    const TopicPerformance = (await import('../../../TopicPerformance')).default;
+    const penalizedCategories = [
+      {
+        id: 'c1',
+        name: 'Direito Constitucional',
+        simuladoStats: {
+          history: [
+            {
+              date: '2026-05-09',
+              topic: 'Controle de Constitucionalidade',
+              total: 10,
+              correct: 8,
+              penaltyPerWrong: 1,
+            },
+          ],
+        },
+      },
+    ];
     const critPenalizedHtml = renderToStaticMarkup(
       <CriticalTopicsAnalysis
-        categories={[
-          {
-            id: 'c1',
-            name: 'Direito Constitucional',
-            simuladoStats: {
-              history: [
-                {
-                  date: '2026-05-09',
-                  topic: 'Controle de Constitucionalidade',
-                  total: 10,
-                  correct: 8,
-                  penaltyPerWrong: 1,
-                },
-              ],
-            },
-          },
-        ]}
+        categories={penalizedCategories}
         targetScore={80}
       />
     );
-    // 8 correct out of 10 with penaltyPerWrong=1 => 60% net accuracy (below 80% target => critical)
-    expect(critPenalizedHtml).toContain('Controle de Constitucionalidade');
-    expect(critPenalizedHtml).toContain('60%');
+    // 8 correct out of 10 with penaltyPerWrong=1 => 6 net correct (4 net errors, 40% error rate => criticality 4 * 0.4 = 1.6 pts > 1.5 safe zone)
+    expect(critPenalizedHtml).toContain('1.6 pts');
+    expect(critPenalizedHtml).toContain('1 matéria · 1 assunto acima');
+    expect(critPenalizedHtml).toContain('1 tópico');
+
+    const topicPerfHtml = renderToStaticMarkup(
+      <TopicPerformance categories={penalizedCategories} />
+    );
+    expect(topicPerfHtml).toContain('Controle de Constitucionalidade');
+    expect(topicPerfHtml).toContain('60%');
   });
 });
