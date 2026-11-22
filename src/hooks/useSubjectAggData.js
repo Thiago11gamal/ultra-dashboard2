@@ -165,6 +165,7 @@ export function useSubjectAggData({ categories, showOnlyFocus, focusCategory, ti
           questoes: totalQ,
           realQuestoes: realQ,
           realAcertos: Math.round(realC),
+          realAcertosExact: realC,
           syntheticQuestoes: synthQ,
           syntheticAcertos: Math.round(synthC),
           syntheticAcertosExact: synthC,

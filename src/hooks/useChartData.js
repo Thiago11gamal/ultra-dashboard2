@@ -31,8 +31,8 @@ export function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100
         if (!key) continue;
         let rawTotal = Math.max(0, Number(h?.total ?? h?.questoes ?? h?.totalQuestoes ?? h?.questions) || 0);
         let hasCorrect = (h?.correct !== undefined && h?.correct !== null && String(h?.correct).trim() !== '') ||
-                         (h?.acertos !== undefined && h?.acertos !== null && String(h?.acertos).trim() !== '') ||
-                         (h?.correctCount !== undefined && h?.correctCount !== null && String(h?.correctCount).trim() !== '');
+            (h?.acertos !== undefined && h?.acertos !== null && String(h?.acertos).trim() !== '') ||
+            (h?.correctCount !== undefined && h?.correctCount !== null && String(h?.correctCount).trim() !== '');
         let parsedCorrect = Number(h?.correct ?? h?.acertos ?? h?.correctCount);
         let rawCorrect = hasCorrect && Number.isFinite(parsedCorrect)
             ? Math.max(0, Math.min(rawTotal > 0 ? rawTotal : Infinity, parsedCorrect))
@@ -336,9 +336,9 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
                 const isSyntheticEntry = Boolean(h?.syntheticVolume || h?.isSynthetic || h?.type === 'percent-only');
                 let rawTotal = isSyntheticEntry ? 0 : Math.max(0, Number(h?.total ?? h?.questoes ?? h?.totalQuestoes ?? h?.questions) || 0);
                 let hasCorrect = !isSyntheticEntry && (
-                                 (h?.correct !== undefined && h?.correct !== null && String(h?.correct).trim() !== '') ||
-                                 (h?.acertos !== undefined && h?.acertos !== null && String(h?.acertos).trim() !== '') ||
-                                 (h?.correctCount !== undefined && h?.correctCount !== null && String(h?.correctCount).trim() !== '')
+                    (h?.correct !== undefined && h?.correct !== null && String(h?.correct).trim() !== '') ||
+                    (h?.acertos !== undefined && h?.acertos !== null && String(h?.acertos).trim() !== '') ||
+                    (h?.correctCount !== undefined && h?.correctCount !== null && String(h?.correctCount).trim() !== '')
                 );
                 let parsedCorrect = Number(h?.correct ?? h?.acertos ?? h?.correctCount);
                 let rawC = hasCorrect && Number.isFinite(parsedCorrect)
@@ -427,8 +427,8 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
             let emaW = 0, emaSum = 0;
             let rawW = 0, rawSum = 0;
             activeCategories.forEach(cat => {
-                const catMax = Number(cat.maxScore) > 0 ? Number(cat.maxScore) : safeMax;
-                const catMin = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : safeMin;
+                const catMax = isStrictNum(cat.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : safeMax;
+                const catMin = isStrictNum(cat.minScore) ? Math.min(Number(cat.minScore), catMax) : safeMin;
                 const catRange = Math.max(1e-9, catMax - catMin);
                 const w = Math.max(0.01, Number.isFinite(Number(weights?.[cat.id])) ? Number(weights[cat.id]) : (Number.isFinite(Number(cat?.weight)) ? Number(cat.weight) : 1));
                 const toGlobal = (val) => safeMin + Math.max(0, Math.min(1, (val - catMin) / catRange)) * safeGlobalRange;
@@ -507,8 +507,8 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
                 if (!dayMap[key]) dayMap[key] = { correct: 0, total: 0, realCorrect: 0, realTotal: 0 };
                 let tot = Math.max(0, Number(h?.total ?? h?.questoes ?? h?.totalQuestoes ?? h?.questions) || 0);
                 let hasCorrect = (h?.correct !== undefined && h?.correct !== null && String(h?.correct).trim() !== '') ||
-                                 (h?.acertos !== undefined && h?.acertos !== null && String(h?.acertos).trim() !== '') ||
-                                 (h?.correctCount !== undefined && h?.correctCount !== null && String(h?.correctCount).trim() !== '');
+                    (h?.acertos !== undefined && h?.acertos !== null && String(h?.acertos).trim() !== '') ||
+                    (h?.correctCount !== undefined && h?.correctCount !== null && String(h?.correctCount).trim() !== '');
                 let parsedCorrect = Number(h?.correct ?? h?.acertos ?? h?.correctCount);
                 let raw = hasCorrect && Number.isFinite(parsedCorrect) ? Math.max(0, parsedCorrect) : 0;
                 let score = getSafeScore(h, catMax, catMin);
@@ -610,8 +610,8 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
                 }
                 let tot = Math.max(0, Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions) || 0);
                 let hasExplicitC = (h.correct !== undefined && h.correct !== null && String(h.correct).trim() !== '') ||
-                                   (h.acertos !== undefined && h.acertos !== null && String(h.acertos).trim() !== '') ||
-                                   (h.correctCount !== undefined && h.correctCount !== null && String(h.correctCount).trim() !== '');
+                    (h.acertos !== undefined && h.acertos !== null && String(h.acertos).trim() !== '') ||
+                    (h.correctCount !== undefined && h.correctCount !== null && String(h.correctCount).trim() !== '');
                 let rawParsedC = Number(h.correct ?? h.acertos ?? h.correctCount);
                 let score = getSafeScore(h, catMax, catMin);
                 if (tot <= 0) {

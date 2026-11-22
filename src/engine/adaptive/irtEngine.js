@@ -68,9 +68,11 @@ export function estimateIRTAbility(entries = [], options = {}) {
     const tier = resolveDifficultyTier(entry.difficulty ?? entry.dificuldade);
     const bucket = tierStats.get(tier.key);
 
-    let rawTotal = Number(entry.total ?? entry.questoes ?? entry.totalQuestoes ?? entry.questions);
+    const isSynthEntry = Boolean(entry.syntheticVolume || entry.isSynthetic || entry.type === 'percent-only');
+    let rawTotal = isSynthEntry ? 0 : Number(entry.total ?? entry.questoes ?? entry.totalQuestoes ?? entry.questions);
     const rawCorrectField = entry.correct ?? entry.acertos ?? entry.correctCount;
     const hasExplicitCorrect =
+      !isSynthEntry &&
       !entry.isPercentage &&
       rawCorrectField !== null &&
       rawCorrectField !== undefined &&
@@ -78,33 +80,33 @@ export function estimateIRTAbility(entries = [], options = {}) {
       String(rawCorrectField).trim() !== '' &&
       Number.isFinite(Number(rawCorrectField));
     let explicitCorrect = hasExplicitCorrect ? Number(rawCorrectField) : NaN;
-    if ((!Number.isFinite(rawTotal) || rawTotal <= 0) && entry.topics != null) {
-      const tf = extractTopicsTotals(entry, eMax, eMin);
-      if (tf.total > 0) {
-        rawTotal = tf.total;
-        explicitCorrect = tf.correct;
+      if ((!Number.isFinite(rawTotal) || rawTotal <= 0) && !isSynthEntry && entry.topics != null) {
+        const tf = extractTopicsTotals(entry, eMax, eMin);
+        if (tf.total > 0) {
+          rawTotal = tf.total;
+          explicitCorrect = tf.correct;
+        }
       }
-    }
-    const rawBlanks = Math.max(0, Number(entry.blanks) || 0);
-    if (Number.isFinite(rawTotal) && rawTotal > 0) {
-      // Desconta questões deixadas em branco (omissão estratégica CEBRASPE) do denominador TRI.
-      // Se todas foram deixadas em branco (rawBlanks >= rawTotal), nenhuma questão foi tentada -> ignorar.
-      const attempted = rawBlanks > 0 ? Math.max(0, rawTotal - rawBlanks) : rawTotal;
-      if (attempted <= 0) return;
-      const corr = Number.isFinite(explicitCorrect)
-        ? clamp(explicitCorrect, 0, attempted)
-        : clamp(((getSafeScore(entry, eMax, eMin) - eMin) / eRange) * attempted, 0, attempted);
-      bucket.total += attempted;
-      bucket.correct += corr;
-    } else {
-      const sc = getSafeScore(entry, eMax, eMin);
-      if (Number.isFinite(sc)) {
-        const ratio = clamp((sc - eMin) / eRange, 0, 1);
-        bucket.total += 10;
-        bucket.correct += ratio * 10;
+      const rawBlanks = Math.max(0, Number(entry.blanks) || 0);
+      if (Number.isFinite(rawTotal) && rawTotal > 0) {
+        // Desconta questões deixadas em branco (omissão estratégica CEBRASPE) do denominador TRI.
+        // Se todas foram deixadas em branco (rawBlanks >= rawTotal), nenhuma questão foi tentada -> ignorar.
+        const attempted = rawBlanks > 0 ? Math.max(0, rawTotal - rawBlanks) : rawTotal;
+        if (attempted <= 0) return;
+        const corr = Number.isFinite(explicitCorrect)
+          ? clamp(explicitCorrect, 0, attempted)
+          : clamp(((getSafeScore(entry, eMax, eMin) - eMin) / eRange) * attempted, 0, attempted);
+        bucket.total += attempted;
+        bucket.correct += corr;
+      } else {
+        const sc = getSafeScore(entry, eMax, eMin);
+        if (Number.isFinite(sc)) {
+          const ratio = clamp((sc - eMin) / eRange, 0, 1);
+          bucket.total += 10;
+          bucket.correct += ratio * 10;
+        }
       }
-    }
-  });
+    });
 
   const tiersWithData = Array.from(tierStats.values()).filter((t) => t.total > 0);
   const totalItems = tiersWithData.reduce((acc, t) => acc + t.total, 0);

@@ -1050,6 +1050,16 @@ export function buildRegimeMapData(categories = [], studySessions = [], simulado
       });
       if (hist.length < 3) return null;
 
+      const cRange = Math.max(1e-6, cMax - cMin);
+      const rawCatCutoff = isStrictNumDiag(cat.minCutoff) ? Number(cat.minCutoff) : NaN;
+      const catTargetScore = Number.isFinite(rawCatCutoff) && rawCatCutoff > cMin
+        ? Math.min(cMax, rawCatCutoff)
+        : (isStrictNumDiag(targetScore)
+          ? (cMax === safeGlobalMax && cMin === safeGlobalMin
+            ? Number(targetScore)
+            : cMin + Math.max(0, Math.min(1, (Number(targetScore) - safeGlobalMin) / gRange)) * cRange)
+          : cMin + cRange * 0.8);
+
       const diag = computeCategoryDiagnostics({
         history: hist,
         studySessions,
@@ -1057,10 +1067,9 @@ export function buildRegimeMapData(categories = [], studySessions = [], simulado
         maxScore: cMax,
         minScore: cMin,
         categoryId: cat.id,
-        targetScore,
+        targetScore: catTargetScore,
       });
 
-      const cRange = Math.max(1e-6, cMax - cMin);
       const hurstH = Number.isFinite(Number(diag?.hurst?.H)) ? Number(Number(diag.hurst.H).toFixed(2)) : 0.5;
       const rawVelocity = Number.isFinite(Number(diag?.velocity?.velocityPerWeek))
         ? Number(diag.velocity.velocityPerWeek)

@@ -18,6 +18,8 @@ import { CriticalTopicsAnalysis } from '../../components/charts/EvolutionChart/C
 import { MetacognitionFatigueChart } from '../../components/charts/EvolutionChart/MetacognitionFatigueChart';
 import { TodayVsGeneralChart } from '../../components/charts/EvolutionChart/TodayVsGeneralChart';
 import { SubtopicsPerformanceChart } from '../../components/charts/EvolutionChart/SubtopicsPerformanceChart';
+import { DisciplinaCard } from '../../components/charts/EvolutionChart/DisciplinaCard';
+import { estimateIRTAbility } from '../../engine/adaptive/irtEngine';
 import { getDateKey } from '../dateHelper';
 import { parseNoonLocal, addDaysNoon } from '../parseNoonLocal';
 
@@ -541,5 +543,48 @@ describe('Evolution Menu Full Bug Audit Regression Suite', () => {
       />
     );
     expect(container.textContent).toContain('Curva de Fadiga Intraprova');
+  });
+
+  it('Bug #17: useChartData global timeline preserves safeMin when cat.minScore is null on ENEM (200..1000) and Cebraspe (-120..120)', () => {
+    const d1 = daysAgoKey(1);
+    const enemCats = [
+      { id: 'mat', name: 'Matemática', minScore: null, maxScore: null, simuladoStats: { history: [{ date: d1, score: 600, total: 45, correct: 22 }] } },
+    ];
+    let enemRes = null;
+    const { unmount } = render(<HookHarness categories={enemCats} maxScore={1000} minScore={200} onResult={(r) => { enemRes = r; }} />);
+    // 600 on 200..1000 MUST remain ~600 (NOT inflated to 200 + (600/1000)*800 = 680!)
+    expect(enemRes.timeline[0].global_raw).toBeCloseTo(600, 0);
+    unmount();
+
+    const cebCats = [
+      { id: 'dir', name: 'Direito', minScore: null, maxScore: null, simuladoStats: { history: [{ date: d1, score: 0, total: 20, correct: 10 }] } },
+    ];
+    let cebRes = null;
+    render(<HookHarness categories={cebCats} maxScore={120} minScore={-120} onResult={(r) => { cebRes = r; }} />);
+    // 0 on -120..120 is 50% of scale -> global_raw MUST remain 0 (NOT collapsed to -120!)
+    expect(cebRes.timeline[0].global_raw).toBeCloseTo(0, 0);
+  });
+
+  it('Bug #18: DisciplinaCard fallback average/mean does not misconvert Cebraspe (-120..120) scores as legacy percentages', () => {
+    const cat = {
+      id: 'dir',
+      name: 'Direito',
+      color: '#3b82f6',
+      simuladoStats: { history: [], average: 70 },
+      bayesianStats: { mean: 70 },
+    };
+    const { container } = render(
+      <DisciplinaCard cat={cat} level={70} metrics={null} target={60} minScore={-120} maxScore={120} unit="pts" />
+    );
+    // Stored average 70 pts must display as 70pts, NOT converted to 48pts
+    expect(container.textContent).toContain('70pts');
+    expect(container.textContent).not.toContain('48pts');
+  });
+
+  it('Bug #19: estimateIRTAbility routes syntheticVolume entries to weight-10 score branch instead of counting 20 real items', () => {
+    const res = estimateIRTAbility([
+      { score: 80, total: 20, correct: 16, syntheticVolume: true, difficulty: 'medio' },
+    ], { minScore: 0, maxScore: 100 });
+    expect(res.totalItems).toBe(10);
   });
 });

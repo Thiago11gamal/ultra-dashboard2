@@ -53,10 +53,10 @@ const IRTPsychometricChart = React.lazy(() => import("./charts/EvolutionChart/IR
 const MetacognitionFatigueChart = React.lazy(() => import("./charts/EvolutionChart/MetacognitionFatigueChart").then((m) => ({ default: m.MetacognitionFatigueChart })));
 
 const LazyTabFallback = (
-  <div className="min-h-[260px] flex items-center justify-center gap-2.5 text-xs font-bold text-slate-400">
-    <Loader2 size={16} className="animate-spin text-indigo-400" />
-    <span>Carregando módulo analítico...</span>
-  </div>
+    <div className="min-h-[260px] flex items-center justify-center gap-2.5 text-xs font-bold text-slate-400">
+        <Loader2 size={16} className="animate-spin text-indigo-400" />
+        <span>Carregando módulo analítico...</span>
+    </div>
 );
 
 import { generateEvolutionInsights } from '../engine/insightGenerator';
@@ -64,468 +64,468 @@ import { StatusPill } from './ui/StatusPill';
 import { ChartGuide } from './ui/ChartGuide';
 import { computeEvolutionStatuses } from '../utils/evolutionStatus';
 import {
-  DEFAULT_EVOLUTION_UI_PREFS,
-  readEvolutionUiPrefs,
-  writeEvolutionUiPrefs,
+    DEFAULT_EVOLUTION_UI_PREFS,
+    readEvolutionUiPrefs,
+    writeEvolutionUiPrefs,
 } from '../utils/evolutionUiPrefs';
 
 const EMPTY_ARRAY = Object.freeze([]);
 const EMPTY_OBJECT = Object.freeze({});
 const DEFAULT_CATEGORY_PALETTE = [
-  "#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6",
-  "#ec4899", "#14b8a6", "#f43f5e", "#84cc16", "#a855f7",
-  "#06b6d4", "#eab308", "#6366f1", "#d946ef", "#22c55e"
+    "#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6",
+    "#ec4899", "#14b8a6", "#f43f5e", "#84cc16", "#a855f7",
+    "#06b6d4", "#eab308", "#6366f1", "#d946ef", "#22c55e"
 ];
 
 function hydrateCategoriesWithSimuladoRows(baseCategories, simuladoRows, globalMin = 0, globalMax = 100) {
-  const safeBase = Array.isArray(baseCategories) ? baseCategories : [];
-  const validRows = (Array.isArray(simuladoRows) ? simuladoRows : []).filter(r => r && r.valid !== false && r.validated !== false);
-  if (!validRows.length) return safeBase;
+    const safeBase = Array.isArray(baseCategories) ? baseCategories : [];
+    const validRows = (Array.isArray(simuladoRows) ? simuladoRows : []).filter(r => r && r.valid !== false && r.validated !== false);
+    if (!validRows.length) return safeBase;
 
-  const rowMatchesCategory = (row, cat) => {
-    if (row.categoryId) return Boolean(cat.id && String(row.categoryId) === String(cat.id));
-    const subNorm = normalize(row.subject || row.categoryName || row.materia);
-    const catNorm = normalize(cat.name);
-    if (!subNorm || !catNorm) return false;
-    const catAliases = aliases[catNorm] || EMPTY_ARRAY;
-    return subNorm === catNorm || catAliases.some(a => normalize(a) === subNorm);
-  };
-
-  let workingCategories = safeBase;
-  if (workingCategories.length === 0) {
-    const seen = new Map();
-    validRows.forEach((row, idx) => {
-      const label = String(row.subject || row.categoryName || row.materia || '').trim();
-      const key = normalize(label) || (row.categoryId ? String(row.categoryId) : '');
-      if (!key || seen.has(key)) return;
-      seen.set(key, {
-        id: row.categoryId || `synth_cat_${seen.size + 1}`,
-        name: label || 'Disciplina',
-        color: DEFAULT_CATEGORY_PALETTE[idx % DEFAULT_CATEGORY_PALETTE.length],
-        tasks: [],
-        simuladoStats: { history: [] }
-      });
-    });
-    workingCategories = Array.from(seen.values());
-  }
-
-  return workingCategories.map((cat) => {
-    const myRows = validRows.filter(r => rowMatchesCategory(r, cat));
-    if (!myRows.length) return cat;
-
-    const existingHistoryRaw = cat.simuladoStats?.history;
-    const existingHistory = (Array.isArray(existingHistoryRaw)
-      ? existingHistoryRaw
-      : Object.values(existingHistoryRaw || {})).filter(Boolean);
-
-    const existingIds = new Set(existingHistory.map(h => h.id || h.simuladoRowId).filter(Boolean));
-    const existingByDateKey = new Map();
-    existingHistory.forEach((h) => {
-      const dk = getDateKey(h.date || h.createdAt);
-      if (!dk) return;
-      if (!existingByDateKey.has(dk)) existingByDateKey.set(dk, []);
-      existingByDateKey.get(dk).push(h);
-    });
-
-    const myRowsByDate = new Map();
-    myRows.forEach((r) => {
-      const dk = getDateKey(r.date || r.createdAt);
-      if (!dk) return;
-      if (!myRowsByDate.has(dk)) myRowsByDate.set(dk, []);
-      myRowsByDate.get(dk).push(r);
-    });
-
-    const datesToRehydrate = new Set();
-    myRowsByDate.forEach((dayRows, dk) => {
-      const existingEntries = existingByDateKey.get(dk) || [];
-      if (existingEntries.length === 0) {
-        if (dayRows.some(r => !r.id || !existingIds.has(r.id))) {
-          datesToRehydrate.add(dk);
-        }
-        return;
-      }
-      // Soma o volume de TODAS as entradas existentes naquele dia (evita reidratação falsa em dias com múltiplos simulados)
-      const existingTotal = existingEntries.reduce(
-        (sum, entry) => sum + Math.max(0, Number(entry.total ?? entry.questoes ?? entry.totalQuestoes ?? entry.questions) || 0),
-        0
-      );
-      const rowsTotal = dayRows.reduce(
-        (sum, r) => sum + Math.max(0, Number(r.total ?? r.questoes ?? r.totalQuestoes ?? r.questions) || 0),
-        0
-      );
-      if (rowsTotal > existingTotal && dayRows.some(r => !r.id || !existingIds.has(r.id))) {
-        datesToRehydrate.add(dk);
-      }
-    });
-
-    if (!datesToRehydrate.size) return cat;
-    const missingRows = [];
-    datesToRehydrate.forEach((dk) => {
-      (myRowsByDate.get(dk) || []).forEach((r) => missingRows.push(r));
-    });
-
-    const catMax = hasValidNumber(cat.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : (Number(globalMax) || 100);
-    const catMin = hasValidNumber(cat.minScore) ? Math.min(Number(cat.minScore), catMax) : (Number.isFinite(Number(globalMin)) ? Number(globalMin) : 0);
-    const catRange = Math.max(1e-9, catMax - catMin);
-
-    const byDay = new Map();
-    missingRows.forEach((r) => {
-      const dk = getDateKey(r.date || r.createdAt);
-      if (!dk) return;
-      if (!byDay.has(dk)) {
-        byDay.set(dk, {
-          date: dk,
-          createdAt: r.createdAt || r.date,
-          correct: 0,
-          effCorrect: 0,
-          total: 0,
-          synthTotal: 0,
-          synthEffCorrect: 0,
-          blanks: 0,
-          penaltyPerWrong: 0,
-          penaltyValues: new Set(),
-          scoreSum: 0,
-          scoreCount: 0,
-          timeSpent: 0,
-          timedQuestoes: 0,
-          hasExplicitTotal: false,
-          rowIds: [],
-          topics: [],
-          difficulty: r.difficulty || null,
-          questionTelemetry: [],
-        });
-      }
-      const bucket = byDay.get(dk);
-      if (r.id) bucket.rowIds.push(String(r.id));
-      let rowTot = Math.max(0, Number(r.total ?? r.questoes ?? r.totalQuestoes ?? r.questions) || 0);
-      const rawCorr = r.correct ?? r.acertos ?? r.correctCount;
-      const hasExplicitCorr = !r.isPercentage && rawCorr !== undefined && rawCorr !== null && String(rawCorr).trim() !== '' && Number.isFinite(Number(rawCorr));
-      let rowCorr = hasExplicitCorr ? Math.max(0, Number(rawCorr)) : NaN;
-      let rowScore = getSafeScore(r, catMax, catMin);
-      const rowBlanks = Math.max(0, Number(r.blanks) || 0);
-      const rowPenalty = Math.max(0, Number(r.penaltyPerWrong) || 0);
-
-      if (rowTot <= 0 && r.topics != null) {
-        const tf = extractTopicsTotals(r, catMax, catMin);
-        if (tf.total > 0) {
-          rowTot = tf.total;
-          rowCorr = tf.correct;
-          if (!Number.isFinite(rowScore) || rowScore === catMin) rowScore = tf.score;
-        } else if (!Number.isFinite(rowScore) && tf.hasTopicsScore) {
-          rowScore = tf.score;
-        }
-      }
-
-      if (rowTot > 0) {
-        bucket.hasExplicitTotal = true;
-        const physicalCorr = Number.isFinite(rowCorr)
-          ? Math.max(0, Math.min(rowTot, rowCorr))
-          : (Number.isFinite(rowScore)
-            ? Math.round(Math.max(0, Math.min(1, (rowScore - catMin) / catRange)) * rowTot)
-            : 0);
-        const effCorr = resolveEffectiveCorrect(r, rowScore, rowTot, hasExplicitCorr, physicalCorr, catMax, catMin);
-        bucket.total += rowTot;
-        bucket.correct += physicalCorr;
-        bucket.effCorrect += effCorr;
-        bucket.blanks += Math.min(Math.max(0, rowTot - physicalCorr), rowBlanks);
-        bucket.penaltyPerWrong = Math.max(bucket.penaltyPerWrong, rowPenalty);
-        bucket.penaltyValues.add(rowPenalty);
-      } else if (Number.isFinite(rowScore)) {
-        const synTot = getSyntheticTotal(catMax);
-        const ratio = Math.max(0, Math.min(1, (rowScore - catMin) / catRange));
-        bucket.synthTotal += synTot;
-        bucket.synthEffCorrect += ratio * synTot;
-        bucket.scoreSum += rowScore;
-        bucket.scoreCount += 1;
-      }
-
-      const ts = Number(r.timeSpent ?? r.durationSeconds ?? 0);
-      if (Number.isFinite(ts) && ts > 0) {
-        const tq = Number(r.timedQuestoes) > 0 ? Number(r.timedQuestoes) : (rowTot > 0 ? rowTot : getSyntheticTotal(catMax));
-        bucket.timeSpent += ts;
-        bucket.timedQuestoes += tq;
-      }
-
-      if (r.difficulty && !bucket.difficulty) bucket.difficulty = r.difficulty;
-      if (Array.isArray(r.questionTelemetry) && r.questionTelemetry.length > 0) {
-        bucket.questionTelemetry.push(...r.questionTelemetry);
-      }
-      const rowTopics = Array.isArray(r.topics) ? r.topics : (r.topics && typeof r.topics === 'object' ? Object.values(r.topics) : []);
-      if (rowTopics.length > 0) {
-        bucket.topics.push(...rowTopics.filter(Boolean));
-      } else if (r.topic || r.assunto) {
-        bucket.topics.push({
-          name: r.topic || r.assunto,
-          total: rowTot,
-          correct: Number.isFinite(rowCorr) ? Math.max(0, Math.min(rowTot, rowCorr)) : undefined,
-          ...(rowBlanks > 0 ? { blanks: rowBlanks } : {}),
-          ...(rowPenalty > 0 ? { penaltyPerWrong: rowPenalty } : {}),
-          ...(Number.isFinite(rowScore) ? { score: rowScore } : {}),
-          ...(Number.isFinite(ts) && ts > 0 ? { timeSpent: ts, timedQuestoes: Number(r.timedQuestoes) > 0 ? Number(r.timedQuestoes) : rowTot } : {}),
-        });
-      }
-    });
-
-    const reconstructed = Array.from(byDay.values()).map((b) => {
-      // Preserve metadata from existing entries on the same day if rows lacked topics/telemetry/difficulty
-      const prevDayEntries = existingByDateKey.get(b.date) || [];
-      const preservedTopics = b.topics.length > 0
-        ? b.topics
-        : prevDayEntries.flatMap((e) => Array.isArray(e.topics) ? e.topics : Object.values(e.topics || {})).filter(Boolean);
-      const preservedTelemetry = b.questionTelemetry.length > 0
-        ? b.questionTelemetry
-        : prevDayEntries.flatMap((e) => Array.isArray(e.questionTelemetry) ? e.questionTelemetry : []).filter(Boolean);
-      const preservedDifficulty = b.difficulty || prevDayEntries.find((e) => e.difficulty)?.difficulty || null;
-
-      const isPureSynthetic = !b.hasExplicitTotal && b.scoreCount > 0;
-      const hasUniformPenalty = b.hasExplicitTotal && b.scoreCount === 0 && b.penaltyValues.size === 1 && b.penaltyPerWrong > 0;
-      const hasMixedPenaltyOrSynth = b.hasExplicitTotal && (b.penaltyValues.size > 1 || b.scoreCount > 0);
-      const combinedWeight = b.total + b.synthTotal;
-
-      let score;
-      let netPoints;
-      if (isPureSynthetic) {
-        score = b.scoreSum / b.scoreCount;
-      } else if (combinedWeight > 0) {
-        if (hasUniformPenalty) {
-          const eff = computeEffectiveScoreRatio(b.correct, b.total, {
-            blanks: b.blanks,
-            penaltyPerWrong: b.penaltyPerWrong,
-            minScore: catMin,
-            maxScore: catMax,
-          });
-          score = catMin + eff.ratio * catRange;
-          netPoints = eff.netPoints;
-        } else {
-          score = catMin + ((b.effCorrect + b.synthEffCorrect) / combinedWeight) * catRange;
-        }
-      } else {
-        score = catMin;
-      }
-
-      const clampedScore = Number(Math.max(catMin, Math.min(catMax, score)).toFixed(2));
-      return {
-        ...(b.rowIds.length === 1 ? { id: b.rowIds[0] } : {}),
-        date: b.date,
-        ...(b.createdAt ? { createdAt: b.createdAt } : {}),
-        total: isPureSynthetic ? b.synthTotal : b.total,
-        correct: isPureSynthetic ? Math.round(b.synthEffCorrect) : b.correct,
-        ...(b.blanks > 0 ? { blanks: b.blanks } : {}),
-        ...(hasUniformPenalty ? { penaltyPerWrong: b.penaltyPerWrong, ...(netPoints !== undefined ? { netPoints } : {}) } : {}),
-        score: clampedScore,
-        ...(hasMixedPenaltyOrSynth ? { scorePoints: clampedScore } : {}),
-        syntheticVolume: isPureSynthetic,
-        ...(b.timeSpent > 0 ? { timeSpent: b.timeSpent, timedQuestoes: b.timedQuestoes } : {}),
-        ...(preservedTopics.length > 0 ? { topics: preservedTopics } : {}),
-        ...(preservedDifficulty ? { difficulty: preservedDifficulty } : {}),
-        ...(preservedTelemetry.length > 0 ? { questionTelemetry: preservedTelemetry } : {}),
-      };
-    });
-
-    const rehydratedRowInfoByDate = new Map();
-    datesToRehydrate.forEach((dk) => {
-      const dayRows = myRowsByDate.get(dk) || [];
-      const ids = new Set(dayRows.map((r) => (r.id ? String(r.id) : null)).filter(Boolean));
-      const sigs = new Set(dayRows.map((r) => {
-        const t = Math.max(0, Number(r.total ?? r.questoes ?? r.totalQuestoes ?? r.questions) || 0);
-        const c = Number(r.correct ?? r.acertos ?? r.correctCount);
-        const s = Number(r.score ?? r.scorePoints ?? r.scorePct);
-        return `${t}|${Number.isFinite(c) ? c : ''}|${Number.isFinite(s) ? Number(s.toFixed(1)) : ''}`;
-      }));
-      rehydratedRowInfoByDate.set(dk, { ids, sigs });
-    });
-
-    const remainingExisting = existingHistory.filter((h) => {
-      const dk = getDateKey(h.date || h.createdAt);
-      if (!dk || !datesToRehydrate.has(dk)) return true;
-      // Preserve explicit-id history entries that are distinct from the simuladoRows being rehydrated
-      const hId = h.id || h.simuladoRowId;
-      if (hId) {
-        const dayInfo = rehydratedRowInfoByDate.get(dk);
-        if (dayInfo && dayInfo.ids.size > 0 && !dayInfo.ids.has(String(hId))) {
-          const ht = Math.max(0, Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions) || 0);
-          const hc = Number(h.correct ?? h.acertos ?? h.correctCount);
-          const hs = Number(h.score ?? h.scorePoints ?? h.scorePct);
-          const hSig = `${ht}|${Number.isFinite(hc) ? hc : ''}|${Number.isFinite(hs) ? Number(hs.toFixed(1)) : ''}`;
-          if (!dayInfo.sigs.has(hSig)) {
-            return true;
-          }
-        }
-      }
-      return false;
-    });
-    const mergedHistory = [...remainingExisting, ...reconstructed].sort((a, b) => {
-      const da = toDateMs(a.date || a.createdAt);
-      const db = toDateMs(b.date || b.createdAt);
-      return (Number.isFinite(da) ? da : 0) - (Number.isFinite(db) ? db : 0);
-    });
-
-    return {
-      ...cat,
-      simuladoStats: {
-        ...(cat.simuladoStats || {}),
-        history: mergedHistory
-      }
+    const rowMatchesCategory = (row, cat) => {
+        if (row.categoryId) return Boolean(cat.id && String(row.categoryId) === String(cat.id));
+        const subNorm = normalize(row.subject || row.categoryName || row.materia);
+        const catNorm = normalize(cat.name);
+        if (!subNorm || !catNorm) return false;
+        const catAliases = aliases[catNorm] || EMPTY_ARRAY;
+        return subNorm === catNorm || catAliases.some(a => normalize(a) === subNorm);
     };
-  });
+
+    let workingCategories = safeBase;
+    if (workingCategories.length === 0) {
+        const seen = new Map();
+        validRows.forEach((row, idx) => {
+            const label = String(row.subject || row.categoryName || row.materia || '').trim();
+            const key = normalize(label) || (row.categoryId ? String(row.categoryId) : '');
+            if (!key || seen.has(key)) return;
+            seen.set(key, {
+                id: row.categoryId || `synth_cat_${seen.size + 1}`,
+                name: label || 'Disciplina',
+                color: DEFAULT_CATEGORY_PALETTE[idx % DEFAULT_CATEGORY_PALETTE.length],
+                tasks: [],
+                simuladoStats: { history: [] }
+            });
+        });
+        workingCategories = Array.from(seen.values());
+    }
+
+    return workingCategories.map((cat) => {
+        const myRows = validRows.filter(r => rowMatchesCategory(r, cat));
+        if (!myRows.length) return cat;
+
+        const existingHistoryRaw = cat.simuladoStats?.history;
+        const existingHistory = (Array.isArray(existingHistoryRaw)
+            ? existingHistoryRaw
+            : Object.values(existingHistoryRaw || {})).filter(Boolean);
+
+        const existingIds = new Set(existingHistory.map(h => h.id || h.simuladoRowId).filter(Boolean));
+        const existingByDateKey = new Map();
+        existingHistory.forEach((h) => {
+            const dk = getDateKey(h.date || h.createdAt);
+            if (!dk) return;
+            if (!existingByDateKey.has(dk)) existingByDateKey.set(dk, []);
+            existingByDateKey.get(dk).push(h);
+        });
+
+        const myRowsByDate = new Map();
+        myRows.forEach((r) => {
+            const dk = getDateKey(r.date || r.createdAt);
+            if (!dk) return;
+            if (!myRowsByDate.has(dk)) myRowsByDate.set(dk, []);
+            myRowsByDate.get(dk).push(r);
+        });
+
+        const datesToRehydrate = new Set();
+        myRowsByDate.forEach((dayRows, dk) => {
+            const existingEntries = existingByDateKey.get(dk) || [];
+            if (existingEntries.length === 0) {
+                if (dayRows.some(r => !r.id || !existingIds.has(r.id))) {
+                    datesToRehydrate.add(dk);
+                }
+                return;
+            }
+            // Soma o volume de TODAS as entradas existentes naquele dia (evita reidratação falsa em dias com múltiplos simulados)
+            const existingTotal = existingEntries.reduce(
+                (sum, entry) => sum + Math.max(0, Number(entry.total ?? entry.questoes ?? entry.totalQuestoes ?? entry.questions) || 0),
+                0
+            );
+            const rowsTotal = dayRows.reduce(
+                (sum, r) => sum + Math.max(0, Number(r.total ?? r.questoes ?? r.totalQuestoes ?? r.questions) || 0),
+                0
+            );
+            if (rowsTotal > existingTotal && dayRows.some(r => !r.id || !existingIds.has(r.id))) {
+                datesToRehydrate.add(dk);
+            }
+        });
+
+        if (!datesToRehydrate.size) return cat;
+        const missingRows = [];
+        datesToRehydrate.forEach((dk) => {
+            (myRowsByDate.get(dk) || []).forEach((r) => missingRows.push(r));
+        });
+
+        const catMax = hasValidNumber(cat.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : (Number(globalMax) || 100);
+        const catMin = hasValidNumber(cat.minScore) ? Math.min(Number(cat.minScore), catMax) : (Number.isFinite(Number(globalMin)) ? Number(globalMin) : 0);
+        const catRange = Math.max(1e-9, catMax - catMin);
+
+        const byDay = new Map();
+        missingRows.forEach((r) => {
+            const dk = getDateKey(r.date || r.createdAt);
+            if (!dk) return;
+            if (!byDay.has(dk)) {
+                byDay.set(dk, {
+                    date: dk,
+                    createdAt: r.createdAt || r.date,
+                    correct: 0,
+                    effCorrect: 0,
+                    total: 0,
+                    synthTotal: 0,
+                    synthEffCorrect: 0,
+                    blanks: 0,
+                    penaltyPerWrong: 0,
+                    penaltyValues: new Set(),
+                    scoreSum: 0,
+                    scoreCount: 0,
+                    timeSpent: 0,
+                    timedQuestoes: 0,
+                    hasExplicitTotal: false,
+                    rowIds: [],
+                    topics: [],
+                    difficulty: r.difficulty || null,
+                    questionTelemetry: [],
+                });
+            }
+            const bucket = byDay.get(dk);
+            if (r.id) bucket.rowIds.push(String(r.id));
+            let rowTot = Math.max(0, Number(r.total ?? r.questoes ?? r.totalQuestoes ?? r.questions) || 0);
+            const rawCorr = r.correct ?? r.acertos ?? r.correctCount;
+            const hasExplicitCorr = !r.isPercentage && rawCorr !== undefined && rawCorr !== null && String(rawCorr).trim() !== '' && Number.isFinite(Number(rawCorr));
+            let rowCorr = hasExplicitCorr ? Math.max(0, Number(rawCorr)) : NaN;
+            let rowScore = getSafeScore(r, catMax, catMin);
+            const rowBlanks = Math.max(0, Number(r.blanks) || 0);
+            const rowPenalty = Math.max(0, Number(r.penaltyPerWrong) || 0);
+
+            if (rowTot <= 0 && r.topics != null) {
+                const tf = extractTopicsTotals(r, catMax, catMin);
+                if (tf.total > 0) {
+                    rowTot = tf.total;
+                    rowCorr = tf.correct;
+                    if (!Number.isFinite(rowScore) || rowScore === catMin) rowScore = tf.score;
+                } else if (!Number.isFinite(rowScore) && tf.hasTopicsScore) {
+                    rowScore = tf.score;
+                }
+            }
+
+            if (rowTot > 0) {
+                bucket.hasExplicitTotal = true;
+                const physicalCorr = Number.isFinite(rowCorr)
+                    ? Math.max(0, Math.min(rowTot, rowCorr))
+                    : (Number.isFinite(rowScore)
+                        ? Math.round(Math.max(0, Math.min(1, (rowScore - catMin) / catRange)) * rowTot)
+                        : 0);
+                const effCorr = resolveEffectiveCorrect(r, rowScore, rowTot, hasExplicitCorr, physicalCorr, catMax, catMin);
+                bucket.total += rowTot;
+                bucket.correct += physicalCorr;
+                bucket.effCorrect += effCorr;
+                bucket.blanks += Math.min(Math.max(0, rowTot - physicalCorr), rowBlanks);
+                bucket.penaltyPerWrong = Math.max(bucket.penaltyPerWrong, rowPenalty);
+                bucket.penaltyValues.add(rowPenalty);
+            } else if (Number.isFinite(rowScore)) {
+                const synTot = getSyntheticTotal(catMax);
+                const ratio = Math.max(0, Math.min(1, (rowScore - catMin) / catRange));
+                bucket.synthTotal += synTot;
+                bucket.synthEffCorrect += ratio * synTot;
+                bucket.scoreSum += rowScore;
+                bucket.scoreCount += 1;
+            }
+
+            const ts = Number(r.timeSpent ?? r.durationSeconds ?? 0);
+            if (Number.isFinite(ts) && ts > 0) {
+                const tq = Number(r.timedQuestoes) > 0 ? Number(r.timedQuestoes) : (rowTot > 0 ? rowTot : getSyntheticTotal(catMax));
+                bucket.timeSpent += ts;
+                bucket.timedQuestoes += tq;
+            }
+
+            if (r.difficulty && !bucket.difficulty) bucket.difficulty = r.difficulty;
+            if (Array.isArray(r.questionTelemetry) && r.questionTelemetry.length > 0) {
+                bucket.questionTelemetry.push(...r.questionTelemetry);
+            }
+            const rowTopics = Array.isArray(r.topics) ? r.topics : (r.topics && typeof r.topics === 'object' ? Object.values(r.topics) : []);
+            if (rowTopics.length > 0) {
+                bucket.topics.push(...rowTopics.filter(Boolean));
+            } else if (r.topic || r.assunto) {
+                bucket.topics.push({
+                    name: r.topic || r.assunto,
+                    total: rowTot,
+                    correct: Number.isFinite(rowCorr) ? Math.max(0, Math.min(rowTot, rowCorr)) : undefined,
+                    ...(rowBlanks > 0 ? { blanks: rowBlanks } : {}),
+                    ...(rowPenalty > 0 ? { penaltyPerWrong: rowPenalty } : {}),
+                    ...(Number.isFinite(rowScore) ? { score: rowScore } : {}),
+                    ...(Number.isFinite(ts) && ts > 0 ? { timeSpent: ts, timedQuestoes: Number(r.timedQuestoes) > 0 ? Number(r.timedQuestoes) : rowTot } : {}),
+                });
+            }
+        });
+
+        const reconstructed = Array.from(byDay.values()).map((b) => {
+            // Preserve metadata from existing entries on the same day if rows lacked topics/telemetry/difficulty
+            const prevDayEntries = existingByDateKey.get(b.date) || [];
+            const preservedTopics = b.topics.length > 0
+                ? b.topics
+                : prevDayEntries.flatMap((e) => Array.isArray(e.topics) ? e.topics : Object.values(e.topics || {})).filter(Boolean);
+            const preservedTelemetry = b.questionTelemetry.length > 0
+                ? b.questionTelemetry
+                : prevDayEntries.flatMap((e) => Array.isArray(e.questionTelemetry) ? e.questionTelemetry : []).filter(Boolean);
+            const preservedDifficulty = b.difficulty || prevDayEntries.find((e) => e.difficulty)?.difficulty || null;
+
+            const isPureSynthetic = !b.hasExplicitTotal && b.scoreCount > 0;
+            const hasUniformPenalty = b.hasExplicitTotal && b.scoreCount === 0 && b.penaltyValues.size === 1 && b.penaltyPerWrong > 0;
+            const hasMixedPenaltyOrSynth = b.hasExplicitTotal && (b.penaltyValues.size > 1 || b.scoreCount > 0);
+            const combinedWeight = b.total + b.synthTotal;
+
+            let score;
+            let netPoints;
+            if (isPureSynthetic) {
+                score = b.scoreSum / b.scoreCount;
+            } else if (combinedWeight > 0) {
+                if (hasUniformPenalty) {
+                    const eff = computeEffectiveScoreRatio(b.correct, b.total, {
+                        blanks: b.blanks,
+                        penaltyPerWrong: b.penaltyPerWrong,
+                        minScore: catMin,
+                        maxScore: catMax,
+                    });
+                    score = catMin + eff.ratio * catRange;
+                    netPoints = eff.netPoints;
+                } else {
+                    score = catMin + ((b.effCorrect + b.synthEffCorrect) / combinedWeight) * catRange;
+                }
+            } else {
+                score = catMin;
+            }
+
+            const clampedScore = Number(Math.max(catMin, Math.min(catMax, score)).toFixed(2));
+            return {
+                ...(b.rowIds.length === 1 ? { id: b.rowIds[0] } : {}),
+                date: b.date,
+                ...(b.createdAt ? { createdAt: b.createdAt } : {}),
+                total: isPureSynthetic ? b.synthTotal : b.total,
+                correct: isPureSynthetic ? Math.round(b.synthEffCorrect) : b.correct,
+                ...(b.blanks > 0 ? { blanks: b.blanks } : {}),
+                ...(hasUniformPenalty ? { penaltyPerWrong: b.penaltyPerWrong, ...(netPoints !== undefined ? { netPoints } : {}) } : {}),
+                score: clampedScore,
+                ...(hasMixedPenaltyOrSynth ? { scorePoints: clampedScore } : {}),
+                syntheticVolume: isPureSynthetic,
+                ...(b.timeSpent > 0 ? { timeSpent: b.timeSpent, timedQuestoes: b.timedQuestoes } : {}),
+                ...(preservedTopics.length > 0 ? { topics: preservedTopics } : {}),
+                ...(preservedDifficulty ? { difficulty: preservedDifficulty } : {}),
+                ...(preservedTelemetry.length > 0 ? { questionTelemetry: preservedTelemetry } : {}),
+            };
+        });
+
+        const rehydratedRowInfoByDate = new Map();
+        datesToRehydrate.forEach((dk) => {
+            const dayRows = myRowsByDate.get(dk) || [];
+            const ids = new Set(dayRows.map((r) => (r.id ? String(r.id) : null)).filter(Boolean));
+            const sigs = new Set(dayRows.map((r) => {
+                const t = Math.max(0, Number(r.total ?? r.questoes ?? r.totalQuestoes ?? r.questions) || 0);
+                const c = Number(r.correct ?? r.acertos ?? r.correctCount);
+                const s = Number(r.score ?? r.scorePoints ?? r.scorePct);
+                return `${t}|${Number.isFinite(c) ? c : ''}|${Number.isFinite(s) ? Number(s.toFixed(1)) : ''}`;
+            }));
+            rehydratedRowInfoByDate.set(dk, { ids, sigs });
+        });
+
+        const remainingExisting = existingHistory.filter((h) => {
+            const dk = getDateKey(h.date || h.createdAt);
+            if (!dk || !datesToRehydrate.has(dk)) return true;
+            // Preserve explicit-id history entries that are distinct from the simuladoRows being rehydrated
+            const hId = h.id || h.simuladoRowId;
+            if (hId) {
+                const dayInfo = rehydratedRowInfoByDate.get(dk);
+                if (dayInfo && dayInfo.ids.size > 0 && !dayInfo.ids.has(String(hId))) {
+                    const ht = Math.max(0, Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions) || 0);
+                    const hc = Number(h.correct ?? h.acertos ?? h.correctCount);
+                    const hs = Number(h.score ?? h.scorePoints ?? h.scorePct);
+                    const hSig = `${ht}|${Number.isFinite(hc) ? hc : ''}|${Number.isFinite(hs) ? Number(hs.toFixed(1)) : ''}`;
+                    if (!dayInfo.sigs.has(hSig)) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        });
+        const mergedHistory = [...remainingExisting, ...reconstructed].sort((a, b) => {
+            const da = toDateMs(a.date || a.createdAt);
+            const db = toDateMs(b.date || b.createdAt);
+            return (Number.isFinite(da) ? da : 0) - (Number.isFinite(db) ? db : 0);
+        });
+
+        return {
+            ...cat,
+            simuladoStats: {
+                ...(cat.simuladoStats || {}),
+                history: mergedHistory
+            }
+        };
+    });
 }
 
 function hasValidNumber(value) {
-  return value !== null && value !== undefined && typeof value !== 'boolean' && String(value).trim() !== '' && Number.isFinite(Number(value));
+    return value !== null && value !== undefined && typeof value !== 'boolean' && String(value).trim() !== '' && Number.isFinite(Number(value));
 }
 
 function safeFiniteNumber(value, fallback = 0) {
-  return hasValidNumber(value) ? Number(value) : fallback;
+    return hasValidNumber(value) ? Number(value) : fallback;
 }
 
 function renderInsightText(text, textColorClass) {
-  if (typeof text !== 'string') return text;
+    if (typeof text !== 'string') return text;
 
-  const parts = text.split(/(\*\*[\s\S]*?\*\*|!![\s\S]*?!!|\+\+[\s\S]*?\+\+)/g).filter(Boolean);
+    const parts = text.split(/(\*\*[\s\S]*?\*\*|!![\s\S]*?!!|\+\+[\s\S]*?\+\+)/g).filter(Boolean);
 
-  return parts.map((part, idx) => {
-    if (part.startsWith('**') && part.endsWith('**')) {
-      return (
-        <strong key={idx} className={`${textColorClass} font-extrabold px-1 py-0.5 rounded-md bg-white/[0.06]`}>
-          {part.slice(2, -2)}
-        </strong>
-      );
-    }
+    return parts.map((part, idx) => {
+        if (part.startsWith('**') && part.endsWith('**')) {
+            return (
+                <strong key={idx} className={`${textColorClass} font-extrabold px-1 py-0.5 rounded-md bg-white/[0.06]`}>
+                    {part.slice(2, -2)}
+                </strong>
+            );
+        }
 
-    if (part.startsWith('!!') && part.endsWith('!!')) {
-      return (
-        <span key={idx} className="text-rose-300 font-bold px-1 py-0.5 rounded-md bg-rose-500/15">
-          {part.slice(2, -2)}
-        </span>
-      );
-    }
+        if (part.startsWith('!!') && part.endsWith('!!')) {
+            return (
+                <span key={idx} className="text-rose-300 font-bold px-1 py-0.5 rounded-md bg-rose-500/15">
+                    {part.slice(2, -2)}
+                </span>
+            );
+        }
 
-    if (part.startsWith('++') && part.endsWith('++')) {
-      return (
-        <span key={idx} className="text-emerald-300 font-bold px-1 py-0.5 rounded-md bg-emerald-500/15">
-          {part.slice(2, -2)}
-        </span>
-      );
-    }
+        if (part.startsWith('++') && part.endsWith('++')) {
+            return (
+                <span key={idx} className="text-emerald-300 font-bold px-1 py-0.5 rounded-md bg-emerald-500/15">
+                    {part.slice(2, -2)}
+                </span>
+            );
+        }
 
-    return <React.Fragment key={idx}>{part}</React.Fragment>;
-  });
+        return <React.Fragment key={idx}>{part}</React.Fragment>;
+    });
 }
 
 // Função pura fora do componente
 function buildPredictiveCompareData(
-  timeline,
-  focusCategory,
-  categoryLevels,
-  activeMcProjectionSeries,
-  projectDays,
-  minScore = 0,
-  maxScore = 100
+    timeline,
+    focusCategory,
+    categoryLevels,
+    activeMcProjectionSeries,
+    projectDays,
+    minScore = 0,
+    maxScore = 100
 ) {
-  if (!focusCategory) return timeline;
+    if (!focusCategory) return timeline;
 
-  const safeMin = hasValidNumber(minScore) ? Number(minScore) : 0;
-  const safeMax = hasValidNumber(maxScore) && Number(maxScore) > safeMin ? Number(maxScore) : Math.max(100, safeMin + 100);
+    const safeMin = hasValidNumber(minScore) ? Number(minScore) : 0;
+    const safeMax = hasValidNumber(maxScore) && Number(maxScore) > safeMin ? Number(maxScore) : Math.max(100, safeMin + 100);
 
-  // 1. Prepara os dados históricos mapeando as chaves para leitura no gráfico
-  let pts = timeline.map((d) => {
-    const lowVal = d[`bay_ci_low_${focusCategory.id}`];
-    const highVal = d[`bay_ci_high_${focusCategory.id}`];
-    const hasValidBand = hasValidNumber(lowVal) && hasValidNumber(highVal);
-    const bandLow = hasValidBand ? Math.max(safeMin, Math.min(safeMax, Math.min(Number(lowVal), Number(highVal)))) : null;
-    const bandHigh = hasValidBand ? Math.max(safeMin, Math.min(safeMax, Math.max(Number(lowVal), Number(highVal)))) : null;
+    // 1. Prepara os dados históricos mapeando as chaves para leitura no gráfico
+    let pts = timeline.map((d) => {
+        const lowVal = d[`bay_ci_low_${focusCategory.id}`];
+        const highVal = d[`bay_ci_high_${focusCategory.id}`];
+        const hasValidBand = hasValidNumber(lowVal) && hasValidNumber(highVal);
+        const bandLow = hasValidBand ? Math.max(safeMin, Math.min(safeMax, Math.min(Number(lowVal), Number(highVal)))) : null;
+        const bandHigh = hasValidBand ? Math.max(safeMin, Math.min(safeMax, Math.max(Number(lowVal), Number(highVal)))) : null;
 
-    return {
-      ...d,
-      "Nota Bruta": d[`raw_${focusCategory.id}`],
-      "Nível Bayesiano": d[`bay_${focusCategory.id}`],
-      "Banda Bayesiana": hasValidBand ? [bandLow, bandHigh] : null,
-      "Média Histórica": d[`stats_${focusCategory.id}`]
-    };
-  });
+        return {
+            ...d,
+            "Nota Bruta": d[`raw_${focusCategory.id}`],
+            "Nível Bayesiano": d[`bay_${focusCategory.id}`],
+            "Banda Bayesiana": hasValidBand ? [bandLow, bandHigh] : null,
+            "Média Histórica": d[`stats_${focusCategory.id}`]
+        };
+    });
 
-  // 2. Acopla os pontos futuros do Monte Carlo com validação robusta
-  if (activeMcProjectionSeries && pts.length > 0) {
-    const lastIdx = pts.length - 1;
-    const pickFinite = (...vals) => {
-      for (const v of vals) {
-        if (v !== null && v !== undefined && v !== '' && Number.isFinite(Number(v))) return Number(v);
-      }
-      return safeMin;
-    };
+    // 2. Acopla os pontos futuros do Monte Carlo com validação robusta
+    if (activeMcProjectionSeries && pts.length > 0) {
+        const lastIdx = pts.length - 1;
+        const pickFinite = (...vals) => {
+            for (const v of vals) {
+                if (v !== null && v !== undefined && v !== '' && Number.isFinite(Number(v))) return Number(v);
+            }
+            return safeMin;
+        };
 
-    const rawLevel = pickFinite(
-      pts[lastIdx]["Nível Bayesiano"],
-      categoryLevels?.[focusCategory?.id],
-      activeMcProjectionSeries?.mc_p50,
-      safeMin
-    );
+        const rawLevel = pickFinite(
+            pts[lastIdx]["Nível Bayesiano"],
+            categoryLevels?.[focusCategory?.id],
+            activeMcProjectionSeries?.mc_p50,
+            safeMin
+        );
 
-    const currentLevel = Math.max(safeMin, Math.min(safeMax, safeFiniteNumber(rawLevel, safeMin)));
-    const p50 = Math.max(safeMin, Math.min(safeMax, safeFiniteNumber(activeMcProjectionSeries.mc_p50, currentLevel)));
+        const currentLevel = Math.max(safeMin, Math.min(safeMax, safeFiniteNumber(rawLevel, safeMin)));
+        const p50 = Math.max(safeMin, Math.min(safeMax, safeFiniteNumber(activeMcProjectionSeries.mc_p50, currentLevel)));
 
-    const band =
-      Array.isArray(activeMcProjectionSeries.mc_band) && activeMcProjectionSeries.mc_band.length >= 2
-        ? activeMcProjectionSeries.mc_band
-        : [currentLevel, currentLevel];
+        const band =
+            Array.isArray(activeMcProjectionSeries.mc_band) && activeMcProjectionSeries.mc_band.length >= 2
+                ? activeMcProjectionSeries.mc_band
+                : [currentLevel, currentLevel];
 
-    const band0 = safeFiniteNumber(band[0], currentLevel);
-    const band1 = safeFiniteNumber(band[1], currentLevel);
-    const bandMin = Math.max(safeMin, Math.min(band0, band1));
-    const bandMax = Math.min(safeMax, Math.max(band0, band1));
+        const band0 = safeFiniteNumber(band[0], currentLevel);
+        const band1 = safeFiniteNumber(band[1], currentLevel);
+        const bandMin = Math.max(safeMin, Math.min(band0, band1));
+        const bandMax = Math.min(safeMax, Math.max(band0, band1));
 
-    const bounded = (v) => {
-      const n = Number(v);
-      if (!Number.isFinite(n)) return currentLevel;
-      return Math.max(safeMin, Math.min(safeMax, n));
-    };
+        const bounded = (v) => {
+            const n = Number(v);
+            if (!Number.isFinite(n)) return currentLevel;
+            return Math.max(safeMin, Math.min(safeMax, n));
+        };
 
-    // Parse a data base UMA VEZ antes do loop em APP_TIMEZONE
-    const baseKey = getDateKey(pts[lastIdx]?.date) || getDateKey(new Date());
-    const baseNoon = (baseKey ? parseNoonLocal(baseKey) : null) || normalizeDate(pts[lastIdx]?.date) || new Date();
+        // Parse a data base UMA VEZ antes do loop em APP_TIMEZONE
+        const baseKey = getDateKey(pts[lastIdx]?.date) || getDateKey(new Date());
+        const baseNoon = (baseKey ? parseNoonLocal(baseKey) : null) || normalizeDate(pts[lastIdx]?.date) || new Date();
 
-    const futurePoints = [];
-    const totalDays = Math.max(1, projectDays || 30);
-    const steps = Math.min(6, Math.max(1, totalDays));
-    const seenDates = new Set([pts[lastIdx].date]);
+        const futurePoints = [];
+        const totalDays = Math.max(1, projectDays || 30);
+        const steps = Math.min(6, Math.max(1, totalDays));
+        const seenDates = new Set([pts[lastIdx].date]);
 
-    for (let i = 1; i <= steps; i++) {
-      const forwardDays = Math.max(1, Math.round((i / steps) * totalDays));
-      const t = Math.min(1, forwardDays / totalDays);
-      const weight = Math.sqrt(t);
+        for (let i = 1; i <= steps; i++) {
+            const forwardDays = Math.max(1, Math.round((i / steps) * totalDays));
+            const t = Math.min(1, forwardDays / totalDays);
+            const weight = Math.sqrt(t);
 
-      const val = bounded(currentLevel + (p50 - currentLevel) * t);
-      const bandLow = bounded(currentLevel + (bandMin - currentLevel) * weight);
-      const bandHigh = bounded(currentLevel + (bandMax - currentLevel) * weight);
+            const val = bounded(currentLevel + (p50 - currentLevel) * t);
+            const bandLow = bounded(currentLevel + (bandMin - currentLevel) * weight);
+            const bandHigh = bounded(currentLevel + (bandMax - currentLevel) * weight);
 
-      const dt = addDaysNoon(baseNoon, forwardDays);
-      const iso = dt ? getDateKey(dt) : null;
+            const dt = addDaysNoon(baseNoon, forwardDays);
+            const iso = dt ? getDateKey(dt) : null;
 
-      if (iso && !seenDates.has(iso)) {
-        seenDates.add(iso);
-        const parts = iso.split('-');
-        futurePoints.push({
-          date: iso,
-          displayDate: parts.length === 3
-            ? (i === steps ? `${parts[2]}/${parts[1]} ✦` : `${parts[2]}/${parts[1]}`)
-            : iso,
-          "Futuro Provável": val,
-          "Cenário Range": [bandLow, bandHigh],
-          __future: true
-        });
-      }
+            if (iso && !seenDates.has(iso)) {
+                seenDates.add(iso);
+                const parts = iso.split('-');
+                futurePoints.push({
+                    date: iso,
+                    displayDate: parts.length === 3
+                        ? (i === steps ? `${parts[2]}/${parts[1]} ✦` : `${parts[2]}/${parts[1]}`)
+                        : iso,
+                    "Futuro Provável": val,
+                    "Cenário Range": [bandLow, bandHigh],
+                    __future: true
+                });
+            }
+        }
+
+        pts[lastIdx] = {
+            ...pts[lastIdx],
+            "Futuro Provável": currentLevel,
+            "Cenário Range": [currentLevel, currentLevel]
+        };
+
+        pts = [...pts, ...futurePoints];
     }
 
-    pts[lastIdx] = {
-      ...pts[lastIdx],
-      "Futuro Provável": currentLevel,
-      "Cenário Range": [currentLevel, currentLevel]
-    };
-
-    pts = [...pts, ...futurePoints];
-  }
-
-  return pts;
+    return pts;
 }
 
 // M3 FIX: Função pura extraída para fora do componente — evita recriação a cada render (ancorada em APP_TIMEZONE).
@@ -623,128 +623,128 @@ const ENGINES = [
     },
 ];
 
-    
-    const ENGINE_GUIDE = {
-     raw: {
-       como: 'Mostra a nota bruta real de cada simulado, sem suavização. Cada ponto é um dia registrado.',
-       positivo: 'Sequência de pontos acima da meta e tendência de alta.',
-       alerta: 'Quedas bruscas, pontos isolados muito baixos ou oscilação excessiva.',
-       acao: 'Avalie a tendência dos últimos 7 a 14 dias, não um ponto isolado.'
-     },
-     raw_weekly: {
-       como: 'O mapa de calor mostra os dias com atividade. A cor indica o desempenho em relação à meta e a intensidade mostra volume.',
-       positivo: 'Muitas células verdes, sequência de dias ativos e desempenho consistente.',
-       alerta: 'Células vermelhas repetidas, muitos dias vazios ou queda de frequência.',
-       acao: 'Identifique os dias da semana com rendimento menor e reforce revisões nesses períodos.'
-     },
-     bayesian: {
-       como: 'O nível bayesiano estima seu domínio real, não apenas a nota de um simulado. A faixa mostra o intervalo de confiança de 95%.',
-       positivo: 'Linha subindo, faixa estreita e nível acima da meta.',
-       alerta: 'Faixa muito larga, linha caindo ou nível abaixo da meta.',
-       acao: 'Faça mais simulados para reduzir a incerteza e baseie decisões no nível bayesiano.'
-     },
-     stats: {
-       como: 'Mostra a média histórica acumulada de toda a sua jornada de estudo.',
-       positivo: 'Média alta e estável, servindo como base de segurança.',
-       alerta: 'A média histórica demora para refletir melhorias recentes.',
-       acao: 'Use como referência de longo prazo, mas avalie progresso recente pelo nível bayesiano.'
-     },
-     compare: {
-       como: 'Combina passado, presente e futuro: nota bruta, nível bayesiano atual e projeção Monte Carlo até a prova.',
-       positivo: 'Projeção futura acima da meta e intervalo de confiança estreito.',
-       alerta: 'Projeção abaixo da meta, intervalo muito largo ou alguma disciplina puxando a previsão para baixo.',
-       acao: 'Use o seletor de foco para identificar qual matéria está segurando sua projeção.'
-     },
-     subtopics: {
-       como: 'Mostra o desempenho por assunto. Cada barra representa a taxa de acerto e o volume de questões daquele tópico.',
-       positivo: 'Maioria dos tópicos acima da meta, especialmente os com maior volume.',
-       alerta: 'Tópicos vermelhos com muitas questões, pois representam perda real de pontos.',
-       acao: 'Priorize revisão cirúrgica nos tópicos abaixo da meta com maior volume de questões.'
-     },
-     mc_density: {
-       como: 'Mostra a evolução da projeção Monte Carlo após cada simulado. Não é a nota do simulado, mas sim a previsão futura.',
-       positivo: 'Linha subindo e probabilidade de aprovação acima de 70%.',
-       alerta: 'Linha estagnada, caindo ou intervalo de confiança muito largo.',
-       acao: 'Se a projeção caiu, revise os tópicos críticos e reduza a dispersão de estudo.'
-     },
-     weekly_diff: {
-       como: 'Compara o desempenho desta semana com o da semana anterior. Deltas positivos indicam ganho, negativos indicam perda.',
-       positivo: 'Deltas positivos consecutivos e recuperação após semanas fracas.',
-       alerta: 'Várias semanas negativas seguidas, especialmente em matérias importantes.',
-       acao: 'Use quedas semanais como aviso precoce de esquecimento e faça revisão espaçada.'
-     },
-     today_vs_general: {
-       como: 'Compara o desempenho de hoje ou da última sessão contra a média geral e contra períodos anteriores.',
-       positivo: 'Sessão atual acima da média geral e última barra com variação positiva.',
-       alerta: 'Hoje muito abaixo da média geral ou última sessão com queda acentuada.',
-       acao: 'Se o dia atual estiver fraco, avalie volume, cansaço ou dificuldade dos temas escolhidos.'
-     },
-     time_spent: {
-       como: 'Mostra o tempo médio gasto por questão em cada disciplina nos simulados IA. Ajuda a encontrar gargalos de velocidade.',
-       positivo: 'Tempo estável ou diminuindo sem queda de precisão.',
-       alerta: 'Matérias muito lentas podem comprometer o tempo total da prova.',
-       acao: 'Treine simulados cronometrados nas disciplinas mais lentas.'
-     },
-     speed_accuracy: {
-       como: 'Posiciona cada disciplina (ou assunto) pelo tempo médio por questão (eixo X) e taxa de acerto (eixo Y). O tamanho da bolha indica o volume de questões.',
-       positivo: 'Concentração no quadrante superior esquerdo (Domínio Rápido).',
-       alerta: 'Bolhas grandes em Leitura Apressada (rápido e errando) ou Lacuna Teórica (lento e errando).',
-       acao: 'Desacelere nos temas apressados e faça revisão direcionada nas lacunas lentas.'
-     },
-     exam_pacing: {
-       como: 'Simula o tempo total necessário para resolver toda a prova no seu ritmo atual por matéria, comparado à duração oficial do concurso.',
-       positivo: 'Tempo projetado abaixo da duração da prova com folga para gabarito.',
-       alerta: 'Estouro de tempo projetado indicando questões deixadas em branco.',
-       acao: 'Ataque primeiro as matérias com maior saldo positivo de estouro de minutos.'
-     },
-     consistency_boxplot: {
-       como: 'Cada linha resume toda a distribuição das notas da disciplina: mínimo, Q1, mediana, Q3, máximo e média (losango).',
-       positivo: 'Caixa estreita (baixo IQR) posicionada à direita da meta.',
-       alerta: 'Caixas muito largas ou cauda esquerda abaixo do corte mínimo (minCutoff).',
-       acao: 'Estabilize matérias voláteis atacando subtópicos específicos com maior erro.'
-     },
-     projection_fan: {
-       como: 'Projeta a evolução futura de hoje até a data da prova em faixas de probabilidade (P10–P90 e P25–P75) sobrepostas aos cortes históricos.',
-       positivo: 'Mediana P50 cruzando a meta antes da prova com cone se estreitando.',
-       alerta: 'Até o cenário P75 abaixo da meta ou cone excessivamente aberto.',
-       acao: 'Aumente a constância de simulados para reduzir incerteza e elevar a inclinação.'
-     },
-     kalman_latent: {
-       como: 'Separa a habilidade real estimada (linha verde suave + IC 95%) das oscilações brutas de cada simulado (pontos laranja/rosa).',
-       positivo: 'Habilidade latente em alta sustentada mesmo com ruído pontual.',
-       alerta: 'Tendência estrutural negativa por várias semanas consecutivas.',
-       acao: 'Use a curva latente para avaliar evolução real sem reagir por impulso a um simulado isolado.'
-     },
-     tornado_whatif: {
-       como: 'Mostra o motivo das reprovações simuladas no Monte Carlo (corte global vs. minCutoff) e mede o impacto em pp de variar cada matéria em ±10%.',
-       positivo: 'Risco de eliminação por corte mínimo próximo de zero e margem confortável acima do corte global.',
-       alerta: 'Uma única disciplina respondendo por >15% das eliminações no Monte Carlo.',
-       acao: 'Use os sliders "E Se?" para descobrir qual combinação de metas coloca sua aprovação acima de 80%.'
-     },
-     correlation_regimes: {
-       como: 'A matriz mostra se duas matérias sobem juntas (verde) ou sofrem efeito gangorra (vermelho). O scatter cruza Hurst H contra velocidade semanal.',
-       positivo: 'Disciplinas no quadrante de Tendência Consolidada (H > 0.58 e velocidade positiva).',
-       alerta: 'Correlação negativa forte (r < -0.45) ou matérias presas em platô/reversão.',
-       acao: 'Intercale matérias em efeito gangorra na semana e troque a abordagem em disciplinas em platô.'
-     },
-     irt_psychometric: {
-       como: 'Estima sua habilidade θ na escala TRI [-3, +3] a partir da dificuldade das questões e calcula o valor esperado de chutar na sua banca.',
-       positivo: 'Curva real acompanhando a curva TRI prevista e θ em crescimento.',
-       alerta: 'Incoerência TRI (errando mais fáceis do que médias/difíceis) ou chutes dando saldo líquido negativo.',
-       acao: 'Treine na dificuldade da Zona Proximal (~70%) e siga a regra ótima de abstenção da sua banca.'
-     },
-     metacognition_fatigue: {
-       como: 'Analisa confiança × acerto, causas raiz dos erros e degradação de precisão/velocidade do início ao fim dos simulados IA.',
-       positivo: 'Alto Domínio Real e curva de precisão estável até o 4º quarto do simulado.',
-       alerta: 'Muitos erros com "Certeza" ou queda acentuada de acerto no final do simulado.',
-       acao: 'Envie erros críticos para Flashcards FSRS e treine blocos mais longos para ganhar resistência.'
-     }
-    };
-    
-    const ENGINES_WITH_GUIDE = ENGINES.map((engine) => ({
-     ...engine,
-     guide: ENGINE_GUIDE[engine.id]
-    }));
+
+const ENGINE_GUIDE = {
+    raw: {
+        como: 'Mostra a nota bruta real de cada simulado, sem suavização. Cada ponto é um dia registrado.',
+        positivo: 'Sequência de pontos acima da meta e tendência de alta.',
+        alerta: 'Quedas bruscas, pontos isolados muito baixos ou oscilação excessiva.',
+        acao: 'Avalie a tendência dos últimos 7 a 14 dias, não um ponto isolado.'
+    },
+    raw_weekly: {
+        como: 'O mapa de calor mostra os dias com atividade. A cor indica o desempenho em relação à meta e a intensidade mostra volume.',
+        positivo: 'Muitas células verdes, sequência de dias ativos e desempenho consistente.',
+        alerta: 'Células vermelhas repetidas, muitos dias vazios ou queda de frequência.',
+        acao: 'Identifique os dias da semana com rendimento menor e reforce revisões nesses períodos.'
+    },
+    bayesian: {
+        como: 'O nível bayesiano estima seu domínio real, não apenas a nota de um simulado. A faixa mostra o intervalo de confiança de 95%.',
+        positivo: 'Linha subindo, faixa estreita e nível acima da meta.',
+        alerta: 'Faixa muito larga, linha caindo ou nível abaixo da meta.',
+        acao: 'Faça mais simulados para reduzir a incerteza e baseie decisões no nível bayesiano.'
+    },
+    stats: {
+        como: 'Mostra a média histórica acumulada de toda a sua jornada de estudo.',
+        positivo: 'Média alta e estável, servindo como base de segurança.',
+        alerta: 'A média histórica demora para refletir melhorias recentes.',
+        acao: 'Use como referência de longo prazo, mas avalie progresso recente pelo nível bayesiano.'
+    },
+    compare: {
+        como: 'Combina passado, presente e futuro: nota bruta, nível bayesiano atual e projeção Monte Carlo até a prova.',
+        positivo: 'Projeção futura acima da meta e intervalo de confiança estreito.',
+        alerta: 'Projeção abaixo da meta, intervalo muito largo ou alguma disciplina puxando a previsão para baixo.',
+        acao: 'Use o seletor de foco para identificar qual matéria está segurando sua projeção.'
+    },
+    subtopics: {
+        como: 'Mostra o desempenho por assunto. Cada barra representa a taxa de acerto e o volume de questões daquele tópico.',
+        positivo: 'Maioria dos tópicos acima da meta, especialmente os com maior volume.',
+        alerta: 'Tópicos vermelhos com muitas questões, pois representam perda real de pontos.',
+        acao: 'Priorize revisão cirúrgica nos tópicos abaixo da meta com maior volume de questões.'
+    },
+    mc_density: {
+        como: 'Mostra a evolução da projeção Monte Carlo após cada simulado. Não é a nota do simulado, mas sim a previsão futura.',
+        positivo: 'Linha subindo e probabilidade de aprovação acima de 70%.',
+        alerta: 'Linha estagnada, caindo ou intervalo de confiança muito largo.',
+        acao: 'Se a projeção caiu, revise os tópicos críticos e reduza a dispersão de estudo.'
+    },
+    weekly_diff: {
+        como: 'Compara o desempenho desta semana com o da semana anterior. Deltas positivos indicam ganho, negativos indicam perda.',
+        positivo: 'Deltas positivos consecutivos e recuperação após semanas fracas.',
+        alerta: 'Várias semanas negativas seguidas, especialmente em matérias importantes.',
+        acao: 'Use quedas semanais como aviso precoce de esquecimento e faça revisão espaçada.'
+    },
+    today_vs_general: {
+        como: 'Compara o desempenho de hoje ou da última sessão contra a média geral e contra períodos anteriores.',
+        positivo: 'Sessão atual acima da média geral e última barra com variação positiva.',
+        alerta: 'Hoje muito abaixo da média geral ou última sessão com queda acentuada.',
+        acao: 'Se o dia atual estiver fraco, avalie volume, cansaço ou dificuldade dos temas escolhidos.'
+    },
+    time_spent: {
+        como: 'Mostra o tempo médio gasto por questão em cada disciplina nos simulados IA. Ajuda a encontrar gargalos de velocidade.',
+        positivo: 'Tempo estável ou diminuindo sem queda de precisão.',
+        alerta: 'Matérias muito lentas podem comprometer o tempo total da prova.',
+        acao: 'Treine simulados cronometrados nas disciplinas mais lentas.'
+    },
+    speed_accuracy: {
+        como: 'Posiciona cada disciplina (ou assunto) pelo tempo médio por questão (eixo X) e taxa de acerto (eixo Y). O tamanho da bolha indica o volume de questões.',
+        positivo: 'Concentração no quadrante superior esquerdo (Domínio Rápido).',
+        alerta: 'Bolhas grandes em Leitura Apressada (rápido e errando) ou Lacuna Teórica (lento e errando).',
+        acao: 'Desacelere nos temas apressados e faça revisão direcionada nas lacunas lentas.'
+    },
+    exam_pacing: {
+        como: 'Simula o tempo total necessário para resolver toda a prova no seu ritmo atual por matéria, comparado à duração oficial do concurso.',
+        positivo: 'Tempo projetado abaixo da duração da prova com folga para gabarito.',
+        alerta: 'Estouro de tempo projetado indicando questões deixadas em branco.',
+        acao: 'Ataque primeiro as matérias com maior saldo positivo de estouro de minutos.'
+    },
+    consistency_boxplot: {
+        como: 'Cada linha resume toda a distribuição das notas da disciplina: mínimo, Q1, mediana, Q3, máximo e média (losango).',
+        positivo: 'Caixa estreita (baixo IQR) posicionada à direita da meta.',
+        alerta: 'Caixas muito largas ou cauda esquerda abaixo do corte mínimo (minCutoff).',
+        acao: 'Estabilize matérias voláteis atacando subtópicos específicos com maior erro.'
+    },
+    projection_fan: {
+        como: 'Projeta a evolução futura de hoje até a data da prova em faixas de probabilidade (P10–P90 e P25–P75) sobrepostas aos cortes históricos.',
+        positivo: 'Mediana P50 cruzando a meta antes da prova com cone se estreitando.',
+        alerta: 'Até o cenário P75 abaixo da meta ou cone excessivamente aberto.',
+        acao: 'Aumente a constância de simulados para reduzir incerteza e elevar a inclinação.'
+    },
+    kalman_latent: {
+        como: 'Separa a habilidade real estimada (linha verde suave + IC 95%) das oscilações brutas de cada simulado (pontos laranja/rosa).',
+        positivo: 'Habilidade latente em alta sustentada mesmo com ruído pontual.',
+        alerta: 'Tendência estrutural negativa por várias semanas consecutivas.',
+        acao: 'Use a curva latente para avaliar evolução real sem reagir por impulso a um simulado isolado.'
+    },
+    tornado_whatif: {
+        como: 'Mostra o motivo das reprovações simuladas no Monte Carlo (corte global vs. minCutoff) e mede o impacto em pp de variar cada matéria em ±10%.',
+        positivo: 'Risco de eliminação por corte mínimo próximo de zero e margem confortável acima do corte global.',
+        alerta: 'Uma única disciplina respondendo por >15% das eliminações no Monte Carlo.',
+        acao: 'Use os sliders "E Se?" para descobrir qual combinação de metas coloca sua aprovação acima de 80%.'
+    },
+    correlation_regimes: {
+        como: 'A matriz mostra se duas matérias sobem juntas (verde) ou sofrem efeito gangorra (vermelho). O scatter cruza Hurst H contra velocidade semanal.',
+        positivo: 'Disciplinas no quadrante de Tendência Consolidada (H > 0.58 e velocidade positiva).',
+        alerta: 'Correlação negativa forte (r < -0.45) ou matérias presas em platô/reversão.',
+        acao: 'Intercale matérias em efeito gangorra na semana e troque a abordagem em disciplinas em platô.'
+    },
+    irt_psychometric: {
+        como: 'Estima sua habilidade θ na escala TRI [-3, +3] a partir da dificuldade das questões e calcula o valor esperado de chutar na sua banca.',
+        positivo: 'Curva real acompanhando a curva TRI prevista e θ em crescimento.',
+        alerta: 'Incoerência TRI (errando mais fáceis do que médias/difíceis) ou chutes dando saldo líquido negativo.',
+        acao: 'Treine na dificuldade da Zona Proximal (~70%) e siga a regra ótima de abstenção da sua banca.'
+    },
+    metacognition_fatigue: {
+        como: 'Analisa confiança × acerto, causas raiz dos erros e degradação de precisão/velocidade do início ao fim dos simulados IA.',
+        positivo: 'Alto Domínio Real e curva de precisão estável até o 4º quarto do simulado.',
+        alerta: 'Muitos erros com "Certeza" ou queda acentuada de acerto no final do simulado.',
+        acao: 'Envie erros críticos para Flashcards FSRS e treine blocos mais longos para ganhar resistência.'
+    }
+};
+
+const ENGINES_WITH_GUIDE = ENGINES.map((engine) => ({
+    ...engine,
+    guide: ENGINE_GUIDE[engine.id]
+}));
 
 const BAYESIAN_ENGINE = ENGINES_WITH_GUIDE.find((e) => e.id === 'bayesian');
 const SECONDARY_ENGINES = ENGINES_WITH_GUIDE.filter((e) => e.id !== 'bayesian');
@@ -814,9 +814,9 @@ export default React.memo(function EvolutionChart({
     const categories = useMemo(() => {
         const sourceList = (Array.isArray(propCategories) && propCategories.length > 0) ? propCategories : rawCategories;
         const safeCategories = (
-          Array.isArray(sourceList)
-            ? sourceList
-            : Object.values(sourceList || {})
+            Array.isArray(sourceList)
+                ? sourceList
+                : Object.values(sourceList || {})
         ).filter(Boolean).map((cat, idx) => {
             // FIX 1A-1: cor por índice (puro, sem mutação de variável externa)
             const color = cat.color || DEFAULT_CATEGORY_PALETTE[idx % DEFAULT_CATEGORY_PALETTE.length];
@@ -1076,13 +1076,13 @@ export default React.memo(function EvolutionChart({
     }, []);
 
     const focusEngineTab = (id) => {
-      if (focusTabRafRef.current) {
-        cancelAnimationFrame(focusTabRafRef.current);
-      }
-      focusTabRafRef.current = requestAnimationFrame(() => {
-        focusTabRafRef.current = null;
-        engineTabRefs.current.get(id)?.focus();
-      });
+        if (focusTabRafRef.current) {
+            cancelAnimationFrame(focusTabRafRef.current);
+        }
+        focusTabRafRef.current = requestAnimationFrame(() => {
+            focusTabRafRef.current = null;
+            engineTabRefs.current.get(id)?.focus();
+        });
     };
 
     const focusCategory = useMemo(() => {
@@ -1140,6 +1140,7 @@ export default React.memo(function EvolutionChart({
         for (const item of (subjectAggData || [])) {
             realQ += Number(item?.realQuestoes ?? item?.questoes) || 0;
             realC += Number(item?.realAcertos ?? item?.acertos) || 0;
+            realC += Number(item?.realAcertosExact ?? item?.realAcertos ?? item?.acertos) || 0;
             synthQ += Number(item?.syntheticQuestoes) || 0;
             synthC += Number(item?.syntheticAcertosExact ?? item?.syntheticAcertos) || 0;
         }
@@ -1235,12 +1236,12 @@ export default React.memo(function EvolutionChart({
 
     const compareData = useMemo(() => {
         return buildPredictiveCompareData(
-            timeline, 
-            focusCategory, 
-            categoryLevels, 
-            activeMcProjectionSeries, 
-            projectDays, 
-            focusMin, 
+            timeline,
+            focusCategory,
+            categoryLevels,
+            activeMcProjectionSeries,
+            projectDays,
+            focusMin,
             focusMax
         );
     }, [timeline, focusCategory, activeMcProjectionSeries, categoryLevels, projectDays, focusMin, focusMax]);
@@ -1275,24 +1276,24 @@ export default React.memo(function EvolutionChart({
 
     // 2. Determinar a chave de downsampling (memoizada separadamente)
     const primaryKey = useMemo(() => {
-      const candidates = [];
-    
-      if (activeEngine === "compare") {
-        candidates.push("Nível Bayesiano");
-      }
-    
-      if (focusCategory?.id) {
-        candidates.push(`bay_${focusCategory.id}`);
-        candidates.push(`raw_${focusCategory.id}`);
-        candidates.push(`stats_${focusCategory.id}`);
-      }
-    
-      const points = Array.isArray(historicalData.result) ? historicalData.result : [];
-      const validKey = candidates.find(
-        key => points.some(p => p && p[key] != null && Number.isFinite(Number(p[key])))
-      );
-    
-      return validKey || "date";
+        const candidates = [];
+
+        if (activeEngine === "compare") {
+            candidates.push("Nível Bayesiano");
+        }
+
+        if (focusCategory?.id) {
+            candidates.push(`bay_${focusCategory.id}`);
+            candidates.push(`raw_${focusCategory.id}`);
+            candidates.push(`stats_${focusCategory.id}`);
+        }
+
+        const points = Array.isArray(historicalData.result) ? historicalData.result : [];
+        const validKey = candidates.find(
+            key => points.some(p => p && p[key] != null && Number.isFinite(Number(p[key])))
+        );
+
+        return validKey || "date";
     }, [activeEngine, focusCategory?.id, historicalData.result]);
 
     // 3. Downsampling memoizado separadamente
@@ -1479,6 +1480,7 @@ export default React.memo(function EvolutionChart({
                 const aggItem = aggById.get(cat.id);
                 const realQ = Number(aggItem?.realQuestoes) || 0;
                 const realC = Number(aggItem?.realAcertos) || 0;
+                const realC = Number(aggItem?.realAcertosExact ?? aggItem?.realAcertos) || 0;
                 const synthQ = Number(aggItem?.syntheticQuestoes) || 0;
                 const synthC = Number(aggItem?.syntheticAcertosExact ?? aggItem?.syntheticAcertos) || 0;
                 const totQ = realQ + synthQ;
@@ -1507,59 +1509,39 @@ export default React.memo(function EvolutionChart({
             };
         });
     }, [activeCategories, categories, showOnlyFocus, focusCategory?.id, timeWindow, subjectAggData, targetScore, categoryLevels, minScore, maxScore]);
+}, [activeCategories, showOnlyFocus, focusCategory?.id, timeWindow, subjectAggData, targetScore, categoryLevels, minScore, maxScore]);
 
-    const focusHistoricalCutoffs = useMemo(() => {
-        if (!Array.isArray(historicalCutoffs) || historicalCutoffs.length === 0) return EMPTY_ARRAY;
-        if (!focusCategory || (focusMax === maxScore && focusMin === minScore)) return historicalCutoffs;
-        return historicalCutoffs
-            .map((v) => {
-                const n = Number(v);
-                if (!Number.isFinite(n)) return null;
-                return Number(ratioToPoints(pointsToRatio(n, maxScore, minScore), focusMax, focusMin).toFixed(2));
-            })
-            .filter((v) => v !== null);
-    }, [historicalCutoffs, focusCategory, focusMax, focusMin, maxScore, minScore]);
+const focusHistoricalCutoffs = useMemo(() => {
+    if (!Array.isArray(historicalCutoffs) || historicalCutoffs.length === 0) return EMPTY_ARRAY;
+    if (!focusCategory || (focusMax === maxScore && focusMin === minScore)) return historicalCutoffs;
+    return historicalCutoffs
+        .map((v) => {
+            const n = Number(v);
+            if (!Number.isFinite(n)) return null;
+            return Number(ratioToPoints(pointsToRatio(n, maxScore, minScore), focusMax, focusMin).toFixed(2));
+        })
+        .filter((v) => v !== null);
+}, [historicalCutoffs, focusCategory, focusMax, focusMin, maxScore, minScore]);
 
-    const insightUnit = useMemo(() => {
-        if (['raw', 'bayesian', 'stats', 'compare', 'mc_density', 'today_vs_general'].includes(activeEngine)) {
-            return focusCategory ? resolvedFocusUnit : resolvedGlobalUnit;
-        }
-        if (['tornado_whatif', 'correlation_regimes'].includes(activeEngine)) {
-            return resolvedGlobalUnit;
-        }
-        return resolvedActiveUnit;
-    }, [activeEngine, focusCategory, resolvedFocusUnit, resolvedGlobalUnit, resolvedActiveUnit]);
+const insightUnit = useMemo(() => {
+    if (['raw', 'bayesian', 'stats', 'compare', 'mc_density', 'today_vs_general'].includes(activeEngine)) {
+        return focusCategory ? resolvedFocusUnit : resolvedGlobalUnit;
+    }
+    if (['tornado_whatif', 'correlation_regimes'].includes(activeEngine)) {
+        return resolvedGlobalUnit;
+    }
+    return resolvedActiveUnit;
+}, [activeEngine, focusCategory, resolvedFocusUnit, resolvedGlobalUnit, resolvedActiveUnit]);
 
-    const insight = useMemo(() => {
-        return generateEvolutionInsights({
-            timeline,
-            filteredChartData: filteredHistoricalData,
-            focusCategory,
-            activeEngine,
-            categories,
-            simuladoRows: simuladoRowsArray,
-            unit: insightUnit,
-            maxScore,
-            minScore,
-            targetScore,
-            projectDays,
-            examDurationMinutes,
-            examTotalQuestions,
-            examBoard,
-            penaltyPerWrong,
-            timeWindow,
-            showOnlyFocus,
-            mcWeights,
-            activeMcResult
-        });
-    }, [
+const insight = useMemo(() => {
+    return generateEvolutionInsights({
         timeline,
-        filteredHistoricalData,
+        filteredChartData: filteredHistoricalData,
         focusCategory,
         activeEngine,
         categories,
-        simuladoRowsArray,
-        insightUnit,
+        simuladoRows: simuladoRowsArray,
+        unit: insightUnit,
         maxScore,
         minScore,
         targetScore,
@@ -1572,36 +1554,38 @@ export default React.memo(function EvolutionChart({
         showOnlyFocus,
         mcWeights,
         activeMcResult
-    ]);
+    });
+}, [
+    timeline,
+    filteredHistoricalData,
+    focusCategory,
+    activeEngine,
+    categories,
+    simuladoRowsArray,
+    insightUnit,
+    maxScore,
+    minScore,
+    targetScore,
+    projectDays,
+    examDurationMinutes,
+    examTotalQuestions,
+    examBoard,
+    penaltyPerWrong,
+    timeWindow,
+    showOnlyFocus,
+    mcWeights,
+    activeMcResult
+]);
 
-    const statusList = useMemo(() => {
-        return computeEvolutionStatuses({
-            timeline,
-            filteredChartData: filteredHistoricalData,
-            categories,
-            focusCategory,
-            targetScore,
-            unit: resolvedActiveUnit,
-            focusUnit: resolvedFocusUnit,
-            minScore,
-            maxScore,
-            activeMcResult,
-            subjectAggData,
-            heatmapData,
-            projectDays,
-            examDurationMinutes,
-            examTotalQuestions,
-            timeWindow,
-            showOnlyFocus
-        });
-    }, [
+const statusList = useMemo(() => {
+    return computeEvolutionStatuses({
         timeline,
-        filteredHistoricalData,
+        filteredChartData: filteredHistoricalData,
         categories,
         focusCategory,
         targetScore,
-        resolvedActiveUnit,
-        resolvedFocusUnit,
+        unit: resolvedActiveUnit,
+        focusUnit: resolvedFocusUnit,
         minScore,
         maxScore,
         activeMcResult,
@@ -1612,235 +1596,252 @@ export default React.memo(function EvolutionChart({
         examTotalQuestions,
         timeWindow,
         showOnlyFocus
-    ]);
+    });
+}, [
+    timeline,
+    filteredHistoricalData,
+    categories,
+    focusCategory,
+    targetScore,
+    resolvedActiveUnit,
+    resolvedFocusUnit,
+    minScore,
+    maxScore,
+    activeMcResult,
+    subjectAggData,
+    heatmapData,
+    projectDays,
+    examDurationMinutes,
+    examTotalQuestions,
+    timeWindow,
+    showOnlyFocus
+]);
 
-    const selectedStatus = useMemo(() => {
-        if (!selectedStatusId || !Array.isArray(statusList) || statusList.length === 0) return null;
-        return statusList.find((s) => s.id === selectedStatusId) || null;
-    }, [statusList, selectedStatusId]);
+const selectedStatus = useMemo(() => {
+    if (!selectedStatusId || !Array.isArray(statusList) || statusList.length === 0) return null;
+    return statusList.find((s) => s.id === selectedStatusId) || null;
+}, [statusList, selectedStatusId]);
 
-    const engine = ENGINES_WITH_GUIDE.find((e) => e.id === activeEngine) || ENGINES_WITH_GUIDE[0];
-    const ActiveEngineIcon = ENGINE_ICONS[engine.id] || BarChart3;
+const engine = ENGINES_WITH_GUIDE.find((e) => e.id === activeEngine) || ENGINES_WITH_GUIDE[0];
+const ActiveEngineIcon = ENGINE_ICONS[engine.id] || BarChart3;
 
-    const activeTargetDisplay = showOnlyFocus ? focusTarget : targetScore;
-    const activeScaleMin = showOnlyFocus ? focusMin : minScore;
-    const activeScaleMax = showOnlyFocus ? focusMax : maxScore;
-    const targetPctOfScale = useMemo(() => {
-        const range = Math.max(1e-9, activeScaleMax - activeScaleMin);
-        return Math.max(0, Math.min(100, ((activeTargetDisplay - activeScaleMin) / range) * 100));
-    }, [activeTargetDisplay, activeScaleMin, activeScaleMax]);
+const activeTargetDisplay = showOnlyFocus ? focusTarget : targetScore;
+const activeScaleMin = showOnlyFocus ? focusMin : minScore;
+const activeScaleMax = showOnlyFocus ? focusMax : maxScore;
+const targetPctOfScale = useMemo(() => {
+    const range = Math.max(1e-9, activeScaleMax - activeScaleMin);
+    return Math.max(0, Math.min(100, ((activeTargetDisplay - activeScaleMin) / range) * 100));
+}, [activeTargetDisplay, activeScaleMin, activeScaleMax]);
 
-    const accountHasData = timeline.length >= 1;
-    const filterHasData = useMemo(() => {
-        if (filteredHistoricalData.length < 1) return false;
-        if (!showOnlyFocus || !focusCategory?.id) return true;
-        const fId = focusCategory.id;
-        if (timeWindow !== 'all') {
-            const hasRawInWindow = filteredHistoricalData.some((pt) => hasValidNumber(pt?.[`raw_${fId}`]));
-            if (hasRawInWindow) return true;
-            return (subjectAggData || []).some(
-                (item) => item?.id === fId && ((Number(item.realQuestoes) || 0) + (Number(item.syntheticQuestoes) || 0)) > 0
-            );
-        }
-        return filteredHistoricalData.some(
-            (pt) => hasValidNumber(pt?.[`raw_${fId}`]) || hasValidNumber(pt?.[`bay_${fId}`]) || hasValidNumber(pt?.[`stats_${fId}`])
-        );
-    }, [filteredHistoricalData, showOnlyFocus, focusCategory?.id, timeWindow, subjectAggData]);
-
-    const accuracyDeltaVsTarget = useMemo(() => {
-        if (!Number.isFinite(safeGlobalMetrics.globalAccuracy)) return null;
-        if (!filterHasData && safeGlobalMetrics.totalQuestions === 0 && safeGlobalMetrics.globalAccuracy === 0) {
-            return null;
-        }
-        return Number((safeGlobalMetrics.globalAccuracy - targetPctOfScale).toFixed(1));
-    }, [safeGlobalMetrics.globalAccuracy, safeGlobalMetrics.totalQuestions, targetPctOfScale, filterHasData]);
-
-    const formatCleanCount = (val) => {
-        const n = Number(val);
-        if (!Number.isFinite(n) || n <= 0) return '0';
-        const rounded1 = Number(n.toFixed(1));
-        return Number.isInteger(rounded1) ? Math.round(rounded1).toLocaleString() : rounded1.toLocaleString();
-    };
-
-    const hasCustomFocusCutoff = Boolean(
-        showOnlyFocus &&
-        focusCategory &&
-        hasValidNumber(focusCategory?.minCutoff) &&
-        Number(focusCategory.minCutoff) > focusMin
-    );
-
-    const carouselMaskStyle = useMemo(() => {
-        if (isExporting) return undefined;
-        if (canScrollLeft && canScrollRight) {
-            return {
-                maskImage: 'linear-gradient(to right, transparent, black 28px, black calc(100% - 28px), transparent)',
-                WebkitMaskImage: 'linear-gradient(to right, transparent, black 28px, black calc(100% - 28px), transparent)',
-            };
-        }
-        if (canScrollLeft) {
-            return {
-                maskImage: 'linear-gradient(to right, transparent, black 28px, black 100%)',
-                WebkitMaskImage: 'linear-gradient(to right, transparent, black 28px, black 100%)',
-            };
-        }
-        if (canScrollRight) {
-            return {
-                maskImage: 'linear-gradient(to right, black 0%, black calc(100% - 28px), transparent)',
-                WebkitMaskImage: 'linear-gradient(to right, black 0%, black calc(100% - 28px), transparent)',
-            };
-        }
-        return undefined;
-    }, [canScrollLeft, canScrollRight, isExporting]);
-
-    const handleExport = async () => {
-        if (isExporting) return;
-        setIsExporting(true);
-        setExportError(false);
-
-        try {
-            const ok = await exportComponentAsPDF('evolution-chart-container', 'RaioX_Evolucao_Dashboard.pdf', 'landscape');
-            if (!ok) {
-                throw new Error('Falha ao exportar PDF');
-            }
-        } catch (err) {
-            console.error('[EvolutionChart] Falha ao exportar PDF:', err);
-            if (!isMountedRef.current) return;
-            setExportError(true);
-            if (exportErrorTimerRef.current) clearTimeout(exportErrorTimerRef.current);
-            exportErrorTimerRef.current = setTimeout(() => {
-                if (isMountedRef.current) setExportError(false);
-            }, 4000);
-        } finally {
-            if (isMountedRef.current) setIsExporting(false);
-        }
-    };
-
-    const isMcEngine = activeEngine === "compare" || activeEngine === "mc_density";
-
-    if (categories.length === 0) {
-        return (
-            <div className="rounded-2xl border border-white/[0.08] bg-slate-900/70 backdrop-blur-xl p-10 sm:p-12 text-center animate-fade-in-down shadow-xl">
-                <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-pink-500/20 to-indigo-500/20 border border-pink-400/30 flex items-center justify-center text-pink-300">
-                    <BarChart3 size={26} />
-                </div>
-                <h2 className="text-xl font-black text-white tracking-tight mb-2">Gráficos de Evolução</h2>
-                <p className="text-slate-400 text-sm max-w-md mx-auto mb-6 leading-relaxed">Cadastre simulados para desbloquear sua máquina do tempo estatística.</p>
-                <button
-                    type="button"
-                    onClick={() => {
-                        navigate('/simulados');
-                    }}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-500 hover:bg-indigo-400 text-white rounded-xl font-bold text-xs transition-all active:scale-95"
-                >
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                    Ir para simulados
-                </button>
-            </div>
+const accountHasData = timeline.length >= 1;
+const filterHasData = useMemo(() => {
+    if (filteredHistoricalData.length < 1) return false;
+    if (!showOnlyFocus || !focusCategory?.id) return true;
+    const fId = focusCategory.id;
+    if (timeWindow !== 'all') {
+        const hasRawInWindow = filteredHistoricalData.some((pt) => hasValidNumber(pt?.[`raw_${fId}`]));
+        if (hasRawInWindow) return true;
+        return (subjectAggData || []).some(
+            (item) => item?.id === fId && ((Number(item.realQuestoes) || 0) + (Number(item.syntheticQuestoes) || 0)) > 0
         );
     }
+    return filteredHistoricalData.some(
+        (pt) => hasValidNumber(pt?.[`raw_${fId}`]) || hasValidNumber(pt?.[`bay_${fId}`]) || hasValidNumber(pt?.[`stats_${fId}`])
+    );
+}, [filteredHistoricalData, showOnlyFocus, focusCategory?.id, timeWindow, subjectAggData]);
 
+const accuracyDeltaVsTarget = useMemo(() => {
+    if (!Number.isFinite(safeGlobalMetrics.globalAccuracy)) return null;
+    if (!filterHasData && safeGlobalMetrics.totalQuestions === 0 && safeGlobalMetrics.globalAccuracy === 0) {
+        return null;
+    }
+    return Number((safeGlobalMetrics.globalAccuracy - targetPctOfScale).toFixed(1));
+}, [safeGlobalMetrics.globalAccuracy, safeGlobalMetrics.totalQuestions, targetPctOfScale, filterHasData]);
 
+const formatCleanCount = (val) => {
+    const n = Number(val);
+    if (!Number.isFinite(n) || n <= 0) return '0';
+    const rounded1 = Number(n.toFixed(1));
+    return Number.isInteger(rounded1) ? Math.round(rounded1).toLocaleString() : rounded1.toLocaleString();
+};
 
+const hasCustomFocusCutoff = Boolean(
+    showOnlyFocus &&
+    focusCategory &&
+    hasValidNumber(focusCategory?.minCutoff) &&
+    Number(focusCategory.minCutoff) > focusMin
+);
+
+const carouselMaskStyle = useMemo(() => {
+    if (isExporting) return undefined;
+    if (canScrollLeft && canScrollRight) {
+        return {
+            maskImage: 'linear-gradient(to right, transparent, black 28px, black calc(100% - 28px), transparent)',
+            WebkitMaskImage: 'linear-gradient(to right, transparent, black 28px, black calc(100% - 28px), transparent)',
+        };
+    }
+    if (canScrollLeft) {
+        return {
+            maskImage: 'linear-gradient(to right, transparent, black 28px, black 100%)',
+            WebkitMaskImage: 'linear-gradient(to right, transparent, black 28px, black 100%)',
+        };
+    }
+    if (canScrollRight) {
+        return {
+            maskImage: 'linear-gradient(to right, black 0%, black calc(100% - 28px), transparent)',
+            WebkitMaskImage: 'linear-gradient(to right, black 0%, black calc(100% - 28px), transparent)',
+        };
+    }
+    return undefined;
+}, [canScrollLeft, canScrollRight, isExporting]);
+
+const handleExport = async () => {
+    if (isExporting) return;
+    setIsExporting(true);
+    setExportError(false);
+
+    try {
+        const ok = await exportComponentAsPDF('evolution-chart-container', 'RaioX_Evolucao_Dashboard.pdf', 'landscape');
+        if (!ok) {
+            throw new Error('Falha ao exportar PDF');
+        }
+    } catch (err) {
+        console.error('[EvolutionChart] Falha ao exportar PDF:', err);
+        if (!isMountedRef.current) return;
+        setExportError(true);
+        if (exportErrorTimerRef.current) clearTimeout(exportErrorTimerRef.current);
+        exportErrorTimerRef.current = setTimeout(() => {
+            if (isMountedRef.current) setExportError(false);
+        }, 4000);
+    } finally {
+        if (isMountedRef.current) setIsExporting(false);
+    }
+};
+
+const isMcEngine = activeEngine === "compare" || activeEngine === "mc_density";
+
+if (categories.length === 0) {
     return (
-        <motion.div id="evolution-chart-container" className="space-y-5 relative min-w-0" variants={containerVariants} initial="hidden" animate="visible">
-            {/* Barra superior fixa no topo da página (não acompanha o scroll) */}
-            <div className="relative z-20 flex flex-col xl:flex-row xl:items-center justify-between gap-3 rounded-2xl border border-white/[0.09] bg-slate-900/80 backdrop-blur-2xl px-4 py-3 shadow-[0_12px_36px_-18px_rgba(0,0,0,0.75)] no-print">
-                <div className="flex flex-wrap items-center gap-3 min-w-0">
-                    <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-pink-500/20 to-indigo-500/20 border border-pink-400/35 text-pink-300 shrink-0 shadow-inner">
-                        <TrendingUp size={18} />
-                    </div>
-                    <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                            <h1 className="text-base sm:text-lg font-black text-white tracking-tight leading-tight">
-                                Evolução
-                            </h1>
-                            <div className="hidden sm:block">
-                                <AdaptiveMaturityBadge compact />
-                            </div>
-                        </div>
-                        <p className="text-[11px] text-slate-400 mt-0.5 truncate">
-                            {showOnlyFocus && focusCategory ? `Foco: ${focusCategory.name}` : `${activeCategories.length} disciplinas ativas`}
-                            {' · '}
-                            {timeWindow === 'all' ? 'Histórico completo' : `Últimos ${timeWindow} dias`}
-                        </p>
-                    </div>
+        <div className="rounded-2xl border border-white/[0.08] bg-slate-900/70 backdrop-blur-xl p-10 sm:p-12 text-center animate-fade-in-down shadow-xl">
+            <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-pink-500/20 to-indigo-500/20 border border-pink-400/30 flex items-center justify-center text-pink-300">
+                <BarChart3 size={26} />
+            </div>
+            <h2 className="text-xl font-black text-white tracking-tight mb-2">Gráficos de Evolução</h2>
+            <p className="text-slate-400 text-sm max-w-md mx-auto mb-6 leading-relaxed">Cadastre simulados para desbloquear sua máquina do tempo estatística.</p>
+            <button
+                type="button"
+                onClick={() => {
+                    navigate('/simulados');
+                }}
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-500 hover:bg-indigo-400 text-white rounded-xl font-bold text-xs transition-all active:scale-95"
+            >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
+                Ir para simulados
+            </button>
+        </div>
+    );
+}
+
+
+
+return (
+    <motion.div id="evolution-chart-container" className="space-y-5 relative min-w-0" variants={containerVariants} initial="hidden" animate="visible">
+        {/* Barra superior fixa no topo da página (não acompanha o scroll) */}
+        <div className="relative z-20 flex flex-col xl:flex-row xl:items-center justify-between gap-3 rounded-2xl border border-white/[0.09] bg-slate-900/80 backdrop-blur-2xl px-4 py-3 shadow-[0_12px_36px_-18px_rgba(0,0,0,0.75)] no-print">
+            <div className="flex flex-wrap items-center gap-3 min-w-0">
+                <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-pink-500/20 to-indigo-500/20 border border-pink-400/35 text-pink-300 shrink-0 shadow-inner">
+                    <TrendingUp size={18} />
                 </div>
-
-                {/* Controles globais uniformes + seletor rápido de foco */}
-                <div className="flex flex-wrap items-center gap-2 w-full xl:w-auto">
-                    {(activeCategories.length > 0 || categories.length > 0) && (
-                        <div className="relative inline-flex items-center h-[36px] rounded-xl bg-slate-950/75 border border-white/[0.09] hover:border-white/20 transition-colors max-w-[210px] shrink-0">
-                            <Target size={13} className="text-pink-400 absolute left-2.5 pointer-events-none" />
-                            <select
-                                aria-label="Selecionar disciplina em foco"
-                                value={focusCategory?.id || ''}
-                                onChange={(e) => setFocusSubjectId(e.target.value)}
-                                className="appearance-none bg-transparent border-0 text-xs font-bold text-slate-200 pl-7 pr-7 h-full w-full truncate cursor-pointer focus:outline-none focus:ring-0"
-                                style={{ backgroundColor: 'transparent', border: 'none' }}
-                            >
-                                {(activeCategories.length > 0 ? activeCategories : categories).map((c) => (
-                                    <option key={c.id} value={c.id} className="bg-slate-900 text-slate-200">
-                                        {c.name}
-                                    </option>
-                                ))}
-                            </select>
-                            <ChevronDown size={13} className="text-slate-400 absolute right-2.5 pointer-events-none" />
+                <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <h1 className="text-base sm:text-lg font-black text-white tracking-tight leading-tight">
+                            Evolução
+                        </h1>
+                        <div className="hidden sm:block">
+                            <AdaptiveMaturityBadge compact />
                         </div>
-                    )}
-
-                    <div className="inline-flex items-center gap-1 bg-slate-950/80 border border-white/[0.08] rounded-xl p-1 shrink-0 overflow-x-auto shadow-inner">
-                        {[{ label: '30d', value: '30' }, { label: '60d', value: '60' }, { label: '90d', value: '90' }, { label: 'Tudo', value: 'all' }].map(w => (
-                            <button
-                                type="button"
-                                key={w.value}
-                                onClick={() => setTimeWindow(w.value)}
-                                aria-pressed={timeWindow === w.value}
-                                className={`shrink-0 px-3 py-1 rounded-lg text-xs font-bold border transition-all duration-200 ${
-                                    timeWindow === w.value
-                                        ? 'bg-indigo-500/25 text-indigo-100 border-indigo-400/45 shadow-sm'
-                                        : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04] border-transparent'
-                                }`}
-                            >
-                                {w.label}
-                            </button>
-                        ))}
                     </div>
-
-                    <button
-                        type="button"
-                        onClick={() => setShowOnlyFocus(!showOnlyFocus)}
-                        aria-pressed={showOnlyFocus}
-                        aria-label={showOnlyFocus ? 'Alternar para ver todas as matérias' : 'Alternar para ver apenas matéria em foco'}
-                        className={`shrink-0 inline-flex items-center justify-center gap-1.5 px-3 h-[36px] rounded-xl text-xs font-bold border transition-all active:scale-[0.985] ${
-                            showOnlyFocus
-                                ? 'bg-amber-500/20 border-amber-400/50 text-amber-200 shadow-sm'
-                                : 'bg-slate-950/75 border-white/[0.09] text-slate-300 hover:text-white hover:border-white/20'
-                        }`}
-                    >
-                        {showOnlyFocus ? <Target size={14} /> : <Layers size={14} />}
-                        <span>{showOnlyFocus ? 'Apenas Foco' : 'Ver todas'}</span>
-                    </button>
-
-                    <div className="flex flex-col items-end">
-                        <button
-                            type="button"
-                            onClick={handleExport}
-                            disabled={isExporting}
-                            className="inline-flex items-center justify-center gap-1.5 px-3 h-[36px] rounded-xl bg-indigo-500/15 hover:bg-indigo-500/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70 text-indigo-200 text-xs font-bold transition-all border border-indigo-400/35 disabled:opacity-50 active:scale-[0.985]"
-                        >
-                            {isExporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-                            <span>{isExporting ? 'Gerando PDF...' : 'Baixar PDF'}</span>
-                        </button>
-                        {exportError && (
-                            <span className="text-[11px] text-rose-400 font-bold mt-1">
-                                Falha ao gerar PDF. Tente novamente.
-                            </span>
-                        )}
-                    </div>
+                    <p className="text-[11px] text-slate-400 mt-0.5 truncate">
+                        {showOnlyFocus && focusCategory ? `Foco: ${focusCategory.name}` : `${activeCategories.length} disciplinas ativas`}
+                        {' · '}
+                        {timeWindow === 'all' ? 'Histórico completo' : `Últimos ${timeWindow} dias`}
+                    </p>
                 </div>
             </div>
 
-            <style>{`
+            {/* Controles globais uniformes + seletor rápido de foco */}
+            <div className="flex flex-wrap items-center gap-2 w-full xl:w-auto">
+                {(activeCategories.length > 0 || categories.length > 0) && (
+                    <div className="relative inline-flex items-center h-[36px] rounded-xl bg-slate-950/75 border border-white/[0.09] hover:border-white/20 transition-colors max-w-[210px] shrink-0">
+                        <Target size={13} className="text-pink-400 absolute left-2.5 pointer-events-none" />
+                        <select
+                            aria-label="Selecionar disciplina em foco"
+                            value={focusCategory?.id || ''}
+                            onChange={(e) => setFocusSubjectId(e.target.value)}
+                            className="appearance-none bg-transparent border-0 text-xs font-bold text-slate-200 pl-7 pr-7 h-full w-full truncate cursor-pointer focus:outline-none focus:ring-0"
+                            style={{ backgroundColor: 'transparent', border: 'none' }}
+                        >
+                            {(activeCategories.length > 0 ? activeCategories : categories).map((c) => (
+                                <option key={c.id} value={c.id} className="bg-slate-900 text-slate-200">
+                                    {c.name}
+                                </option>
+                            ))}
+                        </select>
+                        <ChevronDown size={13} className="text-slate-400 absolute right-2.5 pointer-events-none" />
+                    </div>
+                )}
+
+                <div className="inline-flex items-center gap-1 bg-slate-950/80 border border-white/[0.08] rounded-xl p-1 shrink-0 overflow-x-auto shadow-inner">
+                    {[{ label: '30d', value: '30' }, { label: '60d', value: '60' }, { label: '90d', value: '90' }, { label: 'Tudo', value: 'all' }].map(w => (
+                        <button
+                            type="button"
+                            key={w.value}
+                            onClick={() => setTimeWindow(w.value)}
+                            aria-pressed={timeWindow === w.value}
+                            className={`shrink-0 px-3 py-1 rounded-lg text-xs font-bold border transition-all duration-200 ${timeWindow === w.value
+                                    ? 'bg-indigo-500/25 text-indigo-100 border-indigo-400/45 shadow-sm'
+                                    : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04] border-transparent'
+                                }`}
+                        >
+                            {w.label}
+                        </button>
+                    ))}
+                </div>
+
+                <button
+                    type="button"
+                    onClick={() => setShowOnlyFocus(!showOnlyFocus)}
+                    aria-pressed={showOnlyFocus}
+                    aria-label={showOnlyFocus ? 'Alternar para ver todas as matérias' : 'Alternar para ver apenas matéria em foco'}
+                    className={`shrink-0 inline-flex items-center justify-center gap-1.5 px-3 h-[36px] rounded-xl text-xs font-bold border transition-all active:scale-[0.985] ${showOnlyFocus
+                            ? 'bg-amber-500/20 border-amber-400/50 text-amber-200 shadow-sm'
+                            : 'bg-slate-950/75 border-white/[0.09] text-slate-300 hover:text-white hover:border-white/20'
+                        }`}
+                >
+                    {showOnlyFocus ? <Target size={14} /> : <Layers size={14} />}
+                    <span>{showOnlyFocus ? 'Apenas Foco' : 'Ver todas'}</span>
+                </button>
+
+                <div className="flex flex-col items-end">
+                    <button
+                        type="button"
+                        onClick={handleExport}
+                        disabled={isExporting}
+                        className="inline-flex items-center justify-center gap-1.5 px-3 h-[36px] rounded-xl bg-indigo-500/15 hover:bg-indigo-500/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70 text-indigo-200 text-xs font-bold transition-all border border-indigo-400/35 disabled:opacity-50 active:scale-[0.985]"
+                    >
+                        {isExporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                        <span>{isExporting ? 'Gerando PDF...' : 'Baixar PDF'}</span>
+                    </button>
+                    {exportError && (
+                        <span className="text-[11px] text-rose-400 font-bold mt-1">
+                            Falha ao gerar PDF. Tente novamente.
+                        </span>
+                    )}
+                </div>
+            </div>
+        </div>
+
+        <style>{`
         /* FIX: Preserva o focus-visible para feedback de acessibilidade por teclado */
         .recharts-wrapper:focus-visible, .recharts-surface:focus-visible { outline: 2px solid #818cf8 !important; outline-offset: 2px; border-radius: 8px; }
         .recharts-wrapper:focus:not(:focus-visible), .recharts-surface:focus:not(:focus-visible) { outline: none !important; border: none !important; box-shadow: none !important; }
@@ -1848,370 +1849,367 @@ export default React.memo(function EvolutionChart({
         .recharts-legend-item-text { font-size: 11px !important; font-weight: 600; }
             `}</style>
 
-            {/* Grid limpo de 4 KPIs globais (com comparativo automático vs período anterior quando janela temporal está ativa) */}
-            <motion.div variants={itemVariants} className="grid grid-cols-2 lg:grid-cols-4 gap-3 min-w-0">
-                {(() => {
-                    const hasPrevQ = Boolean(previousPeriodMetrics && previousPeriodMetrics.questions > 0);
-                    const qDiff = hasPrevQ ? safeGlobalMetrics.totalQuestions - previousPeriodMetrics.questions : null;
-                    const cDiff = hasPrevQ ? Math.round((safeGlobalMetrics.totalCorrect - previousPeriodMetrics.correct) * 10) / 10 : null;
-                    const hasPrevAcc = Boolean(
-                        previousPeriodMetrics &&
-                        Number.isFinite(previousPeriodMetrics.accuracy) &&
-                        (filterHasData || safeGlobalMetrics.totalQuestions > 0 || safeGlobalMetrics.globalAccuracy > 0)
-                    );
-                    const accDiffPrev = hasPrevAcc ? Number((safeGlobalMetrics.globalAccuracy - previousPeriodMetrics.accuracy).toFixed(1)) : null;
+        {/* Grid limpo de 4 KPIs globais (com comparativo automático vs período anterior quando janela temporal está ativa) */}
+        <motion.div variants={itemVariants} className="grid grid-cols-2 lg:grid-cols-4 gap-3 min-w-0">
+            {(() => {
+                const hasPrevQ = Boolean(previousPeriodMetrics && previousPeriodMetrics.questions > 0);
+                const qDiff = hasPrevQ ? safeGlobalMetrics.totalQuestions - previousPeriodMetrics.questions : null;
+                const cDiff = hasPrevQ ? Math.round((safeGlobalMetrics.totalCorrect - previousPeriodMetrics.correct) * 10) / 10 : null;
+                const hasPrevAcc = Boolean(
+                    previousPeriodMetrics &&
+                    Number.isFinite(previousPeriodMetrics.accuracy) &&
+                    (filterHasData || safeGlobalMetrics.totalQuestions > 0 || safeGlobalMetrics.globalAccuracy > 0)
+                );
+                const accDiffPrev = hasPrevAcc ? Number((safeGlobalMetrics.globalAccuracy - previousPeriodMetrics.accuracy).toFixed(1)) : null;
 
-                    return (
-                        <>
-                <KpiCard
-                    value={safeGlobalMetrics.totalQuestions.toLocaleString()}
-                    label="Questões"
-                    color="#818cf8"
-                    icon={<BookOpen size={15} />}
-                    hint={qDiff != null
-                        ? `${qDiff >= 0 ? '+' : ''}${qDiff.toLocaleString()} vs ${previousPeriodMetrics.days}d ant.`
-                        : (timeWindow === 'all' ? 'Histórico completo' : `Últimos ${timeWindow} dias`)}
-                    title="Total de questões reais resolvidas no filtro ativo."
-                />
-                <KpiCard
-                    value={formatCleanCount(safeGlobalMetrics.totalCorrect)}
-                    label="Acertos"
-                    color="#34d399"
-                    icon={<CheckCircle2 size={15} />}
-                    hint={cDiff != null
-                        ? `${formatCleanCount(Math.max(0, safeGlobalMetrics.totalQuestions - safeGlobalMetrics.totalCorrect))} erros · ${cDiff >= 0 ? '+' : '−'}${formatCleanCount(Math.abs(cDiff))} vs ant.`
-                        : (safeGlobalMetrics.totalQuestions > 0
-                            ? `${formatCleanCount(Math.max(0, safeGlobalMetrics.totalQuestions - safeGlobalMetrics.totalCorrect))} erros no período`
-                            : (safeGlobalMetrics.globalAccuracy > 0 ? 'Simulados em % (sem volume)' : 'Respostas corretas'))}
-                    title="Quantidade de questões acertadas dentro do período e filtro ativos."
-                />
-                <KpiCard
-                    value={`${safeGlobalMetrics.globalAccuracy.toFixed(1)}%`}
-                    label="Precisão Global"
-                    color="#fb923c"
-                    icon={<Crosshair size={15} />}
-                    hint={accDiffPrev != null
-                        ? `${accDiffPrev >= 0 ? '+' : ''}${accDiffPrev}pp vs ${previousPeriodMetrics.days}d ant.`
-                        : (showOnlyFocus && focusCategory
-                            ? `Foco: ${focusCategory.name}`
-                            : (safeGlobalMetrics.totalQuestions === 0 && safeGlobalMetrics.globalAccuracy > 0 ? 'Baseada em notas em %' : 'Taxa consolidada'))}
-                    progress={safeGlobalMetrics.globalAccuracy}
-                    statusText={accuracyDeltaVsTarget != null ? (accuracyDeltaVsTarget >= 0 ? `+${accuracyDeltaVsTarget}pp meta` : `${accuracyDeltaVsTarget}pp meta`) : undefined}
-                    title="Percentual consolidado de acertos (acertos / questões) no filtro ativo."
-                />
-                <KpiCard
-                    value={`${formatValue(activeTargetDisplay)}${resolvedActiveUnit}`}
-                    label="Meta da Prova"
-                    color="#f472b6"
-                    icon={<Target size={15} />}
-                    hint={goalDate ? `${projectDays} ${projectDays === 1 ? 'dia restante' : 'dias restantes'}` : `${activeCategories.length} ${activeCategories.length === 1 ? 'disciplina ativa' : 'disciplinas ativas'}`}
-                    statusText={showOnlyFocus && focusCategory ? (hasCustomFocusCutoff ? 'Corte foco' : 'Meta foco') : 'Objetivo global'}
-                    title="Meta de pontuação configurada para o concurso ou disciplina em foco."
-                />
-                        </>
-                    );
-                })()}
-            </motion.div>
+                return (
+                    <>
+                        <KpiCard
+                            value={safeGlobalMetrics.totalQuestions.toLocaleString()}
+                            label="Questões"
+                            color="#818cf8"
+                            icon={<BookOpen size={15} />}
+                            hint={qDiff != null
+                                ? `${qDiff >= 0 ? '+' : ''}${qDiff.toLocaleString()} vs ${previousPeriodMetrics.days}d ant.`
+                                : (timeWindow === 'all' ? 'Histórico completo' : `Últimos ${timeWindow} dias`)}
+                            title="Total de questões reais resolvidas no filtro ativo."
+                        />
+                        <KpiCard
+                            value={formatCleanCount(safeGlobalMetrics.totalCorrect)}
+                            label="Acertos"
+                            color="#34d399"
+                            icon={<CheckCircle2 size={15} />}
+                            hint={cDiff != null
+                                ? `${formatCleanCount(Math.max(0, safeGlobalMetrics.totalQuestions - safeGlobalMetrics.totalCorrect))} erros · ${cDiff >= 0 ? '+' : '−'}${formatCleanCount(Math.abs(cDiff))} vs ant.`
+                                : (safeGlobalMetrics.totalQuestions > 0
+                                    ? `${formatCleanCount(Math.max(0, safeGlobalMetrics.totalQuestions - safeGlobalMetrics.totalCorrect))} erros no período`
+                                    : (safeGlobalMetrics.globalAccuracy > 0 ? 'Simulados em % (sem volume)' : 'Respostas corretas'))}
+                            title="Quantidade de questões acertadas dentro do período e filtro ativos."
+                        />
+                        <KpiCard
+                            value={`${safeGlobalMetrics.globalAccuracy.toFixed(1)}%`}
+                            label="Precisão Global"
+                            color="#fb923c"
+                            icon={<Crosshair size={15} />}
+                            hint={accDiffPrev != null
+                                ? `${accDiffPrev >= 0 ? '+' : ''}${accDiffPrev}pp vs ${previousPeriodMetrics.days}d ant.`
+                                : (showOnlyFocus && focusCategory
+                                    ? `Foco: ${focusCategory.name}`
+                                    : (safeGlobalMetrics.totalQuestions === 0 && safeGlobalMetrics.globalAccuracy > 0 ? 'Baseada em notas em %' : 'Taxa consolidada'))}
+                            progress={safeGlobalMetrics.globalAccuracy}
+                            statusText={accuracyDeltaVsTarget != null ? (accuracyDeltaVsTarget >= 0 ? `+${accuracyDeltaVsTarget}pp meta` : `${accuracyDeltaVsTarget}pp meta`) : undefined}
+                            title="Percentual consolidado de acertos (acertos / questões) no filtro ativo."
+                        />
+                        <KpiCard
+                            value={`${formatValue(activeTargetDisplay)}${resolvedActiveUnit}`}
+                            label="Meta da Prova"
+                            color="#f472b6"
+                            icon={<Target size={15} />}
+                            hint={goalDate ? `${projectDays} ${projectDays === 1 ? 'dia restante' : 'dias restantes'}` : `${activeCategories.length} ${activeCategories.length === 1 ? 'disciplina ativa' : 'disciplinas ativas'}`}
+                            statusText={showOnlyFocus && focusCategory ? (hasCustomFocusCutoff ? 'Corte foco' : 'Meta foco') : 'Objetivo global'}
+                            title="Meta de pontuação configurada para o concurso ou disciplina em foco."
+                        />
+                    </>
+                );
+            })()}
+        </motion.div>
 
-            {/* Status inteligente — painel enxuto sem redundância com os KPIs */}
-            <motion.div
-                variants={itemVariants}
-                className="rounded-2xl border border-white/[0.08] bg-slate-900/65 backdrop-blur-xl px-4 py-3.5 shadow-[0_12px_36px_-18px_rgba(0,0,0,0.65)] space-y-3"
-            >
-                <div className="flex flex-wrap items-center justify-between gap-2.5">
-                    <div className="flex flex-wrap items-center gap-2 min-w-0">
-                        <h2 className="text-xs font-black text-slate-200 uppercase tracking-wider">
-                            Status inteligente do desempenho
-                        </h2>
-                        <span className="hidden sm:inline text-xs text-slate-400">
-                            · Clique em qualquer indicador para abrir o diagnóstico
-                        </span>
-                    </div>
+        {/* Status inteligente — painel enxuto sem redundância com os KPIs */}
+        <motion.div
+            variants={itemVariants}
+            className="rounded-2xl border border-white/[0.08] bg-slate-900/65 backdrop-blur-xl px-4 py-3.5 shadow-[0_12px_36px_-18px_rgba(0,0,0,0.65)] space-y-3"
+        >
+            <div className="flex flex-wrap items-center justify-between gap-2.5">
+                <div className="flex flex-wrap items-center gap-2 min-w-0">
+                    <h2 className="text-xs font-black text-slate-200 uppercase tracking-wider">
+                        Status inteligente do desempenho
+                    </h2>
+                    <span className="hidden sm:inline text-xs text-slate-400">
+                        · Clique em qualquer indicador para abrir o diagnóstico
+                    </span>
+                </div>
 
-                    <div className="inline-flex items-center gap-1 bg-slate-950/80 border border-white/[0.08] rounded-xl p-1 shrink-0 shadow-inner" role="group" aria-label="Modo de exibição dos status">
-                        <button
-                            type="button"
-                            onClick={() => setStatusViewMode('compact')}
-                            aria-pressed={statusViewMode === 'compact'}
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all ${
-                                statusViewMode === 'compact'
-                                    ? 'bg-indigo-500/20 text-indigo-200 border-indigo-400/40 shadow-sm'
-                                    : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
+                <div className="inline-flex items-center gap-1 bg-slate-950/80 border border-white/[0.08] rounded-xl p-1 shrink-0 shadow-inner" role="group" aria-label="Modo de exibição dos status">
+                    <button
+                        type="button"
+                        onClick={() => setStatusViewMode('compact')}
+                        aria-pressed={statusViewMode === 'compact'}
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all ${statusViewMode === 'compact'
+                                ? 'bg-indigo-500/20 text-indigo-200 border-indigo-400/40 shadow-sm'
+                                : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
                             }`}
-                        >
-                            <List size={12} />
-                            <span>Compacto</span>
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setStatusViewMode('guide')}
-                            aria-pressed={statusViewMode === 'guide'}
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all ${
-                                statusViewMode === 'guide'
-                                    ? 'bg-indigo-500/20 text-indigo-200 border-indigo-400/40 shadow-sm'
-                                    : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
+                    >
+                        <List size={12} />
+                        <span>Compacto</span>
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setStatusViewMode('guide')}
+                        aria-pressed={statusViewMode === 'guide'}
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all ${statusViewMode === 'guide'
+                                ? 'bg-indigo-500/20 text-indigo-200 border-indigo-400/40 shadow-sm'
+                                : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
                             }`}
-                        >
-                            <LayoutGrid size={12} />
-                            <span>Guia de leitura</span>
-                        </button>
-                    </div>
+                    >
+                        <LayoutGrid size={12} />
+                        <span>Guia de leitura</span>
+                    </button>
                 </div>
+            </div>
 
-                {statusViewMode === 'guide' ? (
-                    <div className="space-y-3">
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-3 py-2 rounded-xl bg-slate-950/50 border border-white/[0.06] text-[11px] text-slate-400">
-                            <span className="font-bold uppercase tracking-wider text-slate-300">Cores:</span>
-                            <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-emerald-400" /><strong className="text-emerald-300">Verde</strong> = Ideal / na meta</span>
-                            <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-amber-400" /><strong className="text-amber-300">Amarelo</strong> = Atenção / ajuste</span>
-                            <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-rose-400" /><strong className="text-rose-300">Vermelho</strong> = Risco / prioridade</span>
-                            <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-sky-400" /><strong className="text-sky-300">Azul/Roxo</strong> = Tendência / referência</span>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3" role="status" aria-live="polite">
-                            {statusList.map((status) => (
-                                <StatusPill
-                                    key={status.id}
-                                    variant="card"
-                                    label={status.label}
-                                    value={status.value}
-                                    tone={status.tone}
-                                    icon={status.icon}
-                                    help={status.help}
-                                    statusText={status.statusText}
-                                    scopeLabel={status.scopeLabel}
-                                    howToRead={status.howToRead}
-                                    scaleGuide={status.scaleGuide}
-                                    actionHint={status.actionHint}
-                                    isSelected={selectedStatusId === status.id}
-                                    onClick={() => setSelectedStatusId((prev) => (prev === status.id ? null : status.id))}
-                                />
-                            ))}
-                        </div>
+            {statusViewMode === 'guide' ? (
+                <div className="space-y-3">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-3 py-2 rounded-xl bg-slate-950/50 border border-white/[0.06] text-[11px] text-slate-400">
+                        <span className="font-bold uppercase tracking-wider text-slate-300">Cores:</span>
+                        <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-emerald-400" /><strong className="text-emerald-300">Verde</strong> = Ideal / na meta</span>
+                        <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-amber-400" /><strong className="text-amber-300">Amarelo</strong> = Atenção / ajuste</span>
+                        <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-rose-400" /><strong className="text-rose-300">Vermelho</strong> = Risco / prioridade</span>
+                        <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-sky-400" /><strong className="text-sky-300">Azul/Roxo</strong> = Tendência / referência</span>
                     </div>
-                ) : (
-                    <div className="space-y-2.5" role="status" aria-live="polite">
-                        <div className="flex flex-wrap gap-2">
-                            {statusList.map((status) => (
-                                <StatusPill
-                                    key={status.id}
-                                    variant="pill"
-                                    label={status.label}
-                                    value={status.value}
-                                    tone={status.tone}
-                                    icon={status.icon}
-                                    help={status.help}
-                                    statusText={status.statusText}
-                                    howToRead={status.howToRead}
-                                    scaleGuide={status.scaleGuide}
-                                    isSelected={selectedStatus?.id === status.id}
-                                    onClick={() => setSelectedStatusId((prev) => (prev === status.id ? null : status.id))}
-                                />
-                            ))}
-                        </div>
-
-                        {selectedStatus && (
-                            <div className="rounded-xl border border-indigo-400/25 bg-slate-950/65 p-3.5 space-y-2">
-                                <div className="flex flex-wrap items-center justify-between gap-2">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                        <span className="text-xs font-black uppercase tracking-wider text-slate-100">
-                                            Como ler: {selectedStatus.label}
-                                        </span>
-                                        {selectedStatus.scopeLabel && (
-                                            <span className="text-[11px] font-semibold text-slate-300 bg-white/[0.06] px-2 py-0.5 rounded-full">
-                                                {selectedStatus.scopeLabel}
-                                            </span>
-                                        )}
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        {selectedStatus.statusText && (
-                                            <span className="text-[11px] font-bold text-indigo-200 bg-indigo-500/15 border border-indigo-400/30 px-2.5 py-0.5 rounded-full">
-                                                {selectedStatus.statusText}
-                                            </span>
-                                        )}
-                                        <span className="text-sm font-black font-mono tabular-nums text-white">
-                                            {selectedStatus.value}
-                                        </span>
-                                    </div>
-                                </div>
-                                <p className="text-xs text-slate-200 leading-relaxed">
-                                    {selectedStatus.howToRead || selectedStatus.help}
-                                </p>
-                                {selectedStatus.scaleGuide && (
-                                    <p className="text-[11px] text-slate-400 bg-slate-900/70 border border-white/[0.06] rounded-lg px-3 py-1.5">
-                                        {selectedStatus.scaleGuide}
-                                    </p>
-                                )}
-                                {selectedStatus.actionHint && (
-                                    <p className="text-xs text-indigo-200 bg-indigo-500/10 border border-indigo-400/25 rounded-lg px-3 py-2 flex items-start gap-2">
-                                        <Compass size={14} className="text-indigo-300 shrink-0 mt-0.5" aria-hidden="true" />
-                                        <span>
-                                            <strong className="text-indigo-300">O que fazer: </strong>
-                                            {selectedStatus.actionHint}
-                                        </span>
-                                    </p>
-                                )}
-                            </div>
-                        )}
-                    </div>
-                )}
-            </motion.div>
-
-            {/* Carrossel de Disciplinas — mask-image real (sem faixas escuras artificiais) + sparkline */}
-            <motion.div variants={itemVariants} className="relative z-0">
-                <div className="flex items-center justify-between mb-2 px-1">
-                    <div className="flex items-center gap-2">
-                        <p className="text-xs text-slate-200 uppercase font-black tracking-wider">
-                            Nível por disciplina
-                        </p>
-                        <span className="text-[11px] font-medium text-slate-400 hidden sm:inline">
-                            · {activeCategories.length} {activeCategories.length === 1 ? 'matéria' : 'matérias'} · clique para focar
-                        </span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                        <button
-                            type="button"
-                            onClick={() => scrollCarousel('left')}
-                            disabled={!canScrollLeft}
-                            aria-label="Rolar disciplinas para a esquerda"
-                            className="w-7 h-7 rounded-xl border border-white/[0.09] bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white flex items-center justify-center transition-all disabled:opacity-25 disabled:pointer-events-none"
-                        >
-                            <ChevronLeft size={15} />
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => scrollCarousel('right')}
-                            disabled={!canScrollRight}
-                            aria-label="Rolar disciplinas para a direita"
-                            className="w-7 h-7 rounded-xl border border-white/[0.09] bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white flex items-center justify-center transition-all disabled:opacity-25 disabled:pointer-events-none"
-                        >
-                            <ChevronRight size={15} />
-                        </button>
-                    </div>
-                </div>
-
-                <div
-                    ref={carouselRef}
-                    onWheel={handleCarouselWheel}
-                    onMouseDown={handleCarouselMouseDown}
-                    onMouseMove={handleCarouselMouseMove}
-                    onMouseUp={handleCarouselMouseUpOrLeave}
-                    onMouseLeave={handleCarouselMouseUpOrLeave}
-                    style={carouselMaskStyle}
-                    className="pdf-no-mask flex overflow-x-auto snap-x gap-3 px-0.5 py-2 no-scrollbar scroll-smooth cursor-grab active:cursor-grabbing select-none"
-                >
-                    {activeCategories.map(cat => {
-                        const cardCatMax = hasValidNumber(cat?.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : maxScore;
-                        const cardCatMin = hasValidNumber(cat?.minScore) ? Math.min(Number(cat.minScore), cardCatMax) : minScore;
-                        const cardUnit = resolveUnitForScale(unit, cardCatMin, cardCatMax);
-                        return (
-                            <div key={cat.id} className={`snap-start shrink-0 w-[224px] sm:w-[244px] flex flex-col transition-all duration-200 ${showOnlyFocus && focusCategory?.id !== cat.id ? 'opacity-65 hover:opacity-100 scale-[0.985]' : 'opacity-100 scale-100'}`}>
-                                <DisciplinaCard
-                                    cat={cat}
-                                    level={categoryLevels[cat.id]}
-                                    metrics={latestMetricsByCat[cat.id] || null}
-                                    sparkline={sparklineByCat[cat.id] || null}
-                                    target={targetScore}
-                                    isFocused={focusCategory?.id === cat.id}
-                                    onSelectCategory={handleSelectCategory}
-                                    unit={cardUnit}
-                                    maxScore={maxScore}
-                                    minScore={minScore}
-                                />
-                            </div>
-                        );
-                    })}
-                </div>
-            </motion.div>
-
-            {/* HERO CHART: Nível Bayesiano (Fixo) */}
-            <motion.div variants={itemVariants} className="relative z-20 rounded-2xl border border-emerald-500/20 bg-slate-900/70 backdrop-blur-2xl p-4 sm:p-5 shadow-[0_12px_36px_-18px_rgba(52,211,153,0.22)] w-full overflow-visible">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3.5 border-b border-white/[0.07]">
-                    <div className="flex items-center gap-3">
-                        <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-400/30 text-emerald-300 shrink-0">
-                            <Brain size={18} />
-                        </div>
-                        <div>
-                            <h3 className="text-base sm:text-lg font-black text-slate-100 tracking-tight">Evolução do domínio real</h3>
-                            <p className="text-[11px] text-emerald-400/85 font-semibold tracking-wide mt-0.5">
-                                Histórico bayesiano e intervalo de confiança (95%)
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
-                        <div className="hidden xl:flex items-center gap-3 text-[11px] text-slate-400 mr-1">
-                            <span className="inline-flex items-center gap-1.5"><span className="h-0.5 w-3 bg-emerald-400 inline-block" />Domínio real</span>
-                            <span className="inline-flex items-center gap-1.5"><span className="h-2 w-3 rounded-sm bg-emerald-400/25 border border-emerald-400/40 inline-block" />IC 95%</span>
-                            <span className="inline-flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400 inline-block" />Meta</span>
-                        </div>
-                        <button
-                            type="button"
-                            onClick={() => setHeroExpanded((prev) => !prev)}
-                            aria-pressed={heroExpanded}
-                            title={heroExpanded ? 'Altura padrão do gráfico' : 'Expandir altura do gráfico'}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-white/[0.09] bg-slate-950/60 hover:bg-slate-800/80 text-slate-300 hover:text-white text-[11px] font-bold transition-all"
-                        >
-                            {heroExpanded ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
-                            <span className="hidden sm:inline">{heroExpanded ? 'Compactar' : 'Expandir'}</span>
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setShowHeroGuide((prev) => !prev)}
-                            aria-expanded={showHeroGuide}
-                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] font-bold transition-all ${
-                                showHeroGuide
-                                    ? 'bg-emerald-500/20 border-emerald-400/50 text-emerald-200'
-                                    : 'bg-slate-950/60 border-white/[0.09] text-slate-300 hover:border-emerald-400/35 hover:text-emerald-200'
-                            }`}
-                        >
-                            <BookOpen size={13} />
-                            <span>{showHeroGuide ? 'Ocultar guia' : 'Como ler este gráfico'}</span>
-                        </button>
-                    </div>
-                </div>
-
-                {showHeroGuide && BAYESIAN_ENGINE?.guide && (
-                    <div className="mb-4">
-                        <ChartGuide guide={BAYESIAN_ENGINE.guide} />
-                    </div>
-                )}
-
-                <div className="w-full no-scrollbar pb-1" style={{ overflowX: 'auto', overflowY: 'visible' }}>
-                    <div className="min-w-[540px] lg:min-w-full relative">
-                        {!accountHasData ? (
-                            <div className="min-h-[320px] flex flex-col items-center justify-center gap-3">
-                                <div className="w-12 h-12 rounded-2xl bg-slate-800/60 border border-white/10 flex items-center justify-center text-slate-400">
-                                    <TrendingUp size={22} />
-                                </div>
-                                <p className="text-slate-300 text-sm font-medium">Cadastre simulados para ver sua curva de domínio</p>
-                            </div>
-                        ) : !filterHasData ? (
-                            <div className="min-h-[320px] flex flex-col items-center justify-center gap-3">
-                                <div className="w-12 h-12 rounded-2xl bg-slate-800/60 border border-white/10 flex items-center justify-center text-slate-400">
-                                    <Calendar size={22} />
-                                </div>
-                                <p className="text-slate-300 text-sm font-medium">Nenhuma atividade no período selecionado</p>
-                            </div>
-                        ) : (
-                            <EvolutionLineChart
-                                filteredChartData={filteredHistoricalData}
-                                activeCategories={activeCategories}
-                                engine={BAYESIAN_ENGINE}
-                                targetScore={showOnlyFocus ? focusTarget : targetScore}
-                                focusSubjectId={focusSubjectId}
-                                showOnlyFocus={showOnlyFocus}
-                                minScore={showOnlyFocus ? focusMin : minScore}
-                                maxScore={showOnlyFocus ? focusMax : maxScore}
-                                unit={resolvedActiveUnit}
-                                expanded={heroExpanded}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3" role="status" aria-live="polite">
+                        {statusList.map((status) => (
+                            <StatusPill
+                                key={status.id}
+                                variant="card"
+                                label={status.label}
+                                value={status.value}
+                                tone={status.tone}
+                                icon={status.icon}
+                                help={status.help}
+                                statusText={status.statusText}
+                                scopeLabel={status.scopeLabel}
+                                howToRead={status.howToRead}
+                                scaleGuide={status.scaleGuide}
+                                actionHint={status.actionHint}
+                                isSelected={selectedStatusId === status.id}
+                                onClick={() => setSelectedStatusId((prev) => (prev === status.id ? null : status.id))}
                             />
-                        )}
+                        ))}
                     </div>
                 </div>
-            </motion.div>
+            ) : (
+                <div className="space-y-2.5" role="status" aria-live="polite">
+                    <div className="flex flex-wrap gap-2">
+                        {statusList.map((status) => (
+                            <StatusPill
+                                key={status.id}
+                                variant="pill"
+                                label={status.label}
+                                value={status.value}
+                                tone={status.tone}
+                                icon={status.icon}
+                                help={status.help}
+                                statusText={status.statusText}
+                                howToRead={status.howToRead}
+                                scaleGuide={status.scaleGuide}
+                                isSelected={selectedStatus?.id === status.id}
+                                onClick={() => setSelectedStatusId((prev) => (prev === status.id ? null : status.id))}
+                            />
+                        ))}
+                    </div>
 
-            {/* TABS E GRÁFICOS SECUNDÁRIOS — navegação lateral no desktop (xl:) + scroll com setas no mobile */}
-            <motion.div variants={itemVariants} className="relative z-10">
+                    {selectedStatus && (
+                        <div className="rounded-xl border border-indigo-400/25 bg-slate-950/65 p-3.5 space-y-2">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <span className="text-xs font-black uppercase tracking-wider text-slate-100">
+                                        Como ler: {selectedStatus.label}
+                                    </span>
+                                    {selectedStatus.scopeLabel && (
+                                        <span className="text-[11px] font-semibold text-slate-300 bg-white/[0.06] px-2 py-0.5 rounded-full">
+                                            {selectedStatus.scopeLabel}
+                                        </span>
+                                    )}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    {selectedStatus.statusText && (
+                                        <span className="text-[11px] font-bold text-indigo-200 bg-indigo-500/15 border border-indigo-400/30 px-2.5 py-0.5 rounded-full">
+                                            {selectedStatus.statusText}
+                                        </span>
+                                    )}
+                                    <span className="text-sm font-black font-mono tabular-nums text-white">
+                                        {selectedStatus.value}
+                                    </span>
+                                </div>
+                            </div>
+                            <p className="text-xs text-slate-200 leading-relaxed">
+                                {selectedStatus.howToRead || selectedStatus.help}
+                            </p>
+                            {selectedStatus.scaleGuide && (
+                                <p className="text-[11px] text-slate-400 bg-slate-900/70 border border-white/[0.06] rounded-lg px-3 py-1.5">
+                                    {selectedStatus.scaleGuide}
+                                </p>
+                            )}
+                            {selectedStatus.actionHint && (
+                                <p className="text-xs text-indigo-200 bg-indigo-500/10 border border-indigo-400/25 rounded-lg px-3 py-2 flex items-start gap-2">
+                                    <Compass size={14} className="text-indigo-300 shrink-0 mt-0.5" aria-hidden="true" />
+                                    <span>
+                                        <strong className="text-indigo-300">O que fazer: </strong>
+                                        {selectedStatus.actionHint}
+                                    </span>
+                                </p>
+                            )}
+                        </div>
+                    )}
+                </div>
+            )}
+        </motion.div>
+
+        {/* Carrossel de Disciplinas — mask-image real (sem faixas escuras artificiais) + sparkline */}
+        <motion.div variants={itemVariants} className="relative z-0">
+            <div className="flex items-center justify-between mb-2 px-1">
+                <div className="flex items-center gap-2">
+                    <p className="text-xs text-slate-200 uppercase font-black tracking-wider">
+                        Nível por disciplina
+                    </p>
+                    <span className="text-[11px] font-medium text-slate-400 hidden sm:inline">
+                        · {activeCategories.length} {activeCategories.length === 1 ? 'matéria' : 'matérias'} · clique para focar
+                    </span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                    <button
+                        type="button"
+                        onClick={() => scrollCarousel('left')}
+                        disabled={!canScrollLeft}
+                        aria-label="Rolar disciplinas para a esquerda"
+                        className="w-7 h-7 rounded-xl border border-white/[0.09] bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white flex items-center justify-center transition-all disabled:opacity-25 disabled:pointer-events-none"
+                    >
+                        <ChevronLeft size={15} />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => scrollCarousel('right')}
+                        disabled={!canScrollRight}
+                        aria-label="Rolar disciplinas para a direita"
+                        className="w-7 h-7 rounded-xl border border-white/[0.09] bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white flex items-center justify-center transition-all disabled:opacity-25 disabled:pointer-events-none"
+                    >
+                        <ChevronRight size={15} />
+                    </button>
+                </div>
+            </div>
+
+            <div
+                ref={carouselRef}
+                onWheel={handleCarouselWheel}
+                onMouseDown={handleCarouselMouseDown}
+                onMouseMove={handleCarouselMouseMove}
+                onMouseUp={handleCarouselMouseUpOrLeave}
+                onMouseLeave={handleCarouselMouseUpOrLeave}
+                style={carouselMaskStyle}
+                className="pdf-no-mask flex overflow-x-auto snap-x gap-3 px-0.5 py-2 no-scrollbar scroll-smooth cursor-grab active:cursor-grabbing select-none"
+            >
+                {activeCategories.map(cat => {
+                    const cardCatMax = hasValidNumber(cat?.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : maxScore;
+                    const cardCatMin = hasValidNumber(cat?.minScore) ? Math.min(Number(cat.minScore), cardCatMax) : minScore;
+                    const cardUnit = resolveUnitForScale(unit, cardCatMin, cardCatMax);
+                    return (
+                        <div key={cat.id} className={`snap-start shrink-0 w-[224px] sm:w-[244px] flex flex-col transition-all duration-200 ${showOnlyFocus && focusCategory?.id !== cat.id ? 'opacity-65 hover:opacity-100 scale-[0.985]' : 'opacity-100 scale-100'}`}>
+                            <DisciplinaCard
+                                cat={cat}
+                                level={categoryLevels[cat.id]}
+                                metrics={latestMetricsByCat[cat.id] || null}
+                                sparkline={sparklineByCat[cat.id] || null}
+                                target={targetScore}
+                                isFocused={focusCategory?.id === cat.id}
+                                onSelectCategory={handleSelectCategory}
+                                unit={cardUnit}
+                                maxScore={maxScore}
+                                minScore={minScore}
+                            />
+                        </div>
+                    );
+                })}
+            </div>
+        </motion.div>
+
+        {/* HERO CHART: Nível Bayesiano (Fixo) */}
+        <motion.div variants={itemVariants} className="relative z-20 rounded-2xl border border-emerald-500/20 bg-slate-900/70 backdrop-blur-2xl p-4 sm:p-5 shadow-[0_12px_36px_-18px_rgba(52,211,153,0.22)] w-full overflow-visible">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3.5 border-b border-white/[0.07]">
+                <div className="flex items-center gap-3">
+                    <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-400/30 text-emerald-300 shrink-0">
+                        <Brain size={18} />
+                    </div>
+                    <div>
+                        <h3 className="text-base sm:text-lg font-black text-slate-100 tracking-tight">Evolução do domínio real</h3>
+                        <p className="text-[11px] text-emerald-400/85 font-semibold tracking-wide mt-0.5">
+                            Histórico bayesiano e intervalo de confiança (95%)
+                        </p>
+                    </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+                    <div className="hidden xl:flex items-center gap-3 text-[11px] text-slate-400 mr-1">
+                        <span className="inline-flex items-center gap-1.5"><span className="h-0.5 w-3 bg-emerald-400 inline-block" />Domínio real</span>
+                        <span className="inline-flex items-center gap-1.5"><span className="h-2 w-3 rounded-sm bg-emerald-400/25 border border-emerald-400/40 inline-block" />IC 95%</span>
+                        <span className="inline-flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400 inline-block" />Meta</span>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setHeroExpanded((prev) => !prev)}
+                        aria-pressed={heroExpanded}
+                        title={heroExpanded ? 'Altura padrão do gráfico' : 'Expandir altura do gráfico'}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-white/[0.09] bg-slate-950/60 hover:bg-slate-800/80 text-slate-300 hover:text-white text-[11px] font-bold transition-all"
+                    >
+                        {heroExpanded ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+                        <span className="hidden sm:inline">{heroExpanded ? 'Compactar' : 'Expandir'}</span>
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setShowHeroGuide((prev) => !prev)}
+                        aria-expanded={showHeroGuide}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] font-bold transition-all ${showHeroGuide
+                                ? 'bg-emerald-500/20 border-emerald-400/50 text-emerald-200'
+                                : 'bg-slate-950/60 border-white/[0.09] text-slate-300 hover:border-emerald-400/35 hover:text-emerald-200'
+                            }`}
+                    >
+                        <BookOpen size={13} />
+                        <span>{showHeroGuide ? 'Ocultar guia' : 'Como ler este gráfico'}</span>
+                    </button>
+                </div>
+            </div>
+
+            {showHeroGuide && BAYESIAN_ENGINE?.guide && (
+                <div className="mb-4">
+                    <ChartGuide guide={BAYESIAN_ENGINE.guide} />
+                </div>
+            )}
+
+            <div className="w-full no-scrollbar pb-1" style={{ overflowX: 'auto', overflowY: 'visible' }}>
+                <div className="min-w-[540px] lg:min-w-full relative">
+                    {!accountHasData ? (
+                        <div className="min-h-[320px] flex flex-col items-center justify-center gap-3">
+                            <div className="w-12 h-12 rounded-2xl bg-slate-800/60 border border-white/10 flex items-center justify-center text-slate-400">
+                                <TrendingUp size={22} />
+                            </div>
+                            <p className="text-slate-300 text-sm font-medium">Cadastre simulados para ver sua curva de domínio</p>
+                        </div>
+                    ) : !filterHasData ? (
+                        <div className="min-h-[320px] flex flex-col items-center justify-center gap-3">
+                            <div className="w-12 h-12 rounded-2xl bg-slate-800/60 border border-white/10 flex items-center justify-center text-slate-400">
+                                <Calendar size={22} />
+                            </div>
+                            <p className="text-slate-300 text-sm font-medium">Nenhuma atividade no período selecionado</p>
+                        </div>
+                    ) : (
+                        <EvolutionLineChart
+                            filteredChartData={filteredHistoricalData}
+                            activeCategories={activeCategories}
+                            engine={BAYESIAN_ENGINE}
+                            targetScore={showOnlyFocus ? focusTarget : targetScore}
+                            focusSubjectId={focusSubjectId}
+                            showOnlyFocus={showOnlyFocus}
+                            minScore={showOnlyFocus ? focusMin : minScore}
+                            maxScore={showOnlyFocus ? focusMax : maxScore}
+                            unit={resolvedActiveUnit}
+                            expanded={heroExpanded}
+                        />
+                    )}
+                </div>
+            </div>
+        </motion.div>
+
+        {/* TABS E GRÁFICOS SECUNDÁRIOS — navegação lateral no desktop (xl:) + scroll com setas no mobile */}
+        <motion.div variants={itemVariants} className="relative z-10">
             <div
                 className="relative z-10 rounded-2xl border border-white/[0.08] bg-slate-900/65 backdrop-blur-2xl p-4 sm:p-5 w-full min-w-0 transition-all duration-300 overflow-visible"
                 style={{ boxShadow: `0 12px 40px -20px ${engine.color}38, inset 0 1px 0 0 rgba(255,255,255,0.04)` }}
@@ -2243,11 +2241,10 @@ export default React.memo(function EvolutionChart({
                                             setActiveEngine(group.ids[0]);
                                         }
                                     }}
-                                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all ${
-                                        isActiveGroup
+                                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all ${isActiveGroup
                                             ? 'bg-indigo-500/20 border-indigo-400/45 text-indigo-200 shadow-sm'
                                             : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
-                                    }`}
+                                        }`}
                                 >
                                     <span>{group.label}</span>
                                     <span className="font-mono text-[10px] opacity-75 tabular-nums">{count}</span>
@@ -2314,11 +2311,10 @@ export default React.memo(function EvolutionChart({
                                                 }
                                             }}
                                             tabIndex={active ? 0 : -1}
-                                            className={`shrink-0 relative group inline-flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all duration-150 border text-xs font-bold whitespace-nowrap xl:w-full xl:justify-start ${
-                                                active
+                                            className={`shrink-0 relative group inline-flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all duration-150 border text-xs font-bold whitespace-nowrap xl:w-full xl:justify-start ${active
                                                     ? 'shadow-sm'
                                                     : 'bg-transparent border-transparent text-slate-400 hover:text-slate-100 hover:bg-white/[0.04]'
-                                            }`}
+                                                }`}
                                             style={active ? { backgroundColor: `${eng.color}1a`, borderColor: `${eng.color}4d`, color: eng.color } : {}}
                                         >
                                             {active && (
@@ -2370,11 +2366,10 @@ export default React.memo(function EvolutionChart({
                                 type="button"
                                 onClick={() => setShowSecondaryGuide((prev) => !prev)}
                                 aria-expanded={showSecondaryGuide}
-                                className={`self-start sm:self-auto shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] font-bold transition-all ${
-                                    showSecondaryGuide
+                                className={`self-start sm:self-auto shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] font-bold transition-all ${showSecondaryGuide
                                         ? 'bg-indigo-500/20 border-indigo-400/50 text-indigo-200'
                                         : 'bg-slate-950/60 border-white/[0.09] text-slate-300 hover:border-indigo-400/35 hover:text-indigo-200'
-                                }`}
+                                    }`}
                             >
                                 <BookOpen size={13} />
                                 <span>{showSecondaryGuide ? 'Ocultar guia' : 'Guia da análise'}</span>
@@ -2394,267 +2389,267 @@ export default React.memo(function EvolutionChart({
                             tabIndex={0}
                             className="w-full flex-1 flex flex-col outline-none focus:outline-none"
                         >
-                {activeEngine === "raw_weekly" ? (
-                    <EvolutionHeatmap 
-                        heatmapData={heatmapData} 
-                        targetScore={showOnlyFocus ? focusTarget : targetScore} 
-                        unit={resolvedActiveUnit} 
-                        showOnlyFocus={showOnlyFocus}
-                        focusSubjectId={focusSubjectId}
-                        timeWindow={timeWindow}
-                        maxScore={showOnlyFocus ? focusMax : maxScore}
-                        minScore={showOnlyFocus ? focusMin : minScore}
-                    />
-                ) : activeEngine === "subtopics" ? (
-                    <SubtopicsPerformanceChart
-                        categories={categories}
-                        focusSubjectId={focusSubjectId}
-                        showOnlyFocus={showOnlyFocus}
-                        timeWindow={timeWindow}
-                        targetScore={targetScore}
-                        minScore={minScore}
-                        maxScore={maxScore}
-                    />
-                ) : activeEngine === "time_spent" ? (
-                    <TimeSpentChart 
-                        subjectAggData={subjectAggData} 
-                        activeCategories={activeCategories}
-                        categories={categories}
-                        showOnlyFocus={showOnlyFocus}
-                        focusCategory={focusCategory}
-                        timeWindow={timeWindow}
-                        maxScore={maxScore}
-                        minScore={minScore}
-                        examDurationMinutes={examDurationMinutes}
-                        examTotalQuestions={examTotalQuestions}
-                        onConfigurePace={() => {
-                            setEngineGroup('all');
-                            setActiveEngine('exam_pacing');
-                        }}
-                    />
-                ) : activeEngine === "speed_accuracy" ? (
-                    <React.Suspense fallback={LazyTabFallback}>
-                    <SpeedAccuracyChart
-                        categories={categories}
-                        simuladoRows={simuladoRowsArray}
-                        showOnlyFocus={showOnlyFocus}
-                        focusSubjectId={focusSubjectId}
-                        timeWindow={timeWindow}
-                        targetScore={showOnlyFocus ? focusTarget : targetScore}
-                        minScore={showOnlyFocus ? focusMin : minScore}
-                        maxScore={showOnlyFocus ? focusMax : maxScore}
-                        examDurationMinutes={examDurationMinutes}
-                        examTotalQuestions={examTotalQuestions}
-                    />
-                    </React.Suspense>
-                ) : activeEngine === "exam_pacing" ? (
-                    <React.Suspense fallback={LazyTabFallback}>
-                    <ExamPacingChart
-                        categories={categories}
-                        mcWeights={mcWeights}
-                        timeWindow={timeWindow}
-                        examDurationMinutes={examDurationMinutes}
-                        examTotalQuestions={examTotalQuestions}
-                    />
-                    </React.Suspense>
-                ) : activeEngine === "consistency_boxplot" ? (
-                    <React.Suspense fallback={LazyTabFallback}>
-                    <ConsistencyBoxPlotChart
-                        categories={categories}
-                        showOnlyFocus={showOnlyFocus}
-                        focusSubjectId={focusSubjectId}
-                        timeWindow={timeWindow}
-                        targetScore={showOnlyFocus ? focusTarget : targetScore}
-                        minScore={showOnlyFocus ? focusMin : minScore}
-                        maxScore={showOnlyFocus ? focusMax : maxScore}
-                        unit={resolvedActiveUnit}
-                    />
-                    </React.Suspense>
-                ) : activeEngine === "projection_fan" ? (
-                    <React.Suspense fallback={LazyTabFallback}>
-                    <ProjectionFanChart
-                        focusCategory={showOnlyFocus ? (focusCategory || null) : null}
-                        timeline={timeline}
-                        timeWindow={timeWindow}
-                        projectDays={projectDays}
-                        historicalCutoffs={showOnlyFocus ? focusHistoricalCutoffs : historicalCutoffs}
-                        targetScore={showOnlyFocus ? focusTarget : targetScore}
-                        minScore={showOnlyFocus ? focusMin : minScore}
-                        maxScore={showOnlyFocus ? focusMax : maxScore}
-                        unit={resolvedActiveUnit}
-                        activeMcResult={showOnlyFocus ? activeMcResult : null}
-                    />
-                    </React.Suspense>
-                ) : activeEngine === "kalman_latent" ? (
-                    <React.Suspense fallback={LazyTabFallback}>
-                    <KalmanLatentChart
-                        focusCategory={showOnlyFocus ? (focusCategory || null) : null}
-                        timeline={timeline}
-                        timeWindow={timeWindow}
-                        targetScore={showOnlyFocus ? focusTarget : targetScore}
-                        minScore={showOnlyFocus ? focusMin : minScore}
-                        maxScore={showOnlyFocus ? focusMax : maxScore}
-                        unit={resolvedActiveUnit}
-                    />
-                    </React.Suspense>
-                ) : activeEngine === "tornado_whatif" ? (
-                    <React.Suspense fallback={LazyTabFallback}>
-                    <TornadoWhatIfChart
-                        categories={categories}
-                        mcWeights={mcWeights}
-                        simuladoRows={simuladoRowsArray}
-                        targetScore={targetScore}
-                        minScore={minScore}
-                        maxScore={maxScore}
-                        unit={resolvedGlobalUnit}
-                        historicalCutoffs={historicalCutoffs}
-                        examGroupCutoffs={examGroupCutoffs}
-                        onSaveGroupCutoffs={(nextCutoffs) => {
-                            const patchData = useAppStore.getState?.()?.patchData;
-                            if (typeof patchData === 'function') {
-                                patchData(() => ({ examGroupCutoffs: nextCutoffs || {} }));
-                            }
-                        }}
-                    />
-                    </React.Suspense>
-                ) : activeEngine === "correlation_regimes" ? (
-                    <React.Suspense fallback={LazyTabFallback}>
-                    <CorrelationRegimeChart
-                        categories={categories}
-                        studyLogs={studyLogsArray}
-                        simuladoRows={simuladoRowsArray}
-                        targetScore={targetScore}
-                        minScore={minScore}
-                        maxScore={maxScore}
-                        unit={resolvedGlobalUnit}
-                        focusSubjectId={focusSubjectId}
-                        timeWindow={timeWindow}
-                    />
-                    </React.Suspense>
-                ) : activeEngine === "irt_psychometric" ? (
-                    <React.Suspense fallback={LazyTabFallback}>
-                    <IRTPsychometricChart
-                        categories={categories}
-                        simuladoRows={simuladoRowsArray}
-                        focusCategory={focusCategory}
-                        showOnlyFocus={showOnlyFocus}
-                        timeWindow={timeWindow}
-                        targetScore={showOnlyFocus ? focusTarget : targetScore}
-                        minScore={showOnlyFocus ? focusMin : minScore}
-                        maxScore={showOnlyFocus ? focusMax : maxScore}
-                        examBoard={examBoard}
-                        penaltyPerWrong={penaltyPerWrong}
-                    />
-                    </React.Suspense>
-                ) : activeEngine === "metacognition_fatigue" ? (
-                    <React.Suspense fallback={LazyTabFallback}>
-                    <MetacognitionFatigueChart
-                        simuladoRows={simuladoRowsArray}
-                        focusCategory={focusCategory}
-                        showOnlyFocus={showOnlyFocus}
-                        timeWindow={timeWindow}
-                        targetScore={showOnlyFocus ? focusTarget : targetScore}
-                        minScore={showOnlyFocus ? focusMin : minScore}
-                        maxScore={showOnlyFocus ? focusMax : maxScore}
-                    />
-                    </React.Suspense>
-                ) : activeEngine === "mc_density" ? (
-                    <MonteCarloEvolutionChart
-                        data={effectiveMcHistoryData}
-                        targetScore={effectiveMcHistoryData?.[0]?.__fromFocus ? focusTarget : targetScore}
-                        unit={effectiveMcHistoryData?.[0]?.__fromFocus ? resolvedFocusUnit : resolvedGlobalUnit}
-                        minScore={effectiveMcHistoryData?.[0]?.__fromFocus ? focusMin : minScore}
-                        maxScore={effectiveMcHistoryData?.[0]?.__fromFocus ? focusMax : maxScore}
-                        loading={mcLoading}
-                    />
-                ) : activeEngine === "weekly_diff" ? (
-                    <WeeklyEvolutionView
-                        categories={categories}
-                        studyLogs={studyLogsArray}
-                        showOnlyFocus={showOnlyFocus}
-                        focusSubjectId={focusSubjectId}
-                        timeWindow={timeWindow}
-                        targetScore={showOnlyFocus ? focusTarget : targetScore}
-                        maxScore={maxScore}
-                        minScore={minScore}
-                        unit={resolvedActiveUnit}
-                    />
-                ) : activeEngine === "today_vs_general" ? (
-                    <TodayVsGeneralChart
-                        activeCategories={activeCategories}
-                        focusCategory={showOnlyFocus ? focusCategory : null}
-                        globalMetrics={safeGlobalMetrics}
-                        targetScore={targetScore}
-                        timeWindow={timeWindow}
-                        maxScore={maxScore}
-                        minScore={minScore}   // ✅ LOTE-01
-                        unit={resolvedActiveUnit}
-                        simuladoRows={simuladoRowsArray}
-                    />
-                ) : !accountHasData ? (
-                    <div className="min-h-[340px] flex flex-col items-center justify-center gap-4 rounded-2xl border border-white/[0.06] bg-slate-950/50 p-8">
-                        <div className="w-14 h-14 rounded-2xl bg-indigo-500/12 border border-indigo-400/25 flex items-center justify-center text-indigo-300">
-                            <Flame size={26} />
-                        </div>
-                        <div className="text-center">
-                            <p className="text-slate-200 font-bold text-base mb-1">Dados insuficientes para exibir o gráfico</p>
-                            <p className="text-slate-400 text-xs mt-1">Cadastre pelo menos <span className="text-indigo-300 font-bold">1 simulado</span> na sua conta para desbloquear os gráficos.</p>
-                        </div>
-                    </div>
-                ) : !filterHasData ? (
-                    <div className="min-h-[340px] flex flex-col items-center justify-center gap-4 rounded-2xl border border-white/[0.06] bg-slate-950/50 p-8">
-                        <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-center text-amber-400">
-                            <Calendar size={26} />
-                        </div>
-                        <div className="text-center">
-                            <p className="text-slate-200 font-bold text-base mb-1">Nenhuma atividade recente</p>
-                            <p className="text-slate-400 text-xs mt-1">Você não cadastrou simulados nos últimos <span className="text-amber-400 font-bold">{timeWindow} dias</span>.</p>
-                            <button
-                                type="button"
-                                onClick={() => setTimeWindow("all")}
-                                className="mt-5 px-5 py-2 bg-indigo-500/15 text-indigo-200 border border-indigo-400/35 rounded-xl font-bold text-xs hover:bg-indigo-500/25 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 active:scale-95"
-                            >
-                                Ver todo o histórico
-                            </button>
-                        </div>
-                    </div>
-                ) : activeEngine === "compare" ? (
-                    <div className="w-full overflow-x-auto no-scrollbar pb-1">
-                        <div className="min-w-[540px] lg:min-w-full relative">
-                            {mcLoading && (
-                                <div className="absolute inset-0 z-20 bg-slate-950/45 backdrop-blur-[1px] flex items-center justify-center rounded-2xl transition-all duration-300">
-                                    <div className="flex flex-col items-center gap-2.5">
-                                        <Loader2 size={28} className="animate-spin text-indigo-400" />
-                                        <span className="text-[11px] font-bold uppercase text-indigo-300 tracking-wider animate-pulse">Sincronizando Monte Carlo...</span>
+                            {activeEngine === "raw_weekly" ? (
+                                <EvolutionHeatmap
+                                    heatmapData={heatmapData}
+                                    targetScore={showOnlyFocus ? focusTarget : targetScore}
+                                    unit={resolvedActiveUnit}
+                                    showOnlyFocus={showOnlyFocus}
+                                    focusSubjectId={focusSubjectId}
+                                    timeWindow={timeWindow}
+                                    maxScore={showOnlyFocus ? focusMax : maxScore}
+                                    minScore={showOnlyFocus ? focusMin : minScore}
+                                />
+                            ) : activeEngine === "subtopics" ? (
+                                <SubtopicsPerformanceChart
+                                    categories={categories}
+                                    focusSubjectId={focusSubjectId}
+                                    showOnlyFocus={showOnlyFocus}
+                                    timeWindow={timeWindow}
+                                    targetScore={targetScore}
+                                    minScore={minScore}
+                                    maxScore={maxScore}
+                                />
+                            ) : activeEngine === "time_spent" ? (
+                                <TimeSpentChart
+                                    subjectAggData={subjectAggData}
+                                    activeCategories={activeCategories}
+                                    categories={categories}
+                                    showOnlyFocus={showOnlyFocus}
+                                    focusCategory={focusCategory}
+                                    timeWindow={timeWindow}
+                                    maxScore={maxScore}
+                                    minScore={minScore}
+                                    examDurationMinutes={examDurationMinutes}
+                                    examTotalQuestions={examTotalQuestions}
+                                    onConfigurePace={() => {
+                                        setEngineGroup('all');
+                                        setActiveEngine('exam_pacing');
+                                    }}
+                                />
+                            ) : activeEngine === "speed_accuracy" ? (
+                                <React.Suspense fallback={LazyTabFallback}>
+                                    <SpeedAccuracyChart
+                                        categories={categories}
+                                        simuladoRows={simuladoRowsArray}
+                                        showOnlyFocus={showOnlyFocus}
+                                        focusSubjectId={focusSubjectId}
+                                        timeWindow={timeWindow}
+                                        targetScore={showOnlyFocus ? focusTarget : targetScore}
+                                        minScore={showOnlyFocus ? focusMin : minScore}
+                                        maxScore={showOnlyFocus ? focusMax : maxScore}
+                                        examDurationMinutes={examDurationMinutes}
+                                        examTotalQuestions={examTotalQuestions}
+                                    />
+                                </React.Suspense>
+                            ) : activeEngine === "exam_pacing" ? (
+                                <React.Suspense fallback={LazyTabFallback}>
+                                    <ExamPacingChart
+                                        categories={categories}
+                                        mcWeights={mcWeights}
+                                        timeWindow={timeWindow}
+                                        examDurationMinutes={examDurationMinutes}
+                                        examTotalQuestions={examTotalQuestions}
+                                    />
+                                </React.Suspense>
+                            ) : activeEngine === "consistency_boxplot" ? (
+                                <React.Suspense fallback={LazyTabFallback}>
+                                    <ConsistencyBoxPlotChart
+                                        categories={categories}
+                                        showOnlyFocus={showOnlyFocus}
+                                        focusSubjectId={focusSubjectId}
+                                        timeWindow={timeWindow}
+                                        targetScore={showOnlyFocus ? focusTarget : targetScore}
+                                        minScore={showOnlyFocus ? focusMin : minScore}
+                                        maxScore={showOnlyFocus ? focusMax : maxScore}
+                                        unit={resolvedActiveUnit}
+                                    />
+                                </React.Suspense>
+                            ) : activeEngine === "projection_fan" ? (
+                                <React.Suspense fallback={LazyTabFallback}>
+                                    <ProjectionFanChart
+                                        focusCategory={showOnlyFocus ? (focusCategory || null) : null}
+                                        timeline={timeline}
+                                        timeWindow={timeWindow}
+                                        projectDays={projectDays}
+                                        historicalCutoffs={showOnlyFocus ? focusHistoricalCutoffs : historicalCutoffs}
+                                        targetScore={showOnlyFocus ? focusTarget : targetScore}
+                                        minScore={showOnlyFocus ? focusMin : minScore}
+                                        maxScore={showOnlyFocus ? focusMax : maxScore}
+                                        unit={resolvedActiveUnit}
+                                        activeMcResult={showOnlyFocus ? activeMcResult : null}
+                                    />
+                                </React.Suspense>
+                            ) : activeEngine === "kalman_latent" ? (
+                                <React.Suspense fallback={LazyTabFallback}>
+                                    <KalmanLatentChart
+                                        focusCategory={showOnlyFocus ? (focusCategory || null) : null}
+                                        timeline={timeline}
+                                        timeWindow={timeWindow}
+                                        targetScore={showOnlyFocus ? focusTarget : targetScore}
+                                        minScore={showOnlyFocus ? focusMin : minScore}
+                                        maxScore={showOnlyFocus ? focusMax : maxScore}
+                                        unit={resolvedActiveUnit}
+                                    />
+                                </React.Suspense>
+                            ) : activeEngine === "tornado_whatif" ? (
+                                <React.Suspense fallback={LazyTabFallback}>
+                                    <TornadoWhatIfChart
+                                        categories={categories}
+                                        mcWeights={mcWeights}
+                                        simuladoRows={simuladoRowsArray}
+                                        targetScore={targetScore}
+                                        minScore={minScore}
+                                        maxScore={maxScore}
+                                        unit={resolvedGlobalUnit}
+                                        historicalCutoffs={historicalCutoffs}
+                                        examGroupCutoffs={examGroupCutoffs}
+                                        onSaveGroupCutoffs={(nextCutoffs) => {
+                                            const patchData = useAppStore.getState?.()?.patchData;
+                                            if (typeof patchData === 'function') {
+                                                patchData(() => ({ examGroupCutoffs: nextCutoffs || {} }));
+                                            }
+                                        }}
+                                    />
+                                </React.Suspense>
+                            ) : activeEngine === "correlation_regimes" ? (
+                                <React.Suspense fallback={LazyTabFallback}>
+                                    <CorrelationRegimeChart
+                                        categories={categories}
+                                        studyLogs={studyLogsArray}
+                                        simuladoRows={simuladoRowsArray}
+                                        targetScore={targetScore}
+                                        minScore={minScore}
+                                        maxScore={maxScore}
+                                        unit={resolvedGlobalUnit}
+                                        focusSubjectId={focusSubjectId}
+                                        timeWindow={timeWindow}
+                                    />
+                                </React.Suspense>
+                            ) : activeEngine === "irt_psychometric" ? (
+                                <React.Suspense fallback={LazyTabFallback}>
+                                    <IRTPsychometricChart
+                                        categories={categories}
+                                        simuladoRows={simuladoRowsArray}
+                                        focusCategory={focusCategory}
+                                        showOnlyFocus={showOnlyFocus}
+                                        timeWindow={timeWindow}
+                                        targetScore={showOnlyFocus ? focusTarget : targetScore}
+                                        minScore={showOnlyFocus ? focusMin : minScore}
+                                        maxScore={showOnlyFocus ? focusMax : maxScore}
+                                        examBoard={examBoard}
+                                        penaltyPerWrong={penaltyPerWrong}
+                                    />
+                                </React.Suspense>
+                            ) : activeEngine === "metacognition_fatigue" ? (
+                                <React.Suspense fallback={LazyTabFallback}>
+                                    <MetacognitionFatigueChart
+                                        simuladoRows={simuladoRowsArray}
+                                        focusCategory={focusCategory}
+                                        showOnlyFocus={showOnlyFocus}
+                                        timeWindow={timeWindow}
+                                        targetScore={showOnlyFocus ? focusTarget : targetScore}
+                                        minScore={showOnlyFocus ? focusMin : minScore}
+                                        maxScore={showOnlyFocus ? focusMax : maxScore}
+                                    />
+                                </React.Suspense>
+                            ) : activeEngine === "mc_density" ? (
+                                <MonteCarloEvolutionChart
+                                    data={effectiveMcHistoryData}
+                                    targetScore={effectiveMcHistoryData?.[0]?.__fromFocus ? focusTarget : targetScore}
+                                    unit={effectiveMcHistoryData?.[0]?.__fromFocus ? resolvedFocusUnit : resolvedGlobalUnit}
+                                    minScore={effectiveMcHistoryData?.[0]?.__fromFocus ? focusMin : minScore}
+                                    maxScore={effectiveMcHistoryData?.[0]?.__fromFocus ? focusMax : maxScore}
+                                    loading={mcLoading}
+                                />
+                            ) : activeEngine === "weekly_diff" ? (
+                                <WeeklyEvolutionView
+                                    categories={categories}
+                                    studyLogs={studyLogsArray}
+                                    showOnlyFocus={showOnlyFocus}
+                                    focusSubjectId={focusSubjectId}
+                                    timeWindow={timeWindow}
+                                    targetScore={showOnlyFocus ? focusTarget : targetScore}
+                                    maxScore={maxScore}
+                                    minScore={minScore}
+                                    unit={resolvedActiveUnit}
+                                />
+                            ) : activeEngine === "today_vs_general" ? (
+                                <TodayVsGeneralChart
+                                    activeCategories={activeCategories}
+                                    focusCategory={showOnlyFocus ? focusCategory : null}
+                                    globalMetrics={safeGlobalMetrics}
+                                    targetScore={targetScore}
+                                    timeWindow={timeWindow}
+                                    maxScore={maxScore}
+                                    minScore={minScore}   // ✅ LOTE-01
+                                    unit={resolvedActiveUnit}
+                                    simuladoRows={simuladoRowsArray}
+                                />
+                            ) : !accountHasData ? (
+                                <div className="min-h-[340px] flex flex-col items-center justify-center gap-4 rounded-2xl border border-white/[0.06] bg-slate-950/50 p-8">
+                                    <div className="w-14 h-14 rounded-2xl bg-indigo-500/12 border border-indigo-400/25 flex items-center justify-center text-indigo-300">
+                                        <Flame size={26} />
+                                    </div>
+                                    <div className="text-center">
+                                        <p className="text-slate-200 font-bold text-base mb-1">Dados insuficientes para exibir o gráfico</p>
+                                        <p className="text-slate-400 text-xs mt-1">Cadastre pelo menos <span className="text-indigo-300 font-bold">1 simulado</span> na sua conta para desbloquear os gráficos.</p>
+                                    </div>
+                                </div>
+                            ) : !filterHasData ? (
+                                <div className="min-h-[340px] flex flex-col items-center justify-center gap-4 rounded-2xl border border-white/[0.06] bg-slate-950/50 p-8">
+                                    <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-center text-amber-400">
+                                        <Calendar size={26} />
+                                    </div>
+                                    <div className="text-center">
+                                        <p className="text-slate-200 font-bold text-base mb-1">Nenhuma atividade recente</p>
+                                        <p className="text-slate-400 text-xs mt-1">Você não cadastrou simulados nos últimos <span className="text-amber-400 font-bold">{timeWindow} dias</span>.</p>
+                                        <button
+                                            type="button"
+                                            onClick={() => setTimeWindow("all")}
+                                            className="mt-5 px-5 py-2 bg-indigo-500/15 text-indigo-200 border border-indigo-400/35 rounded-xl font-bold text-xs hover:bg-indigo-500/25 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 active:scale-95"
+                                        >
+                                            Ver todo o histórico
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : activeEngine === "compare" ? (
+                                <div className="w-full overflow-x-auto no-scrollbar pb-1">
+                                    <div className="min-w-[540px] lg:min-w-full relative">
+                                        {mcLoading && (
+                                            <div className="absolute inset-0 z-20 bg-slate-950/45 backdrop-blur-[1px] flex items-center justify-center rounded-2xl transition-all duration-300">
+                                                <div className="flex flex-col items-center gap-2.5">
+                                                    <Loader2 size={28} className="animate-spin text-indigo-400" />
+                                                    <span className="text-[11px] font-bold uppercase text-indigo-300 tracking-wider animate-pulse">Sincronizando Monte Carlo...</span>
+                                                </div>
+                                            </div>
+                                        )}
+                                        <CompareChart
+                                            filteredChartData={filteredChartData}
+                                            targetScore={focusTarget}
+                                            minScore={focusMin}
+                                            maxScore={focusMax}
+                                            unit={resolvedFocusUnit}
+                                        />
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="w-full overflow-x-auto no-scrollbar pb-1">
+                                    <div className="min-w-[540px] lg:min-w-full relative">
+                                        <EvolutionLineChart
+                                            filteredChartData={filteredChartData}
+                                            activeCategories={activeCategories}
+                                            engine={engine}
+                                            targetScore={showOnlyFocus ? focusTarget : targetScore}
+                                            focusSubjectId={focusSubjectId}
+                                            showOnlyFocus={showOnlyFocus}
+                                            minScore={showOnlyFocus ? focusMin : minScore}
+                                            maxScore={showOnlyFocus ? focusMax : maxScore}
+                                            unit={resolvedActiveUnit}
+                                        />
                                     </div>
                                 </div>
                             )}
-                            <CompareChart
-                                filteredChartData={filteredChartData}
-                                targetScore={focusTarget}
-                                minScore={focusMin}
-                                maxScore={focusMax}
-                                unit={resolvedFocusUnit}
-                            />
-                        </div>
-                    </div>
-                ) : (
-                    <div className="w-full overflow-x-auto no-scrollbar pb-1">
-                        <div className="min-w-[540px] lg:min-w-full relative">
-                            <EvolutionLineChart
-                                filteredChartData={filteredChartData}
-                                activeCategories={activeCategories}
-                                engine={engine}
-                                targetScore={showOnlyFocus ? focusTarget : targetScore}
-                                focusSubjectId={focusSubjectId}
-                                showOnlyFocus={showOnlyFocus}
-                                minScore={showOnlyFocus ? focusMin : minScore}
-                                maxScore={showOnlyFocus ? focusMax : maxScore}
-                                unit={resolvedActiveUnit}
-                            />
-                        </div>
-                    </div>
-                )}
                         </div>
                     </div>
                 </div>
@@ -2820,9 +2815,9 @@ export default React.memo(function EvolutionChart({
                 </div>
             )}
 
-            </motion.div> {/* Fim do bloco Análises Secundárias */}
+        </motion.div> {/* Fim do bloco Análises Secundárias */}
 
-            <div className="relative z-0">
+        <div className="relative z-0">
             {(() => {
                 const typeColors = {
                     success: {
@@ -2977,70 +2972,70 @@ export default React.memo(function EvolutionChart({
                     </div>
                 );
             })()}
+        </div>
+
+        <div className="pt-6 border-t border-white/[0.07] space-y-5">
+            <div className="flex flex-wrap items-center justify-between gap-3 px-1">
+                <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-xl bg-indigo-500/15 text-indigo-300 border border-indigo-400/30">
+                        <BarChart3 size={18} />
+                    </div>
+                    <div>
+                        <h3 className="text-base sm:text-lg font-black text-white tracking-tight">Galeria de Análises Detalhadas</h3>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                            Raio-X por matéria, balanço de volume vs. precisão e matriz de criticidade
+                        </p>
+                    </div>
+                </div>
+                <button
+                    type="button"
+                    onClick={() => setShowDetailedGallery((prev) => !prev)}
+                    aria-expanded={showDetailedGallery}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-white/[0.09] bg-slate-900/75 hover:bg-slate-800/85 text-xs font-bold text-slate-200 transition-colors shrink-0"
+                >
+                    {showDetailedGallery ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                    <span>{showDetailedGallery ? 'Recolher' : 'Expandir'}</span>
+                </button>
             </div>
 
-            <div className="pt-6 border-t border-white/[0.07] space-y-5">
-                <div className="flex flex-wrap items-center justify-between gap-3 px-1">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-xl bg-indigo-500/15 text-indigo-300 border border-indigo-400/30">
-                            <BarChart3 size={18} />
-                        </div>
-                        <div>
-                            <h3 className="text-base sm:text-lg font-black text-white tracking-tight">Galeria de Análises Detalhadas</h3>
-                            <p className="text-xs text-slate-400 mt-0.5">
-                                Raio-X por matéria, balanço de volume vs. precisão e matriz de criticidade
-                            </p>
-                        </div>
-                    </div>
-                    <button
-                        type="button"
-                        onClick={() => setShowDetailedGallery((prev) => !prev)}
-                        aria-expanded={showDetailedGallery}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-white/[0.09] bg-slate-900/75 hover:bg-slate-800/85 text-xs font-bold text-slate-200 transition-colors shrink-0"
-                    >
-                        {showDetailedGallery ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                        <span>{showDetailedGallery ? 'Recolher' : 'Expandir'}</span>
-                    </button>
-                </div>
-
-                {showDetailedGallery && (
-                    <div className="space-y-5">
-                        {/* Grid 1: Radar (Equilíbrio) + PerformanceBar (Volume vs Acertos) */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-stretch">
-                            <RadarAnalysis
-                                radarData={radarData}
-                                maxScore={maxScore}
-                                minScore={minScore}
-                                unit={resolvedGlobalUnit}
-                                isFocusFiltered={Boolean(showOnlyFocus && activeCategories.length >= 3)}
-                                timeWindow={timeWindow}
-                            />
-                            <PerformanceBarChart
-                                subjectAggData={subjectAggData}
-                                showOnlyFocus={showOnlyFocus}
-                                focusCategory={focusCategory}
-                                targetScore={showOnlyFocus ? focusTarget : targetScore}
-                                unit={resolvedActiveUnit}
-                                maxScore={showOnlyFocus ? focusMax : maxScore}
-                                minScore={showOnlyFocus ? focusMin : minScore}
-                            />
-                        </div>
-
-                        {/* Grid 2: Matérias e Assuntos Críticos */}
-                        <CriticalTopicsAnalysis
-                            categories={categories}
+            {showDetailedGallery && (
+                <div className="space-y-5">
+                    {/* Grid 1: Radar (Equilíbrio) + PerformanceBar (Volume vs Acertos) */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-stretch">
+                        <RadarAnalysis
+                            radarData={radarData}
+                            maxScore={maxScore}
+                            minScore={minScore}
+                            unit={resolvedGlobalUnit}
+                            isFocusFiltered={Boolean(showOnlyFocus && activeCategories.length >= 3)}
+                            timeWindow={timeWindow}
+                        />
+                        <PerformanceBarChart
+                            subjectAggData={subjectAggData}
+                            showOnlyFocus={showOnlyFocus}
+                            focusCategory={focusCategory}
+                            targetScore={showOnlyFocus ? focusTarget : targetScore}
+                            unit={resolvedActiveUnit}
                             maxScore={showOnlyFocus ? focusMax : maxScore}
                             minScore={showOnlyFocus ? focusMin : minScore}
-                            targetScore={showOnlyFocus ? focusTarget : targetScore}
-                            showOnlyFocus={showOnlyFocus}
-                            focusSubjectId={focusCategory?.id || focusSubjectId}
-                            timeWindow={timeWindow}
-                            onGoToSimulados={() => navigate('/simulados')}
                         />
                     </div>
-                )}
-            </div>
-        </motion.div>
-    );
+
+                    {/* Grid 2: Matérias e Assuntos Críticos */}
+                    <CriticalTopicsAnalysis
+                        categories={categories}
+                        maxScore={showOnlyFocus ? focusMax : maxScore}
+                        minScore={showOnlyFocus ? focusMin : minScore}
+                        targetScore={showOnlyFocus ? focusTarget : targetScore}
+                        showOnlyFocus={showOnlyFocus}
+                        focusSubjectId={focusCategory?.id || focusSubjectId}
+                        timeWindow={timeWindow}
+                        onGoToSimulados={() => navigate('/simulados')}
+                    />
+                </div>
+            )}
+        </div>
+    </motion.div>
+);
 });
 

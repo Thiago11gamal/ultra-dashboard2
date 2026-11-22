@@ -11,7 +11,7 @@ const hasValidNumber = (v) =>
 const normalizeStoredFallback = (rawVal, safeMin, safeMax, safeRange) => {
     const n = Number(rawVal);
     if (!Number.isFinite(n)) return null;
-    const isLegacyPct = n >= 0 && n <= 100 && (n < safeMin || (safeMax > 100 && safeRange >= 200));
+    const isLegacyPct = n >= 0 && n <= 100 && n < safeMin;
     return isLegacyPct ? safeMin + (n / 100) * safeRange : n;
 };
 
@@ -225,11 +225,10 @@ export const DisciplinaCard = React.memo(function DisciplinaCard({
             onClick={handleClick}
             aria-pressed={isFocused}
             aria-label={`Focar na disciplina ${cat.name}`}
-            className={`relative text-left w-full h-full rounded-2xl border overflow-hidden transition-all duration-200 group flex flex-col justify-between px-3.5 py-3.5 backdrop-blur-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 ${
-                isFocused
+            className={`relative text-left w-full h-full rounded-2xl border overflow-hidden transition-all duration-200 group flex flex-col justify-between px-3.5 py-3.5 backdrop-blur-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 ${isFocused
                     ? 'z-20 border-white/25 bg-slate-900/90 -translate-y-0.5'
                     : 'border-white/[0.08] bg-slate-900/60 hover:border-white/[0.16] hover:bg-slate-800/70'
-            }`}
+                }`}
             style={{
                 backgroundColor: isFocused ? hexToRgba(cat.color, 0.14, '#6366f1') : 'rgba(15,23,42,0.65)',
                 borderColor: isFocused ? hexToRgba(cat.color, 0.55, '#6366f1') : undefined,
@@ -303,13 +302,12 @@ export const DisciplinaCard = React.memo(function DisciplinaCard({
                         )}
                         {recentDelta !== null && (
                             <span
-                                className={`inline-flex items-center gap-0.5 text-[10px] font-mono font-bold tabular-nums ${
-                                    recentDelta > deltaThreshold
+                                className={`inline-flex items-center gap-0.5 text-[10px] font-mono font-bold tabular-nums ${recentDelta > deltaThreshold
                                         ? 'text-emerald-400'
                                         : recentDelta < -deltaThreshold
                                             ? 'text-rose-400'
                                             : 'text-slate-400'
-                                }`}
+                                    }`}
                                 title="Variação recente do domínio na janela"
                             >
                                 {recentDelta > deltaThreshold ? (
