@@ -602,7 +602,7 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
                     currentLabel={todayAcc != null ? 'Hoje' : 'Último dia'}
                     currentValue={`${safeFix(focusAccuracy)}${unit}`}
                     targetLabel="Meta"
-                    targetValue={`${safeFix(effectiveTargetScore)}${unit}`}
+                    targetValue={`${formatValue(effectiveTargetScore)}${unit}`}
                     gapLabel={deltaMetaAbs < 0.05 ? 'Na meta ✓' : (deltaMeta > 0 ? `+${safeFix(deltaMetaAbs)}${gapUnit} acima` : `Faltam ${safeFix(deltaMetaAbs)}${gapUnit}`)}
                     status={deltaMeta >= -0.05 ? 'success' : deltaMeta >= -(safeRange * 0.1) ? 'warning' : 'danger'}
                     progressPct={metaProgressPct}
