@@ -1139,7 +1139,6 @@ export default React.memo(function EvolutionChart({
         let synthC = 0;
         for (const item of (subjectAggData || [])) {
             realQ += Number(item?.realQuestoes ?? item?.questoes) || 0;
-            realC += Number(item?.realAcertos ?? item?.acertos) || 0;
             realC += Number(item?.realAcertosExact ?? item?.realAcertos ?? item?.acertos) || 0;
             synthQ += Number(item?.syntheticQuestoes) || 0;
             synthC += Number(item?.syntheticAcertosExact ?? item?.syntheticAcertos) || 0;
@@ -1479,7 +1478,6 @@ export default React.memo(function EvolutionChart({
             if (timeWindow !== 'all') {
                 const aggItem = aggById.get(cat.id);
                 const realQ = Number(aggItem?.realQuestoes) || 0;
-                const realC = Number(aggItem?.realAcertos) || 0;
                 const realC = Number(aggItem?.realAcertosExact ?? aggItem?.realAcertos) || 0;
                 const synthQ = Number(aggItem?.syntheticQuestoes) || 0;
                 const synthC = Number(aggItem?.syntheticAcertosExact ?? aggItem?.syntheticAcertos) || 0;
@@ -1508,8 +1506,7 @@ export default React.memo(function EvolutionChart({
                 meta
             };
         });
-    }, [activeCategories, categories, showOnlyFocus, focusCategory?.id, timeWindow, subjectAggData, targetScore, categoryLevels, minScore, maxScore]);
-}, [activeCategories, showOnlyFocus, focusCategory?.id, timeWindow, subjectAggData, targetScore, categoryLevels, minScore, maxScore]);
+    }, [activeCategories, showOnlyFocus, focusCategory?.id, timeWindow, subjectAggData, targetScore, categoryLevels, minScore, maxScore]);
 
 const focusHistoricalCutoffs = useMemo(() => {
     if (!Array.isArray(historicalCutoffs) || historicalCutoffs.length === 0) return EMPTY_ARRAY;
