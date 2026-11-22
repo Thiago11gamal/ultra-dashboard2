@@ -42,7 +42,7 @@ const MonteCarloTooltip = React.memo(({ active, payload, unit, targetScore, maxS
                             <span className={`text-3xl font-black font-mono tracking-tight leading-none ${isGood ? 'text-emerald-400' : 'text-sky-400'}`}>
                                 {unit === 'horas' ? formatDuration(projMean) : formatValue(projMean)}
                             </span>
-                            <span className="text-sm font-semibold text-slate-500">{unit}</span>
+                            {unit !== 'horas' && <span className="text-sm font-semibold text-slate-500">{unit}</span>}
                         </div>
                         {isGood && (
                             <span className="text-[9px] text-emerald-400 font-bold uppercase tracking-widest mt-1.5 flex items-center gap-1">
@@ -261,7 +261,7 @@ export const MonteCarloEvolutionChart = React.memo(({
                         <h3 className="text-sm font-black text-slate-100 tracking-tight">Rastreador de Aprovação</h3>
                         {mcAssumptions && (
                             <p className="text-[11px] text-slate-400 font-medium">
-                                {mcAssumptions.points} registros · IC 95% de {formatValue(mcAssumptions.ciWidth)} {unit} · Cenário {mcAssumptions.scenario}
+                                {mcAssumptions.points} registros · IC 95% de {formatValue(mcAssumptions.ciWidth)}{unit === '%' ? ' pp' : ` ${unit}`} · Cenário {mcAssumptions.scenario}
                             </p>
                         )}
                     </div>
@@ -426,11 +426,11 @@ export const MonteCarloEvolutionChart = React.memo(({
                 <div className="flex flex-wrap items-center gap-3">
                     <span className="inline-flex items-center gap-1.5">
                         <span className="w-3 h-0.5 rounded-full bg-sky-400 inline-block" />
-                        <strong className="text-slate-200 font-semibold">Passado</strong> (média real)
+                        <strong className="text-slate-200 font-semibold">Nível na data</strong> (esperado)
                     </span>
                     <span className="inline-flex items-center gap-1.5">
                         <span className="w-3 border-t-2 border-dashed border-purple-400 inline-block" />
-                        <strong className="text-slate-200 font-semibold">Futuro</strong> (projeção MC)
+                        <strong className="text-slate-200 font-semibold">Projeção p/ prova</strong> (MC)
                     </span>
                     <span className="inline-flex items-center gap-1.5">
                         <span className="w-3 h-2 rounded-sm bg-emerald-500/25 border border-emerald-400/50 inline-block" />

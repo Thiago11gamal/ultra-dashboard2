@@ -221,11 +221,16 @@ export const ExamPacingChart = React.memo(function ExamPacingChart({
                 );
               })}
               {/* Linha do tempo limite da prova */}
-              <div
-                className="absolute top-0 bottom-0 w-0.5 bg-white shadow-[0_0_8px_#fff]"
-                style={{ left: `${Math.min(100, (data.examDurationMinutes / barScaleMax) * 100)}%` }}
-                title={`Limite da prova: ${data.examDurationMinutes} min`}
-              />
+              {(() => {
+                const limitPct = Math.min(100, (data.examDurationMinutes / barScaleMax) * 100);
+                return (
+                  <div
+                    className="absolute top-0 bottom-0 w-0.5 bg-white shadow-[0_0_8px_#fff]"
+                    style={{ left: limitPct >= 99.5 ? 'calc(100% - 2px)' : `${limitPct}%` }}
+                    title={`Limite da prova: ${data.examDurationMinutes} min`}
+                  />
+                );
+              })()}
             </div>
           </div>
 

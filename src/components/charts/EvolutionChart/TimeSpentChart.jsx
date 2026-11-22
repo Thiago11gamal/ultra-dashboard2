@@ -131,11 +131,11 @@ const HalfMoonGauge = React.memo(function HalfMoonGauge({ data, referenceMaxSeco
                                 title="Tendência dos últimos 7 dias vs média geral"
                             >
                                 {deltaState === 'slower' ? (
-                                    <><TrendingUp size={10} /> +{data.deltaSeconds}s</>
+                                    <><TrendingUp size={10} /> 7d +{data.deltaSeconds}s</>
                                 ) : deltaState === 'faster' ? (
-                                    <><TrendingDown size={10} /> {data.deltaSeconds}s</>
+                                    <><TrendingDown size={10} /> 7d {data.deltaSeconds}s</>
                                 ) : (
-                                    <><Minus size={10} /> Estável</>
+                                    <><Minus size={10} /> 7d estável</>
                                 )}
                             </span>
                         )}
@@ -522,10 +522,11 @@ export const TimeSpentChart = React.memo(function TimeSpentChart({
                 const refBaseline = Number(item.displaySeconds ?? item.avgSeconds) || 0;
                 const margin = Math.max(1, Math.round(refBaseline * 0.05));
                 if (lastSessionSec > refBaseline + margin) acc.above += 1;
-                if (lastSessionSec < refBaseline - margin) acc.below += 1;
+                else if (lastSessionSec < refBaseline - margin) acc.below += 1;
+                else acc.stable += 1;
             }
             return acc;
-        }, { avgWeighted: 0, avgWeight: 0, latest: 0, above: 0, below: 0, latestCount: 0 });
+        }, { avgWeighted: 0, avgWeight: 0, latest: 0, above: 0, below: 0, stable: 0, latestCount: 0 });
     }, [chartData]);
 
     const legendAvgSeconds = legendStats.avgWeight > 0
@@ -541,9 +542,10 @@ export const TimeSpentChart = React.memo(function TimeSpentChart({
         return Math.max(30, ...chartData.map((d) => Math.max(d.displaySeconds || 0, d.visualLatestSeconds || 0)));
     }, [chartData]);
 
-    const totalPaceMeasured = legendStats.above + legendStats.below;
+    const totalPaceMeasured = legendStats.latestCount;
     const fastSharePct = totalPaceMeasured > 0 ? Math.round((legendStats.below / totalPaceMeasured) * 100) : 0;
-    const slowSharePct = totalPaceMeasured > 0 ? 100 - fastSharePct : 0;
+    const slowSharePct = totalPaceMeasured > 0 ? Math.round((legendStats.above / totalPaceMeasured) * 100) : 0;
+    const stableSharePct = totalPaceMeasured > 0 ? Math.max(0, 100 - fastSharePct - slowSharePct) : 0;
 
     if (chartData.length === 0) {
         return (
@@ -583,8 +585,12 @@ export const TimeSpentChart = React.memo(function TimeSpentChart({
                             <span className="h-2 w-2 rounded-sm bg-cyan-400/50" />
                             Média 7d
                         </span>
-                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-slate-900/80 border border-white/[0.06]" title="Média no último dia estudado">
-                            <span className="h-2 w-2 rounded-sm bg-emerald-400" />
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-slate-900/80 border border-white/[0.06]" title="Média no último dia estudado (verde = mais rápido, amarelo = estável, vermelho = mais lento)">
+                            <span className="inline-flex items-center gap-0.5">
+                                <span className="h-2 w-1.5 rounded-sm bg-emerald-400" />
+                                <span className="h-2 w-1.5 rounded-sm bg-amber-400" />
+                                <span className="h-2 w-1.5 rounded-sm bg-rose-400" />
+                            </span>
                             Média do dia
                         </span>
                         <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-slate-900/80 border border-white/[0.06]" title="Média exata da última sessão">
@@ -678,7 +684,7 @@ export const TimeSpentChart = React.memo(function TimeSpentChart({
                 </div>
             </div>
 
-            {/* Balance Split Bar (when there are subjects deviating from average) */}
+            {/* Balance Split Bar across all measured subjects (fast / stable / slow) */}
             {totalPaceMeasured > 0 && (
                 <div className="px-3.5 py-2.5 rounded-xl bg-slate-950/45 border border-white/[0.06] flex flex-col sm:flex-row sm:items-center gap-2.5">
                     <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider shrink-0">
@@ -691,6 +697,12 @@ export const TimeSpentChart = React.memo(function TimeSpentChart({
                                 style={{ width: `${fastSharePct}%` }}
                             />
                         )}
+                        {stableSharePct > 0 && (
+                            <div
+                                className="h-full bg-amber-400/80 transition-all duration-500"
+                                style={{ width: `${stableSharePct}%` }}
+                            />
+                        )}
                         {slowSharePct > 0 && (
                             <div
                                 className="h-full bg-gradient-to-r from-rose-500 to-orange-400 transition-all duration-500"
@@ -698,8 +710,11 @@ export const TimeSpentChart = React.memo(function TimeSpentChart({
                             />
                         )}
                     </div>
-                    <div className="flex items-center gap-3 text-[11px] font-mono tabular-nums shrink-0">
+                    <div className="flex flex-wrap items-center gap-3 text-[11px] font-mono tabular-nums shrink-0">
                         <span className="text-emerald-400 font-bold">{fastSharePct}% rápidas</span>
+                        {stableSharePct > 0 && (
+                            <span className="text-amber-300 font-bold">{stableSharePct}% estáveis</span>
+                        )}
                         <span className="text-rose-400 font-bold">{slowSharePct}% lentas</span>
                     </div>
                 </div>

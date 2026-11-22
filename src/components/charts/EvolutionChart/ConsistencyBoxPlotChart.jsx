@@ -96,7 +96,7 @@ export const ConsistencyBoxPlotChart = React.memo(function ConsistencyBoxPlotCha
           )}
         </div>
         <span className="text-[10px] text-slate-500">
-          Estável: IQR ≤ 10% · Moderada: 10–18% · Volátil: &gt; 18% · Clique para fixar detalhes
+          Estável: IQR ≤ {formatValue(domainRange * 0.1)}{unit === '%' ? ' pp' : ` ${unit}`} · Moderada: até {formatValue(domainRange * 0.18)}{unit === '%' ? ' pp' : ` ${unit}`} · Volátil: &gt; {formatValue(domainRange * 0.18)}{unit === '%' ? ' pp' : ` ${unit}`} · Clique para fixar detalhes
         </span>
       </div>
 
@@ -188,15 +188,21 @@ export const ConsistencyBoxPlotChart = React.memo(function ConsistencyBoxPlotCha
                   />
 
                   {/* Caixa IQR (Q1 a Q3) */}
-                  <div
-                    className="absolute top-1/2 -translate-y-1/2 h-5 rounded-md border"
-                    style={{
-                      left: `${q1P}%`,
-                      width: `${Math.max(1.5, q3P - q1P)}%`,
-                      backgroundColor: `${row.color}38`,
-                      borderColor: row.color,
-                    }}
-                  />
+                  {(() => {
+                    const boxW = Math.max(1.5, q3P - q1P);
+                    const boxLeft = Math.max(0, Math.min(100 - boxW, q1P));
+                    return (
+                      <div
+                        className="absolute top-1/2 -translate-y-1/2 h-5 rounded-md border"
+                        style={{
+                          left: `${boxLeft}%`,
+                          width: `${boxW}%`,
+                          backgroundColor: `${row.color}38`,
+                          borderColor: row.color,
+                        }}
+                      />
+                    );
+                  })()}
 
                   {/* Mediana */}
                   <div

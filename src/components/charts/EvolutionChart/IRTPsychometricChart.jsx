@@ -332,20 +332,26 @@ export const IRTPsychometricChart = React.memo(function IRTPsychometricChart({
               </div>
             </ChartFrame>
 
-            <ChartFrame minHeight={240} label="Comparando acerto por dificuldade">
-              <div className="h-[240px] w-full" role="img" aria-label="Acerto observado versus previsto por nível de dificuldade">
-                <ResponsiveContainer width="100%" height="100%" minHeight={210} minWidth={1}>
-                  <ComposedChart data={irt.tierBreakdown} margin={{ top: 16, right: 16, left: 0, bottom: 10 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
-                    <XAxis dataKey="label" stroke="#94a3b8" fontSize={11} />
-                    <YAxis domain={[0, 100]} stroke="#64748b" fontSize={10} tickFormatter={(v) => `${v}%`} />
-                    <Tooltip content={<TierTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
-                    <Bar dataKey="observedPct" name="Acerto Real (%)" fill="#38bdf8" radius={[6, 6, 0, 0]} barSize={28} />
-                    <Line type="monotone" dataKey="predictedPct" name="Previsto TRI (%)" stroke="#a78bfa" strokeWidth={2.5} dot={{ r: 4 }} />
-                  </ComposedChart>
-                </ResponsiveContainer>
+            <div className="flex flex-col gap-1.5">
+              <div className="flex flex-wrap items-center justify-end gap-3 px-1 text-[10px] text-slate-400">
+                <span className="inline-flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-sky-400 inline-block" />Acerto Real (%)</span>
+                <span className="inline-flex items-center gap-1.5"><span className="w-3 h-0.5 bg-violet-400 inline-block" />Previsto TRI (%)</span>
               </div>
-            </ChartFrame>
+              <ChartFrame minHeight={240} label="Comparando acerto por dificuldade">
+                <div className="h-[240px] w-full" role="img" aria-label="Acerto observado versus previsto por nível de dificuldade">
+                  <ResponsiveContainer width="100%" height="100%" minHeight={210} minWidth={1}>
+                    <ComposedChart data={irt.tierBreakdown} margin={{ top: 16, right: 16, left: 0, bottom: 10 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
+                      <XAxis dataKey="label" stroke="#94a3b8" fontSize={11} />
+                      <YAxis domain={[0, 100]} stroke="#64748b" fontSize={10} tickFormatter={(v) => `${v}%`} />
+                      <Tooltip content={<TierTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+                      <Bar dataKey="observedPct" name="Acerto Real (%)" fill="#38bdf8" radius={[6, 6, 0, 0]} barSize={28} />
+                      <Line type="monotone" dataKey="predictedPct" name="Previsto TRI (%)" stroke="#a78bfa" strokeWidth={2.5} dot={{ r: 4 }} />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </div>
+              </ChartFrame>
+            </div>
           </div>
         )}
       </div>

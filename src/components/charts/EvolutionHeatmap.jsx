@@ -123,7 +123,7 @@ const HeatmapGrid = React.memo(function HeatmapGrid({
                                             }}
                                             onMouseEnter={(e) => {
                                                 if (!hasData) return;
-                                                onCellHover(e, cell, col, dateObj);
+                                                onCellHover(e, cell, col, dateObj, rowTargetPct);
                                             }}
                                             onMouseLeave={onCellLeave}
                                         >
@@ -429,7 +429,7 @@ export const EvolutionHeatmap = React.memo(({
         };
     }, [maxCellTotal, targetScorePct]);
 
-    const handleCellHover = useCallback((e, cell, col, date) => {
+    const handleCellHover = useCallback((e, cell, col, date, rowTargetPct = null) => {
         const rect = e.currentTarget.getBoundingClientRect();
         const isAbove = rect.top > 160;
         const centerX = rect.left + rect.width / 2;
@@ -441,6 +441,7 @@ export const EvolutionHeatmap = React.memo(({
             cell,
             col,
             date,
+            rowTargetPct,
         });
     }, []);
 
@@ -578,6 +579,11 @@ export const EvolutionHeatmap = React.memo(({
                             <span className="font-black px-1.5 py-0.5 rounded-md bg-black" style={{ color: hoveredCell.col?.text || '#4ade80' }}>{Math.round(hoveredCell.cell?.realCorrect ?? hoveredCell.cell?.correct ?? 0)}</span>
                             <span className="text-slate-500 font-bold">/</span>
                             <span className="font-bold">{Math.round(hoveredCell.cell?.realTotal ?? hoveredCell.cell?.total ?? 0)} <small className="text-[8px] text-slate-400">Q</small></span>
+                        </div>
+                    )}
+                    {Number.isFinite(Number(hoveredCell.rowTargetPct)) && Math.abs(Number(hoveredCell.rowTargetPct) - targetScorePct) > 0.5 && (
+                        <div className="mt-1 text-[8px] text-amber-300/90 font-bold uppercase tracking-wider">
+                            Meta da matéria: {Math.round(Number(hoveredCell.rowTargetPct))}%
                         </div>
                     )}
                     <div className="mt-1 text-[8px] text-slate-500 font-black uppercase tracking-tighter">

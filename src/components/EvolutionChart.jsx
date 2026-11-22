@@ -1240,21 +1240,35 @@ export default React.memo(function EvolutionChart({
 
     const sparklineByCat = useMemo(() => {
         const map = {};
-        if (!Array.isArray(filteredHistoricalData) || filteredHistoricalData.length < 2) return map;
+        const source = Array.isArray(historicalData.result) ? historicalData.result : [];
+        if (source.length < 2) return map;
         activeCategories.forEach((cat) => {
             const id = cat.id;
-            const series = [];
-            for (let i = 0; i < filteredHistoricalData.length; i++) {
-                const pt = filteredHistoricalData[i];
-                const v = pt?.[`bay_${id}`] ?? pt?.[`raw_${id}`] ?? pt?.[`stats_${id}`];
-                if (hasValidNumber(v)) series.push(Number(v));
+            const activeBay = [];
+            const activeRaw = [];
+            let lastActiveIdx = -1;
+            for (let i = 0; i < source.length; i++) {
+                const pt = source[i];
+                if (hasValidNumber(pt?.[`raw_${id}`])) {
+                    lastActiveIdx = i;
+                    activeRaw.push(Number(pt[`raw_${id}`]));
+                    if (hasValidNumber(pt?.[`bay_${id}`])) {
+                        activeBay.push(Number(pt[`bay_${id}`]));
+                    }
+                }
             }
-            if (series.length >= 2) {
-                map[id] = series.slice(-10);
+            const lastPt = source[source.length - 1];
+            if (activeBay.length >= 2) {
+                if (lastActiveIdx >= 0 && lastActiveIdx < source.length - 1 && hasValidNumber(lastPt?.[`bay_${id}`])) {
+                    activeBay.push(Number(lastPt[`bay_${id}`]));
+                }
+                map[id] = activeBay.slice(-10);
+            } else if (activeRaw.length >= 2) {
+                map[id] = activeRaw.slice(-10);
             }
         });
         return map;
-    }, [filteredHistoricalData, activeCategories]);
+    }, [historicalData.result, activeCategories]);
 
     const radarData = useMemo(() => {
         const baseCats = (Array.isArray(activeCategories) && activeCategories.length > 0) ? activeCategories : categories;
@@ -1267,23 +1281,23 @@ export default React.memo(function EvolutionChart({
         const aggById = new Map((subjectAggData || []).map(item => [item.id, item]));
         if (timeWindow !== 'all' && aggById.size === 0) return [];
 
-        return sourceCats.map(cat => {
+        const eligibleCats = timeWindow !== 'all'
+            ? sourceCats.filter(cat => aggById.has(cat.id))
+            : sourceCats;
+
+        return eligibleCats.map(cat => {
             const catMax = hasValidNumber(cat?.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : globalMax;
             const catMin = hasValidNumber(cat?.minScore) ? Math.min(Number(cat.minScore), catMax) : globalMin;
             let val;
             if (timeWindow !== 'all') {
                 const aggItem = aggById.get(cat.id);
-                if (aggItem) {
-                    const realQ = Number(aggItem.realQuestoes) || 0;
-                    const realC = Number(aggItem.realAcertos) || 0;
-                    const synthQ = Number(aggItem.syntheticQuestoes) || 0;
-                    const synthC = Number(aggItem.syntheticAcertosExact ?? aggItem.syntheticAcertos) || 0;
-                    const totQ = realQ + synthQ;
-                    const ratio = totQ > 0 ? Math.max(0, Math.min(1, (realC + synthC) / totQ)) : 0;
-                    val = Number(Math.max(globalMin, Math.min(globalMax, ratioToPoints(ratio, globalMax, globalMin))).toFixed(2));
-                } else {
-                    val = globalMin;
-                }
+                const realQ = Number(aggItem?.realQuestoes) || 0;
+                const realC = Number(aggItem?.realAcertos) || 0;
+                const synthQ = Number(aggItem?.syntheticQuestoes) || 0;
+                const synthC = Number(aggItem?.syntheticAcertosExact ?? aggItem?.syntheticAcertos) || 0;
+                const totQ = realQ + synthQ;
+                const ratio = totQ > 0 ? Math.max(0, Math.min(1, (realC + synthC) / totQ)) : 0;
+                val = Number(Math.max(globalMin, Math.min(globalMax, ratioToPoints(ratio, globalMax, globalMin))).toFixed(2));
             } else {
                 const lvl = categoryLevels?.[cat.id];
                 const hasLvl = hasValidNumber(lvl);
@@ -1416,10 +1430,30 @@ export default React.memo(function EvolutionChart({
         return Math.max(0, Math.min(100, ((activeTargetDisplay - activeScaleMin) / range) * 100));
     }, [activeTargetDisplay, activeScaleMin, activeScaleMax]);
 
+    const accountHasData = timeline.length >= 1;
+    const filterHasData = filteredHistoricalData.length >= 1;
+
     const accuracyDeltaVsTarget = useMemo(() => {
         if (!Number.isFinite(safeGlobalMetrics.globalAccuracy)) return null;
+        if (!filterHasData && safeGlobalMetrics.totalQuestions === 0 && safeGlobalMetrics.globalAccuracy === 0) {
+            return null;
+        }
         return Number((safeGlobalMetrics.globalAccuracy - targetPctOfScale).toFixed(1));
-    }, [safeGlobalMetrics.globalAccuracy, targetPctOfScale]);
+    }, [safeGlobalMetrics.globalAccuracy, safeGlobalMetrics.totalQuestions, targetPctOfScale, filterHasData]);
+
+    const formatCleanCount = (val) => {
+        const n = Number(val);
+        if (!Number.isFinite(n) || n <= 0) return '0';
+        const rounded1 = Number(n.toFixed(1));
+        return Number.isInteger(rounded1) ? Math.round(rounded1).toLocaleString() : rounded1.toLocaleString();
+    };
+
+    const hasCustomFocusCutoff = Boolean(
+        showOnlyFocus &&
+        focusCategory &&
+        hasValidNumber(focusCategory?.minCutoff) &&
+        Number(focusCategory.minCutoff) > focusMin
+    );
 
     const carouselMaskStyle = useMemo(() => {
         if (canScrollLeft && canScrollRight) {
@@ -1442,9 +1476,6 @@ export default React.memo(function EvolutionChart({
         }
         return undefined;
     }, [canScrollLeft, canScrollRight]);
-
-    const accountHasData = timeline.length >= 1;
-    const filterHasData = filteredHistoricalData.length >= 1;
 
     const handleExport = async () => {
         if (isExporting) return;
@@ -1613,11 +1644,13 @@ export default React.memo(function EvolutionChart({
                     title="Total de questões reais resolvidas no filtro ativo."
                 />
                 <KpiCard
-                    value={safeGlobalMetrics.totalCorrect.toLocaleString()}
+                    value={formatCleanCount(safeGlobalMetrics.totalCorrect)}
                     label="Acertos"
                     color="#34d399"
                     icon={<CheckCircle2 size={15} />}
-                    hint={safeGlobalMetrics.totalQuestions > 0 ? `${Math.max(0, safeGlobalMetrics.totalQuestions - safeGlobalMetrics.totalCorrect).toLocaleString()} erros no período` : 'Respostas corretas'}
+                    hint={safeGlobalMetrics.totalQuestions > 0
+                        ? `${formatCleanCount(Math.max(0, safeGlobalMetrics.totalQuestions - safeGlobalMetrics.totalCorrect))} erros no período`
+                        : (safeGlobalMetrics.globalAccuracy > 0 ? 'Simulados em % (sem volume)' : 'Respostas corretas')}
                     title="Quantidade de questões acertadas dentro do período e filtro ativos."
                 />
                 <KpiCard
@@ -1625,7 +1658,9 @@ export default React.memo(function EvolutionChart({
                     label="Precisão Global"
                     color="#fb923c"
                     icon={<Crosshair size={15} />}
-                    hint={showOnlyFocus && focusCategory ? `Foco: ${focusCategory.name}` : 'Taxa consolidada'}
+                    hint={showOnlyFocus && focusCategory
+                        ? `Foco: ${focusCategory.name}`
+                        : (safeGlobalMetrics.totalQuestions === 0 && safeGlobalMetrics.globalAccuracy > 0 ? 'Baseada em notas em %' : 'Taxa consolidada')}
                     progress={safeGlobalMetrics.globalAccuracy}
                     statusText={accuracyDeltaVsTarget != null ? (accuracyDeltaVsTarget >= 0 ? `+${accuracyDeltaVsTarget}pp meta` : `${accuracyDeltaVsTarget}pp meta`) : undefined}
                     title="Percentual consolidado de acertos (acertos / questões) no filtro ativo."
@@ -1636,7 +1671,7 @@ export default React.memo(function EvolutionChart({
                     color="#f472b6"
                     icon={<Target size={15} />}
                     hint={goalDate ? `${projectDays} ${projectDays === 1 ? 'dia restante' : 'dias restantes'}` : `${activeCategories.length} ${activeCategories.length === 1 ? 'disciplina ativa' : 'disciplinas ativas'}`}
-                    statusText={showOnlyFocus && focusCategory ? 'Corte foco' : 'Objetivo global'}
+                    statusText={showOnlyFocus && focusCategory ? (hasCustomFocusCutoff ? 'Corte foco' : 'Meta foco') : 'Objetivo global'}
                     title="Meta de pontuação configurada para o concurso ou disciplina em foco."
                 />
             </motion.div>
@@ -2463,7 +2498,7 @@ export default React.memo(function EvolutionChart({
                                                 val: focusUnit === '%'
                                                     ? `${projectedLevel.toFixed(2)}%`
                                                     : `${Math.round(projectedLevel)}${focusUnitSuffix}`,
-                                                desc: 'Nota mediana esperada na prova',
+                                                desc: 'Nota média esperada na prova',
                                                 icon: <TrendingUp size={14} />,
                                                 color: 'text-sky-400'
                                             },
@@ -2713,7 +2748,14 @@ export default React.memo(function EvolutionChart({
                     <div className="space-y-5">
                         {/* Grid 1: Radar (Equilíbrio) + PerformanceBar (Volume vs Acertos) */}
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-stretch">
-                            <RadarAnalysis radarData={radarData} maxScore={maxScore} minScore={minScore} unit={resolvedGlobalUnit} />
+                            <RadarAnalysis
+                                radarData={radarData}
+                                maxScore={maxScore}
+                                minScore={minScore}
+                                unit={resolvedGlobalUnit}
+                                isFocusFiltered={Boolean(showOnlyFocus && activeCategories.length >= 3)}
+                                timeWindow={timeWindow}
+                            />
                             <PerformanceBarChart
                                 subjectAggData={subjectAggData}
                                 showOnlyFocus={showOnlyFocus}

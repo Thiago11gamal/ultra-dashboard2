@@ -13,7 +13,14 @@ import { ChartFrame } from "../ChartFrame";
  * A comprehensive disciplinary cross-section (Raio-X) using a Radar chart.
  * Compares current performance levels against target scores.
  */
-export const RadarAnalysis = React.memo(function RadarAnalysis({ radarData, maxScore = 100, minScore = 0, unit = '%' }) {
+export const RadarAnalysis = React.memo(function RadarAnalysis({
+    radarData,
+    maxScore = 100,
+    minScore = 0,
+    unit = '%',
+    isFocusFiltered = false,
+    timeWindow = 'all'
+}) {
     const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
     const safeMax = Number(maxScore) > safeMin ? Number(maxScore) : safeMin + 1;
 
@@ -126,7 +133,9 @@ export const RadarAnalysis = React.memo(function RadarAnalysis({ radarData, maxS
                     </button>
                 </div>
                 <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                    Comparativo da proficiência real contra a meta estabelecida para a prova.
+                    {timeWindow === 'all'
+                        ? 'Comparativo da proficiência real contra a meta estabelecida para a prova.'
+                        : `Comparativo do acerto nos últimos ${timeWindow} dias contra a meta estabelecida para a prova.`}
                 </p>
             </div>
 
@@ -136,9 +145,15 @@ export const RadarAnalysis = React.memo(function RadarAnalysis({ radarData, maxS
                         <div className="w-11 h-11 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400/70">
                             <Compass size={22} />
                         </div>
-                        <p className="text-xs font-bold text-slate-200">Dados insuficientes para o Raio-X</p>
+                        <p className="text-xs font-bold text-slate-200">
+                            {isFocusFiltered ? 'Modo Apenas Foco ativo' : 'Dados insuficientes para o Raio-X'}
+                        </p>
                         <p className="text-xs text-slate-400 max-w-[280px] leading-relaxed">
-                            São necessárias pelo menos 3 disciplinas com simulados registrados para compor a teia multidimensional.
+                            {isFocusFiltered
+                                ? 'Desative "Apenas Foco" na barra superior para comparar todas as disciplinas na teia multidimensional.'
+                                : (timeWindow !== 'all'
+                                    ? `São necessárias pelo menos 3 disciplinas com simulados nos últimos ${timeWindow} dias para compor a teia.`
+                                    : 'São necessárias pelo menos 3 disciplinas com simulados registrados para compor a teia multidimensional.')}
                         </p>
                     </div>
                 ) : (
@@ -196,7 +211,7 @@ export const RadarAnalysis = React.memo(function RadarAnalysis({ radarData, maxS
                                 <Legend
                                     payload={[
                                         { value: 'Meta Estabelecida', type: 'line', id: 'meta', color: '#10b981' },
-                                        { value: 'Domínio Real', type: 'line', id: 'nivel', color: '#818cf8' }
+                                        { value: timeWindow === 'all' ? 'Domínio Real' : `Acerto (${timeWindow}d)`, type: 'line', id: 'nivel', color: '#818cf8' }
                                     ]}
                                     wrapperStyle={{ fontSize: '11px', paddingTop: '10px', color: '#94a3b8', fontWeight: 600 }}
                                 />

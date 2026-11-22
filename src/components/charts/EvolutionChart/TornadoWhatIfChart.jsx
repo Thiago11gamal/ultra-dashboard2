@@ -223,6 +223,14 @@ export const TornadoWhatIfChart = React.memo(function TornadoWhatIfChart({
   }
 
   const risk = result.baseRisk || { passedAllPct: result.baseProbability, failedGlobalOnlyPct: 0, failedMinCutoffOnlyPct: 0, failedBothPct: 0, subjectEliminationRates: [] };
+  const riskSum = Math.max(
+    1e-6,
+    (Number(risk.passedAllPct) || 0) +
+      (Number(risk.failedGlobalOnlyPct) || 0) +
+      (Number(risk.failedMinCutoffOnlyPct) || 0) +
+      (Number(risk.failedBothPct) || 0)
+  );
+  const toRiskWidth = (pct) => `${((Number(pct) || 0) / riskSum) * 100}%`;
   const unitSuffix = unit === '%' ? '%' : ` ${unit}`;
   const probDeltaVsBase = hasOverrides && baselineResult
     ? Number((result.baseProbability - baselineResult.baseProbability).toFixed(1))
@@ -257,22 +265,22 @@ export const TornadoWhatIfChart = React.memo(function TornadoWhatIfChart({
         {/* Barra empilhada de destino das simulações */}
         <div className="h-5 rounded-xl overflow-hidden flex bg-slate-900 border border-white/10 text-[9px] font-black">
           {risk.passedAllPct > 0 && (
-            <div style={{ width: `${risk.passedAllPct}%` }} className="bg-emerald-500/80 text-emerald-950 flex items-center justify-center truncate px-1" title={`Aprovado: ${risk.passedAllPct}%`}>
+            <div style={{ width: toRiskWidth(risk.passedAllPct) }} className="bg-emerald-500/80 text-emerald-950 flex items-center justify-center truncate px-1" title={`Aprovado: ${risk.passedAllPct}%`}>
               {risk.passedAllPct >= 10 ? `${risk.passedAllPct}%` : ''}
             </div>
           )}
           {risk.failedGlobalOnlyPct > 0 && (
-            <div style={{ width: `${risk.failedGlobalOnlyPct}%` }} className="bg-amber-500/80 text-amber-950 flex items-center justify-center truncate px-1" title={`Reprovado só pela nota global: ${risk.failedGlobalOnlyPct}%`}>
+            <div style={{ width: toRiskWidth(risk.failedGlobalOnlyPct) }} className="bg-amber-500/80 text-amber-950 flex items-center justify-center truncate px-1" title={`Reprovado só pela nota global: ${risk.failedGlobalOnlyPct}%`}>
               {risk.failedGlobalOnlyPct >= 10 ? `${risk.failedGlobalOnlyPct}%` : ''}
             </div>
           )}
           {risk.failedMinCutoffOnlyPct > 0 && (
-            <div style={{ width: `${risk.failedMinCutoffOnlyPct}%` }} className="bg-rose-500/85 text-white flex items-center justify-center truncate px-1" title={`Eliminado só pelo minCutoff/bloco: ${risk.failedMinCutoffOnlyPct}%`}>
+            <div style={{ width: toRiskWidth(risk.failedMinCutoffOnlyPct) }} className="bg-rose-500/85 text-white flex items-center justify-center truncate px-1" title={`Eliminado só pelo minCutoff/bloco: ${risk.failedMinCutoffOnlyPct}%`}>
               {risk.failedMinCutoffOnlyPct >= 10 ? `${risk.failedMinCutoffOnlyPct}%` : ''}
             </div>
           )}
           {risk.failedBothPct > 0 && (
-            <div style={{ width: `${risk.failedBothPct}%` }} className="bg-rose-900/90 text-rose-200 flex items-center justify-center truncate px-1" title={`Abaixo global + mínimo: ${risk.failedBothPct}%`}>
+            <div style={{ width: toRiskWidth(risk.failedBothPct) }} className="bg-rose-900/90 text-rose-200 flex items-center justify-center truncate px-1" title={`Abaixo global + mínimo: ${risk.failedBothPct}%`}>
               {risk.failedBothPct >= 10 ? `${risk.failedBothPct}%` : ''}
             </div>
           )}
@@ -291,7 +299,7 @@ export const TornadoWhatIfChart = React.memo(function TornadoWhatIfChart({
           <div className="flex flex-wrap gap-2 pt-1">
             {risk.subjectEliminationRates.slice(0, 4).map((item) => (
               <span key={item.id} className="text-[10px] font-mono px-2.5 py-1 rounded-lg bg-rose-500/10 border border-rose-500/25 text-rose-200">
-                {item.name}: <strong>{item.eliminationPct}%</strong> abaixo do corte ({item.minCutoff})
+                {item.name}: <strong>{item.eliminationPct}%</strong> abaixo do corte ({item.minCutoff}{unitSuffix})
               </span>
             ))}
           </div>
@@ -301,7 +309,7 @@ export const TornadoWhatIfChart = React.memo(function TornadoWhatIfChart({
           <div className="flex flex-wrap gap-2 pt-1">
             {risk.groupEliminationRates.map((g) => (
               <span key={g.group} className="text-[10px] font-mono px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/25 text-amber-200">
-                Bloco {g.group}: <strong>{g.eliminationPct}%</strong> abaixo do corte ({g.minCutoff})
+                Bloco {g.group}: <strong>{g.eliminationPct}%</strong> abaixo do corte ({g.minCutoff}{unitSuffix})
               </span>
             ))}
           </div>
@@ -348,9 +356,15 @@ export const TornadoWhatIfChart = React.memo(function TornadoWhatIfChart({
       {/* Diagrama de Tornado */}
       <div className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-xs font-bold text-slate-300">
-            Sensibilidade (Tornado): impacto na aprovação variando cada matéria em ±{deltaPct}%
-          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="text-xs font-bold text-slate-300">
+              Sensibilidade (Tornado): impacto na aprovação variando cada matéria em ±{deltaPct}%
+            </p>
+            <div className="flex items-center gap-2.5 text-[10px] text-slate-400">
+              <span className="inline-flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-rose-500/80" />Se cair −{deltaPct}%</span>
+              <span className="inline-flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-500/85" />Se subir +{deltaPct}%</span>
+            </div>
+          </div>
           <div className="flex items-center gap-1 bg-slate-950/70 border border-white/10 p-1 rounded-xl text-[10px] font-bold">
             {[5, 10, 15].map((pct) => (
               <button

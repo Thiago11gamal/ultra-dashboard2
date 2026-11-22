@@ -125,9 +125,8 @@ export const CorrelationRegimeChart = React.memo(function CorrelationRegimeChart
                   {corr.categories.map((c) => (
                     <th
                       key={c.id}
-                      className={`p-1.5 text-center truncate max-w-[72px] ${
-                        focusSubjectId && String(c.id) === String(focusSubjectId) ? 'text-indigo-300 font-black' : 'text-slate-400'
-                      }`}
+                      className={`p-1.5 text-center truncate max-w-[72px] ${focusSubjectId && String(c.id) === String(focusSubjectId) ? 'text-indigo-300 font-black' : 'text-slate-400'
+                        }`}
                       title={c.name}
                     >
                       {c.name.slice(0, 7)}
@@ -141,9 +140,8 @@ export const CorrelationRegimeChart = React.memo(function CorrelationRegimeChart
                   return (
                     <tr key={catRow.id}>
                       <td
-                        className={`p-1.5 font-sans font-bold whitespace-nowrap max-w-[130px] truncate ${
-                          isFocusedRow ? 'text-indigo-300' : 'text-slate-200'
-                        }`}
+                        className={`p-1.5 font-sans font-bold whitespace-nowrap max-w-[130px] truncate ${isFocusedRow ? 'text-indigo-300' : 'text-slate-200'
+                          }`}
                         title={catRow.name}
                       >
                         {isFocusedRow ? '🎯 ' : ''}{catRow.name}
@@ -168,14 +166,14 @@ export const CorrelationRegimeChart = React.memo(function CorrelationRegimeChart
         {crowdingPairs.length > 0 && (
           <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-200">
             <strong>Efeito gangorra detectado:</strong>{' '}
-            {crowdingPairs.slice(0, 2).map((p) => `${p.catA} × ${p.catB} (r=${p.r})`).join(' · ')} — intercale essas disciplinas na semana para evitar queda por esquecimento.
+            {crowdingPairs.slice(0, 2).map((p) => `${p.catA} × ${p.catB} (r=${Number(p.r).toFixed(2)})`).join(' · ')} — intercale essas disciplinas na semana para evitar queda por esquecimento.
           </div>
         )}
 
         {synergyPairs.length > 0 && (
           <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 p-3 text-xs text-emerald-200">
             <strong>Sinergia positiva:</strong>{' '}
-            {synergyPairs.slice(0, 2).map((p) => `${p.catA} × ${p.catB} (r=+${p.r})`).join(' · ')} — evoluem juntas quando estudadas na mesma semana.
+            {synergyPairs.slice(0, 2).map((p) => `${p.catA} × ${p.catB} (r=+${Number(p.r).toFixed(2)})`).join(' · ')} — evoluem juntas quando estudadas na mesma semana.
           </div>
         )}
       </div>
@@ -227,7 +225,8 @@ export const CorrelationRegimeChart = React.memo(function CorrelationRegimeChart
                     domain={[-yExtent, yExtent]}
                     stroke="#64748b"
                     fontSize={10}
-                    tickFormatter={(v) => `${v > 0 ? '+' : ''}${v}`}
+                    width={54}
+                    tickFormatter={(v) => `${v > 0 ? '+' : ''}${v}${unit === '%' ? '%' : ''}`}
                   />
                   <ReferenceLine x={0.5} stroke="#94a3b8" strokeDasharray="4 4" />
                   <ReferenceLine y={0} stroke="#94a3b8" strokeDasharray="4 4" />

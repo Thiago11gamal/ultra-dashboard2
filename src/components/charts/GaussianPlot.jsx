@@ -473,7 +473,7 @@ export const GaussianPlot = React.memo(function GaussianPlot({
                             
                             <span className="text-[15px] font-black tracking-tight leading-none">{formatUnitValue(hover.val, unit)}</span>
                             <div className="flex items-center gap-1 mt-1">
-                                <div className={`w-1.5 h-1.5 rounded-full ${hover.val >= targetVal ? 'bg-emerald-400 shadow-[0_0_5px_rgba(52,211,153,0.6)]' : 'bg-slate-500'}`} />
+                                <div className={`w-1.5 h-1.5 rounded-full ${hover.val >= targetVal ? 'bg-emerald-400 shadow-[0_0_5px_rgba(52,211,153,0.6)]' : 'bg-rose-400 shadow-[0_0_5px_rgba(244,63,94,0.6)]'}`} />
                                 <span className="text-[9px] text-slate-400 font-semibold">
                                     {hover.val >= targetVal ? 'Zona de sucesso' : 'Abaixo da meta'}
                                 </span>

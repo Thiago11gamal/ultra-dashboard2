@@ -241,6 +241,11 @@ export const EvolutionLineChart = React.memo(function EvolutionLineChart({
         [safeActiveCategories, showOnlyFocus, focusSubjectId]
     );
 
+    const plottedCategories = useMemo(
+        () => visibleCategories.filter(cat => lastValidIndexByCat[cat.id] !== undefined),
+        [visibleCategories, lastValidIndexByCat]
+    );
+
     const rightMargin = showOnlyFocus || visibleCategories.length <= 1 ? 68 : 88;
 
     const renderCustomLabel = useCallback((props, catId, displayColor, isFocused, hasFocus) => {
@@ -368,11 +373,11 @@ export const EvolutionLineChart = React.memo(function EvolutionLineChart({
 
     return (
         <div className="w-full space-y-3 outline-none focus:outline-none">
-            {/* Interactive Pill Legend (replaces cramped Recharts Legend and floating button overlap) */}
-            {visibleCategories.length > 1 && (
+            {/* Interactive Pill Legend (only categories with plotted data in the active window) */}
+            {plottedCategories.length > 1 && (
                 <div className="flex flex-wrap items-center justify-between gap-2 px-1">
                     <div className="flex flex-wrap items-center gap-1.5 min-w-0">
-                        {visibleCategories.map((cat) => {
+                        {plottedCategories.map((cat) => {
                             const isActive = effectiveHighlightedKey === cat.id;
                             const isDimmed = Boolean(effectiveHighlightedKey && !isActive);
                             const catColor = isActive ? '#fbbf24' : (cat.color || '#3b82f6');

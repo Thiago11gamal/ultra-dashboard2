@@ -213,9 +213,23 @@ export const PerformanceBarChart = React.memo(function PerformanceBarChart({
                                         <Bar dataKey="erros" stackId="a" name="Erros" fill={`url(#${gradQuestoesId})`} radius={[0, 6, 6, 0]} isAnimationActive={false}>
                                             <LabelList
                                                 dataKey="questoes"
-                                                position="right"
-                                                offset={8}
-                                                style={{ fill: '#e2e8f0', fontSize: 11, fontWeight: 700 }}
+                                                content={(props) => {
+                                                    const { x, y, width, height, value } = props;
+                                                    if (!value || !Number.isFinite(Number(x)) || !Number.isFinite(Number(y))) return null;
+                                                    const safeW = Number.isFinite(Number(width)) ? Math.max(0, Number(width)) : 0;
+                                                    const safeH = Number.isFinite(Number(height)) ? Number(height) : 18;
+                                                    return (
+                                                        <text
+                                                            x={Number(x) + safeW + 8}
+                                                            y={Number(y) + safeH / 2 + 4}
+                                                            fill="#e2e8f0"
+                                                            fontSize={11}
+                                                            fontWeight={700}
+                                                        >
+                                                            {value}
+                                                        </text>
+                                                    );
+                                                }}
                                             />
                                         </Bar>
                                     </BarChart>

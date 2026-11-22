@@ -217,7 +217,7 @@ export const DisciplinaCard = React.memo(function DisciplinaCard({
             : 0;
 
     const targetPct = Math.min(100, Math.max(0, pointsToPct(effectiveTarget, safeMax, safeMin)));
-    const mainBarWidth = toBarWidth(bayVal ?? val);
+    const mainBarWidth = toBarWidth(val ?? bayVal);
 
     return (
         <button

@@ -415,7 +415,9 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                 <div className="rounded-2xl border border-white/[0.08] bg-slate-900/65 backdrop-blur-xl p-4 sm:p-5 shadow-[0_12px_36px_-18px_rgba(0,0,0,0.65)] hover:border-white/[0.14] transition-all flex flex-col justify-between h-full min-w-0">
                     <div>
                         <div className="flex items-center justify-between gap-2 mb-1.5">
-                            <p className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">{weekTitle} · TODOS OS ASSUNTOS</p>
+                            <p className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">
+                                {weekTitle} · {showOnlyFocus && effectiveCategories.length === 1 ? effectiveCategories[0].name : 'TODOS OS ASSUNTOS'}
+                            </p>
                             <span className="text-[11px] font-bold text-amber-300 bg-amber-500/12 border border-amber-500/25 px-2.5 py-0.5 rounded-full tabular-nums">
                                 {subtopicsData.length} {subtopicsData.length === 1 ? 'tópico' : 'tópicos'}
                             </span>
@@ -438,8 +440,8 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                                     <YAxis type="category" dataKey="fullName" tickFormatter={(v) => String(v || '').length > 28 ? `${String(v).slice(0, 26)}…` : v} stroke="#cbd5e1" tick={{ fontSize: 11, fill: '#cbd5e1', fontWeight: 600 }} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} tickLine={false} width={135} />
                                     <Tooltip cursor={{ fill: 'rgba(255,255,255,0.04)', radius: 6 }} formatter={(v, n, props) => {
                                         const total = Number(props?.payload?.total) || 0;
-                                        const correct = Math.round(Number(props?.payload?.correct) || 0);
-                                        const errors = Math.max(0, total - correct);
+                                        const correct = Number(props?.payload?.correct) || 0;
+                                        const errors = Math.round(Math.max(0, total - correct) * 10) / 10;
                                         return [`${v} (Índice)`, `${props?.payload?.fullName || 'Assunto'} (${errors} erros)`];
                                     }} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
                                     <Bar dataKey="value" radius={[0, 8, 8, 0]} barSize={18} minPointSize={4}>
