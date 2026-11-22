@@ -1655,8 +1655,8 @@ export default React.memo(function EvolutionChart({
 
     return (
         <motion.div id="evolution-chart-container" className="space-y-5 relative min-w-0" variants={containerVariants} initial="hidden" animate="visible">
-            {/* Barra superior sticky com identidade visual pink->indigo alinhada à Sidebar */}
-            <div className="sticky top-2 z-30 flex flex-col xl:flex-row xl:items-center justify-between gap-3 rounded-2xl border border-white/[0.09] bg-slate-900/80 backdrop-blur-2xl px-4 py-3 shadow-[0_12px_36px_-18px_rgba(0,0,0,0.75)] no-print">
+            {/* Barra superior fixa no topo da página (não acompanha o scroll) */}
+            <div className="relative z-20 flex flex-col xl:flex-row xl:items-center justify-between gap-3 rounded-2xl border border-white/[0.09] bg-slate-900/80 backdrop-blur-2xl px-4 py-3 shadow-[0_12px_36px_-18px_rgba(0,0,0,0.75)] no-print">
                 <div className="flex flex-wrap items-center gap-3 min-w-0">
                     <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-pink-500/20 to-indigo-500/20 border border-pink-400/35 text-pink-300 shrink-0 shadow-inner">
                         <TrendingUp size={18} />
