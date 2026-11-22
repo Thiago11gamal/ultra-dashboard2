@@ -479,8 +479,8 @@ export const EvolutionHeatmap = React.memo(({
         return {
             currentValue: `${avgPct.toFixed(1)}%`,
             targetValue: `${Math.round(refTarget)}%`,
-            gapLabel: diff >= 0 ? `+${diff.toFixed(1)}pp acima` : `Faltam ${Math.abs(diff).toFixed(1)}pp`,
-            status: diff >= 0 ? 'success' : diff >= -10 ? 'warning' : 'danger',
+            gapLabel: Math.abs(diff) < 0.05 ? 'Na meta ✓' : (diff > 0 ? `+${diff.toFixed(1)}pp acima` : `Faltam ${Math.abs(diff).toFixed(1)}pp`),
+            status: diff >= -0.05 ? 'success' : diff >= -10 ? 'warning' : 'danger',
             progressPct: refTarget > 0 ? (avgPct / refTarget) * 100 : 100,
             extra: `${onTargetCells}/${activeCells} registros na meta`,
         };

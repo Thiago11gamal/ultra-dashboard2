@@ -117,8 +117,8 @@ export const RadarAnalysis = React.memo(function RadarAnalysis({
         return {
             currentValue: `${formatValue(avgNivel)}${unit}`,
             targetValue: `${formatValue(avgMeta)}${unit}`,
-            gapLabel: diff >= 0 ? `+${formatValue(diff)}${gapUnit} acima` : `Faltam ${formatValue(Math.abs(diff))}${gapUnit}`,
-            status: diff >= 0 ? 'success' : diff >= -(range * 0.1) ? 'warning' : 'danger',
+            gapLabel: Math.abs(diff) < 0.05 ? 'Na meta ✓' : (diff > 0 ? `+${formatValue(diff)}${gapUnit} acima` : `Faltam ${formatValue(Math.abs(diff))}${gapUnit}`),
+            status: diff >= -0.05 ? 'success' : diff >= -(range * 0.1) ? 'warning' : 'danger',
             progressPct: avgMeta > safeMin ? ((avgNivel - safeMin) / Math.max(1e-9, avgMeta - safeMin)) * 100 : 100,
             extra: `${onTarget}/${radarData.length} na meta`,
         };

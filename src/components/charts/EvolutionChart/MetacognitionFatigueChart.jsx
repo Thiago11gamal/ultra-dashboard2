@@ -387,19 +387,18 @@ export const MetacognitionFatigueChart = React.memo(function MetacognitionFatigu
                 Curva de Fadiga Intraprova (Início → Fim da Sessão)
               </h4>
             </div>
-            {fatigueDelta !== null && (
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[10px] font-semibold text-slate-400">
-                  Alvo resistência: queda ≤ 5pp · Meta: {fatigueTargetPct}%
-                </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[10px] font-semibold text-slate-400">
+                Alvo resistência: queda ≤ 5pp · Meta: {fatigueTargetPct}%
+              </span>
+              {fatigueDelta !== null && (
                 <span
-                  className={`text-[11px] font-mono font-bold tabular-nums px-2.5 py-0.5 rounded-full border ${
-                    fatigueDelta <= -12
-                      ? 'bg-rose-500/15 border-rose-500/35 text-rose-300'
-                      : fatigueDelta >= 5
-                        ? 'bg-emerald-500/15 border-emerald-500/35 text-emerald-300'
-                        : 'bg-sky-500/15 border-sky-500/35 text-sky-300'
-                  }`}
+                  className={`text-[11px] font-mono font-bold tabular-nums px-2.5 py-0.5 rounded-full border ${fatigueDelta <= -12
+                    ? 'bg-rose-500/15 border-rose-500/35 text-rose-300'
+                    : fatigueDelta >= 5
+                      ? 'bg-emerald-500/15 border-emerald-500/35 text-emerald-300'
+                      : 'bg-sky-500/15 border-sky-500/35 text-sky-300'
+                    }`}
                 >
                   {fatigueDelta <= -12
                     ? `Queda de fadiga: ${fatigueDelta}pp no final`
@@ -407,9 +406,26 @@ export const MetacognitionFatigueChart = React.memo(function MetacognitionFatigu
                       ? `Aquecimento positivo: +${fatigueDelta}pp`
                       : `Resistência estável (${fatigueDelta >= 0 ? '+' : ''}${fatigueDelta}pp)`}
                 </span>
-              </div>
-            )}
+              )}
+            </div>
           </div>
+          {metaMatrix.total === 0 && (() => {
+            const lastQuarter = fatigueCurve[fatigueCurve.length - 1];
+            const qDiff = lastQuarter.accuracyPct - fatigueTargetPct;
+            return (
+              <BenchmarkStrip
+                currentLabel={fatigueCurve.length >= 2 ? 'Acerto no final da prova' : 'Acerto na sessão'}
+                currentValue={`${lastQuarter.accuracyPct}%`}
+                targetLabel="Meta"
+                targetValue={`${fatigueTargetPct}%`}
+                gapLabel={qDiff === 0 ? 'Na meta ✓' : qDiff > 0 ? `+${qDiff}pp acima` : `Faltam ${Math.abs(qDiff)}pp`}
+                status={qDiff >= 0 ? 'success' : qDiff >= -10 ? 'warning' : 'danger'}
+                progressPct={fatigueTargetPct > 0 ? (lastQuarter.accuracyPct / fatigueTargetPct) * 100 : 100}
+                extra={fatigueDelta !== null ? `Variação 1º→4º quarto: ${fatigueDelta >= 0 ? '+' : ''}${fatigueDelta}pp (alvo ≥ −5pp)` : null}
+                compact
+              />
+            );
+          })()}
           <ChartFrame minHeight={230} label="Analisando fadiga intraprova">
             <div className="h-[230px] w-full" role="img" aria-label="Curva de fadiga intraprova por quarto do simulado">
               <ResponsiveContainer width="100%" height="100%" minHeight={200} minWidth={1}>

@@ -13,7 +13,7 @@ import { Sliders, RotateCcw, ShieldAlert, TrendingUp } from 'lucide-react';
 import { ChartFrame } from '../ChartFrame';
 import { BenchmarkStrip } from '../../ui/BenchmarkStrip';
 import { runTornadoSensitivity } from '../../../engine/monteCarlo';
-import { getSafeScore } from '../../../utils/scoreHelper';
+import { getSafeScore, formatValue } from '../../../utils/scoreHelper';
 import { toDateMs } from '../../../utils/dateHelper';
 
 const safeArr = (v) => (Array.isArray(v) ? v : (v && typeof v === 'object' ? Object.values(v) : [])).filter(Boolean);
@@ -244,14 +244,14 @@ export const TornadoWhatIfChart = React.memo(function TornadoWhatIfChart({
   return (
     <div className="w-full space-y-5">
       <BenchmarkStrip
-        currentLabel="Chance de aprovação"
+        currentLabel={hasOverrides ? 'Chance simulada' : 'Chance de aprovação'}
         currentValue={`${result.baseProbability}%`}
         targetLabel="Zona segura"
         targetValue={`≥ ${safeProbTarget}%`}
-        gapLabel={probGap >= 0 ? `+${probGap}pp acima` : `Faltam ${Math.abs(probGap)}pp`}
+        gapLabel={probGap === 0 ? 'Na zona segura ✓' : probGap > 0 ? `+${probGap}pp acima` : `Faltam ${Math.abs(probGap)}pp`}
         status={probGap >= 0 ? 'success' : result.baseProbability >= 55 ? 'warning' : 'danger'}
         progressPct={(result.baseProbability / safeProbTarget) * 100}
-        extra={`Nota ${result.baseMean}${unitSuffix} vs Meta ${targetScore}${unitSuffix} (${scoreDiff >= 0 ? '+' : ''}${scoreDiff}${scoreGapUnit})`}
+        extra={`Nota ${formatValue(result.baseMean)}${unitSuffix} vs Meta ${formatValue(targetScore)}${unitSuffix} (${scoreDiff >= 0 ? '+' : ''}${formatValue(scoreDiff)}${scoreGapUnit})`}
         compact
       />
       {/* Decomposição do Risco de Eliminação (Monte Carlo Multi-Restrição) */}

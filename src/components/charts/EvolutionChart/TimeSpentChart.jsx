@@ -335,7 +335,7 @@ const HalfMoonGauge = React.memo(function HalfMoonGauge({ data, referenceMaxSeco
                             vs Alvo ({formatTime(examTargetSeconds)})
                         </span>
                         <span className={`font-mono font-bold tabular-nums ${examPaceDiff <= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                            {examPaceDiff <= 0 ? `−${formatTime(Math.abs(examPaceDiff))} folga` : `+${formatTime(examPaceDiff)} lento`}
+                            {examPaceDiff === 0 ? 'No alvo ✓' : examPaceDiff < 0 ? `−${formatTime(Math.abs(examPaceDiff))} folga` : `+${formatTime(examPaceDiff)} lento`}
                         </span>
                     </div>
                 )}
@@ -552,10 +552,14 @@ export const TimeSpentChart = React.memo(function TimeSpentChart({
 
     const legendStats = useMemo(() => {
         return chartData.reduce((acc, item) => {
+            const w = Number(item.timedQuestoes) > 0 ? Number(item.timedQuestoes) : 1;
             if (item.avgSeconds != null && Number.isFinite(Number(item.avgSeconds))) {
-                const w = Number(item.timedQuestoes) > 0 ? Number(item.timedQuestoes) : 1;
                 acc.avgWeighted += Number(item.avgSeconds) * w;
                 acc.avgWeight += w;
+            }
+            if (item.displaySeconds != null && Number.isFinite(Number(item.displaySeconds))) {
+                acc.displayWeighted += Number(item.displaySeconds) * w;
+                acc.displayWeight += w;
             }
 
             const lastSessionSec = (item.absoluteLatestSeconds != null && Number.isFinite(Number(item.absoluteLatestSeconds)) && Number(item.absoluteLatestSeconds) > 0)
@@ -573,12 +577,16 @@ export const TimeSpentChart = React.memo(function TimeSpentChart({
                 else acc.stable += 1;
             }
             return acc;
-        }, { avgWeighted: 0, avgWeight: 0, latest: 0, above: 0, below: 0, stable: 0, latestCount: 0 });
+        }, { avgWeighted: 0, avgWeight: 0, displayWeighted: 0, displayWeight: 0, latest: 0, above: 0, below: 0, stable: 0, latestCount: 0 });
     }, [chartData]);
 
     const legendAvgSeconds = legendStats.avgWeight > 0
         ? Math.round(legendStats.avgWeighted / legendStats.avgWeight)
         : null;
+
+    const legendDisplaySeconds = legendStats.displayWeight > 0
+        ? Math.round(legendStats.displayWeighted / legendStats.displayWeight)
+        : legendAvgSeconds;
 
     const legendLatestSeconds = legendStats.latestCount > 0
         ? Math.round(legendStats.latest / legendStats.latestCount)
@@ -708,19 +716,19 @@ export const TimeSpentChart = React.memo(function TimeSpentChart({
                 </div>
             </div>
 
-            {/* Reference Benchmark: Seu ritmo vs Alvo do Edital (ou vs sua Média Geral se edital não configurado) */}
-            {legendAvgSeconds != null && (
+            {/* Reference Benchmark: Seu ritmo atual vs Alvo do Edital (ou vs sua Média Geral se edital não configurado) */}
+            {legendDisplaySeconds != null && (
                 examTargetSeconds != null ? (() => {
-                    const diff = Math.round(legendAvgSeconds - examTargetSeconds);
+                    const diff = Math.round(legendDisplaySeconds - examTargetSeconds);
                     return (
                         <BenchmarkStrip
-                            currentLabel="Seu ritmo médio"
-                            currentValue={`${formatTime(legendAvgSeconds)}/q`}
+                            currentLabel="Seu ritmo atual"
+                            currentValue={`${formatTime(legendDisplaySeconds)}/q`}
                             targetLabel="Alvo da prova"
                             targetValue={`≤ ${formatTime(examTargetSeconds)}/q`}
-                            gapLabel={diff <= 0 ? `−${formatTime(Math.abs(diff))} de folga` : `+${formatTime(diff)} acima do alvo`}
+                            gapLabel={diff === 0 ? 'No alvo exato ✓' : diff < 0 ? `−${formatTime(Math.abs(diff))} de folga` : `+${formatTime(diff)} acima do alvo`}
                             status={diff <= 0 ? 'success' : diff <= 20 ? 'warning' : 'danger'}
-                            progressPct={Math.min(100, (examTargetSeconds / Math.max(1, legendAvgSeconds)) * 100)}
+                            progressPct={Math.min(100, (examTargetSeconds / Math.max(1, legendDisplaySeconds)) * 100)}
                             extra={`${subjectsWithinExamTarget}/${chartData.length} no ritmo da prova`}
                             compact
                         />

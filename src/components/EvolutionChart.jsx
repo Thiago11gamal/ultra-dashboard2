@@ -2931,17 +2931,17 @@ export default React.memo(function EvolutionChart({
                                 showOnlyFocus={showOnlyFocus}
                                 focusCategory={focusCategory}
                                 targetScore={showOnlyFocus ? focusTarget : targetScore}
-                                unit={resolvedGlobalUnit}
-                                maxScore={maxScore}
-                                minScore={minScore}
+                                unit={resolvedActiveUnit}
+                                maxScore={showOnlyFocus ? focusMax : maxScore}
+                                minScore={showOnlyFocus ? focusMin : minScore}
                             />
                         </div>
 
                         {/* Grid 2: Matérias e Assuntos Críticos */}
                         <CriticalTopicsAnalysis
                             categories={categories}
-                            maxScore={maxScore}
-                            minScore={minScore}
+                            maxScore={showOnlyFocus ? focusMax : maxScore}
+                            minScore={showOnlyFocus ? focusMin : minScore}
                             targetScore={showOnlyFocus ? focusTarget : targetScore}
                             showOnlyFocus={showOnlyFocus}
                             focusSubjectId={focusCategory?.id || focusSubjectId}

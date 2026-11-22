@@ -225,10 +225,10 @@ export const MonteCarloEvolutionChart = React.memo(({
         return {
             currentValue: fmt(proj),
             targetValue: fmt(safeTargetScore),
-            gapLabel: diff >= 0
-                ? `+${formatValue(diff)}${gapUnit} acima`
-                : `Faltam ${formatValue(Math.abs(diff))}${gapUnit}`,
-            status: diff >= 0 ? 'success' : diff >= -(range * 0.1) ? 'warning' : 'danger',
+            gapLabel: Math.abs(diff) < 0.05
+                ? 'Na meta ✓'
+                : (diff > 0 ? `+${formatValue(diff)}${gapUnit} acima` : `Faltam ${formatValue(Math.abs(diff))}${gapUnit}`),
+            status: diff >= -0.05 ? 'success' : diff >= -(range * 0.1) ? 'warning' : 'danger',
             progressPct: safeTargetScore > safeMin
                 ? ((proj - safeMin) / Math.max(1e-9, safeTargetScore - safeMin)) * 100
                 : 100,

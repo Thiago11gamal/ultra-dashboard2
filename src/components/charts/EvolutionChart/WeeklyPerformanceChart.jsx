@@ -141,7 +141,9 @@ const WeeklyPerformanceChart = React.memo(function WeeklyPerformanceChart({
                 data: i === 0 ? "HOJE" : dow,
                 fullDate: dateKey,
                 minutos: totalMinutes / 60,
-                acertos
+                acertos,
+                correctTotal,
+                questionsTotal
             });
         }
         return days;
@@ -189,15 +191,19 @@ const WeeklyPerformanceChart = React.memo(function WeeklyPerformanceChart({
         const validScores = chartData.filter((d) => d.acertos != null && Number.isFinite(Number(d.acertos)));
         const totalHours = chartData.reduce((acc, d) => acc + (Number(d.minutos) || 0), 0);
         if (!validScores.length) return null;
-        const avg = validScores.reduce((acc, d) => acc + Number(d.acertos), 0) / validScores.length;
+        const totalQ = validScores.reduce((acc, d) => acc + (Number(d.questionsTotal) || 0), 0);
+        const totalC = validScores.reduce((acc, d) => acc + (Number(d.correctTotal) || 0), 0);
+        const avg = totalQ > 0
+            ? Math.max(safeMinScore, Math.min(safeMaxScore, ratioToPoints(totalC / totalQ, safeMaxScore, safeMinScore)))
+            : validScores.reduce((acc, d) => acc + Number(d.acertos), 0) / validScores.length;
         const diff = avg - effectiveTarget;
         const range = Math.max(1e-9, safeMaxScore - safeMinScore);
         const gapUnit = safeUnit === '%' ? 'pp' : ` ${safeUnit}`;
         return {
             currentValue: `${formatValue(avg)}${safeUnit}`,
             targetValue: `${formatValue(effectiveTarget)}${safeUnit}`,
-            gapLabel: diff >= 0 ? `+${formatValue(diff)}${gapUnit} acima` : `Faltam ${formatValue(Math.abs(diff))}${gapUnit}`,
-            status: diff >= 0 ? 'success' : diff >= -(range * 0.1) ? 'warning' : 'danger',
+            gapLabel: Math.abs(diff) < 0.05 ? 'Na meta ✓' : (diff > 0 ? `+${formatValue(diff)}${gapUnit} acima` : `Faltam ${formatValue(Math.abs(diff))}${gapUnit}`),
+            status: diff >= -0.05 ? 'success' : diff >= -(range * 0.1) ? 'warning' : 'danger',
             progressPct: effectiveTarget > safeMinScore
                 ? ((avg - safeMinScore) / Math.max(1e-9, effectiveTarget - safeMinScore)) * 100
                 : 100,

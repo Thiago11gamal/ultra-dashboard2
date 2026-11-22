@@ -111,10 +111,10 @@ export const ProjectionFanChart = React.memo(function ProjectionFanChart({
             currentValue={fmt(data.summary.finalP50)}
             targetLabel="Meta"
             targetValue={fmt(targetScore)}
-            gapLabel={diff >= 0 ? `+${formatValue(diff)}${gapUnit} acima` : `Faltam ${formatValue(Math.abs(diff))}${gapUnit}`}
-            status={diff >= 0 ? 'success' : diff >= -(range * 0.1) ? 'warning' : 'danger'}
+            gapLabel={Math.abs(diff) < 0.05 ? 'Na meta ✓' : (diff > 0 ? `+${formatValue(diff)}${gapUnit} acima` : `Faltam ${formatValue(Math.abs(diff))}${gapUnit}`)}
+            status={diff >= -0.05 ? 'success' : diff >= -(range * 0.1) ? 'warning' : 'danger'}
             progressPct={targetScore > minScore ? ((data.summary.finalP50 - minScore) / Math.max(1e-9, targetScore - minScore)) * 100 : 100}
-            extra={data.alreadyAtTarget ? 'Já na meta ✓' : (data.targetCrossingDate ? `Cruza em ${data.targetCrossingDate.split('-').reverse().join('/')}` : 'Abaixo no prazo')}
+            extra={data.alreadyAtTarget ? 'Já na meta ✓' : (data.targetCrossingDate ? `Cruza em ${data.targetCrossingDate.split('-').reverse().join('/')}` : (diff >= 0 ? 'Atinge no prazo ✓' : 'Abaixo no prazo'))}
             compact
           />
         );

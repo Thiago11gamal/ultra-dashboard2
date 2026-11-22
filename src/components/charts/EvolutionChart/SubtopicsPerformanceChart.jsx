@@ -506,8 +506,8 @@ export const SubtopicsPerformanceChart = React.memo(({
         return {
             currentValue: `${formatValue(avgAcc)}%`,
             targetValue: `${formatValue(targetScorePct)}%`,
-            gapLabel: diff >= 0 ? `+${formatValue(diff)}pp acima` : `Faltam ${formatValue(Math.abs(diff))}pp`,
-            status: diff >= 0 ? 'success' : diff >= -10 ? 'warning' : 'danger',
+            gapLabel: Math.abs(diff) < 0.05 ? 'Na meta ✓' : (diff > 0 ? `+${formatValue(diff)}pp acima` : `Faltam ${formatValue(Math.abs(diff))}pp`),
+            status: diff >= -0.05 ? 'success' : diff >= -10 ? 'warning' : 'danger',
             progressPct: targetScorePct > 0 ? (avgAcc / targetScorePct) * 100 : 100,
             extra: `${onTarget}/${chartData.length} tópicos na meta`,
         };

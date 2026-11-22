@@ -367,14 +367,17 @@ export const GaussianPlot = React.memo(function GaussianPlot({
             currentLabel: boundedCurrent != null ? 'Projeção' : 'Média',
             currentValue: fmtVal(refVal),
             targetValue: fmtVal(targetVal),
-            gapLabel: diff >= 0
-                ? `+${formatValue(diff)}${gapUnit} acima`
-                : `Faltam ${formatValue(Math.abs(diff))}${gapUnit}`,
-            status: diff >= 0 ? 'success' : diff >= -(safeRange * 0.1) ? 'warning' : 'danger',
+            gapLabel: Math.abs(diff) < 0.05
+                ? 'Na meta ✓'
+                : (diff > 0 ? `+${formatValue(diff)}${gapUnit} acima` : `Faltam ${formatValue(Math.abs(diff))}${gapUnit}`),
+            status: diff >= -0.05 ? 'success' : diff >= -(safeRange * 0.1) ? 'warning' : 'danger',
             progressPct: targetVal > domainMin
                 ? ((refVal - domainMin) / Math.max(1e-9, targetVal - domainMin)) * 100
                 : 100,
-            extra: Number.isFinite(probNum) ? `Chance ${probNum.toFixed(0)}% (zona segura ≥ 80%)` : null,
+            extra: [
+                boundedCurrent != null ? `Hoje ${fmtVal(boundedCurrent)}` : null,
+                Number.isFinite(probNum) ? `Chance ${probNum.toFixed(0)}% (alvo ≥ 80%)` : null,
+            ].filter(Boolean).join(' · ') || null,
         };
     }, [safeMean, boundedCurrent, targetVal, domainMin, domainMax, unit, prob]);
 

@@ -340,7 +340,10 @@ export const CriticalTopicsAnalysis = React.memo(({
     }, [pointLeakageData]);
 
     const weekTitle = WEEKS.find(w => w.offset === selectedWeekOffset)?.label || "SEMANA";
-    const worstCrit = pointLeakageData[0]?.displayValue ?? subtopicsData[0]?.value ?? 0;
+    const worstCrit = Math.max(
+        Number(pointLeakageData[0]?.displayValue) || 0,
+        Number(subtopicsData[0]?.value) || 0
+    );
     const aboveSafeSubjects = pointLeakageData.filter((d) => d.displayValue > SAFE_CRIT_THRESHOLD).length;
     const aboveSafeTopics = subtopicsData.filter((d) => d.value > SAFE_CRIT_THRESHOLD).length;
 
@@ -443,7 +446,15 @@ export const CriticalTopicsAnalysis = React.memo(({
                             <ResponsiveContainer width="100%" height={Math.max(220, pointLeakageData.length * 38)} minWidth={1}>
                                 <BarChart data={pointLeakageData} layout="vertical" margin={{ top: 5, right: 85, left: 0, bottom: 5 }}>
                                     <CartesianGrid stroke="rgba(255,255,255,0.05)" horizontal={false} />
-                                    <XAxis type="number" stroke="#94a3b8" tick={{ fontSize: 11, fill: '#94a3b8', fontWeight: 600 }} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} tickLine={false} allowDecimals={false} />
+                                    <XAxis
+                                        type="number"
+                                        domain={[0, (dataMax) => Math.max(2, Math.ceil(Math.max(Number(dataMax) || 0, SAFE_CRIT_THRESHOLD) * 1.15))]}
+                                        stroke="#94a3b8"
+                                        tick={{ fontSize: 11, fill: '#94a3b8', fontWeight: 600 }}
+                                        axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
+                                        tickLine={false}
+                                        allowDecimals={false}
+                                    />
                                     <YAxis type="category" dataKey="fullName" tickFormatter={(v) => String(v || '').length > 22 ? `${String(v).slice(0, 20)}…` : v} stroke="#cbd5e1" tick={{ fontSize: 11, fill: '#cbd5e1', fontWeight: 600 }} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} tickLine={false} width={135} />
                                     <Tooltip cursor={{ fill: 'rgba(255,255,255,0.04)', radius: 6 }} formatter={(v, n, props) => [`${v} pts (alvo ≤ ${SAFE_CRIT_THRESHOLD}) · Acerto ${props?.payload?.accuracyPct ?? 0}% vs Meta ${targetPct}%`, `${props?.payload?.fullName || 'Matéria'} (${props?.payload?.errors || 0} erros)`]} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
                                     <ReferenceLine x={SAFE_CRIT_THRESHOLD} stroke="#10b981" strokeDasharray="4 4" strokeWidth={1.5} label={{ value: `Alvo ≤ ${SAFE_CRIT_THRESHOLD}`, position: 'insideTopRight', fill: '#34d399', fontSize: 10, fontWeight: 700 }} />
@@ -490,7 +501,15 @@ export const CriticalTopicsAnalysis = React.memo(({
                             <ResponsiveContainer width="100%" height={Math.max(220, subtopicsData.length * 38)} minWidth={1}>
                                 <BarChart data={subtopicsData} layout="vertical" margin={{ top: 5, right: 65, left: 0, bottom: 5 }}>
                                     <CartesianGrid stroke="rgba(255,255,255,0.05)" horizontal={false} />
-                                    <XAxis type="number" stroke="#94a3b8" tick={{ fontSize: 11, fill: '#94a3b8', fontWeight: 600 }} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} tickLine={false} allowDecimals={false} />
+                                    <XAxis
+                                        type="number"
+                                        domain={[0, (dataMax) => Math.max(2, Math.ceil(Math.max(Number(dataMax) || 0, SAFE_CRIT_THRESHOLD) * 1.15))]}
+                                        stroke="#94a3b8"
+                                        tick={{ fontSize: 11, fill: '#94a3b8', fontWeight: 600 }}
+                                        axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
+                                        tickLine={false}
+                                        allowDecimals={false}
+                                    />
                                     <YAxis type="category" dataKey="fullName" tickFormatter={(v) => String(v || '').length > 28 ? `${String(v).slice(0, 26)}…` : v} stroke="#cbd5e1" tick={{ fontSize: 11, fill: '#cbd5e1', fontWeight: 600 }} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} tickLine={false} width={135} />
                                     <Tooltip cursor={{ fill: 'rgba(255,255,255,0.04)', radius: 6 }} formatter={(v, n, props) => {
                                         const total = Number(props?.payload?.total) || 0;

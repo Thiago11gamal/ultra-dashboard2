@@ -303,10 +303,10 @@ export const CompareChart = React.memo(function CompareChart({
             currentLabel: Number.isFinite(latestMc) ? 'Projeção MC' : 'Nível atual',
             currentValue: fmt(refVal),
             targetValue: fmt(safeTargetScore),
-            gapLabel: diff >= 0
-                ? `+${formatValue(diff)}${gapUnit} acima`
-                : `Faltam ${formatValue(Math.abs(diff))}${gapUnit}`,
-            status: diff >= 0 ? 'success' : diff >= -(range * 0.1) ? 'warning' : 'danger',
+            gapLabel: Math.abs(diff) < 0.05
+                ? 'Na meta ✓'
+                : (diff > 0 ? `+${formatValue(diff)}${gapUnit} acima` : `Faltam ${formatValue(Math.abs(diff))}${gapUnit}`),
+            status: diff >= -0.05 ? 'success' : diff >= -(range * 0.1) ? 'warning' : 'danger',
             progressPct: safeTargetScore > safeMinScore
                 ? ((refVal - safeMinScore) / Math.max(1e-9, safeTargetScore - safeMinScore)) * 100
                 : 100,

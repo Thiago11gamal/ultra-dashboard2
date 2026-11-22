@@ -130,8 +130,8 @@ export const KalmanLatentChart = React.memo(function KalmanLatentChart({
         currentValue={fmt(summary.ability)}
         targetLabel="Meta"
         targetValue={fmt(targetScore)}
-        gapLabel={diffMeta >= 0 ? `+${formatValue(diffMeta)}${gapUnit} acima` : `Faltam ${formatValue(Math.abs(diffMeta))}${gapUnit}`}
-        status={diffMeta >= 0 ? 'success' : diffMeta >= -(domainSpan * 0.1) ? 'warning' : 'danger'}
+        gapLabel={Math.abs(diffMeta) < 0.05 ? 'Na meta ✓' : (diffMeta > 0 ? `+${formatValue(diffMeta)}${gapUnit} acima` : `Faltam ${formatValue(Math.abs(diffMeta))}${gapUnit}`)}
+        status={diffMeta >= -0.05 ? 'success' : diffMeta >= -(domainSpan * 0.1) ? 'warning' : 'danger'}
         progressPct={targetScore > minScore ? ((summary.ability - minScore) / Math.max(1e-9, targetScore - minScore)) * 100 : 100}
         extra={monthsToMeta ? `Ritmo atual: ~${monthsToMeta} ${monthsToMeta === 1 ? 'mês' : 'meses'} p/ meta` : `${trendPositive ? '+' : ''}${summary.trendPerMonth.toFixed(1)}${unitSuffix}/mês`}
         compact

@@ -369,15 +369,14 @@ export const EvolutionLineChart = React.memo(function EvolutionLineChart({
         const progress = safeTargetScore > safeMinScore
             ? ((currentVal - safeMinScore) / Math.max(1e-9, safeTargetScore - safeMinScore)) * 100
             : 100;
-        const status = diff >= 0 ? 'success' : diff >= -(safeRange * 0.1) ? 'warning' : 'danger';
         return {
             currentLabel: focusedPt ? focusedPt.name : (finalPoints.length === 1 ? finalPoints[0].name : 'Média atual'),
             currentValue: `${formatValue(currentVal)}${unit}`,
             targetValue: `${formatValue(safeTargetScore)}${unit}`,
-            gapLabel: diff >= 0
-                ? `+${formatValue(diff)}${gapUnit} acima`
-                : `Faltam ${formatValue(Math.abs(diff))}${gapUnit}`,
-            status,
+            gapLabel: Math.abs(diff) < 0.05
+                ? 'Na meta ✓'
+                : (diff > 0 ? `+${formatValue(diff)}${gapUnit} acima` : `Faltam ${formatValue(Math.abs(diff))}${gapUnit}`),
+            status: diff >= -0.05 ? 'success' : diff >= -(safeRange * 0.1) ? 'warning' : 'danger',
             progressPct: progress,
             extra: !focusedPt && finalPoints.length > 1 ? `${aboveCount}/${finalPoints.length} na meta` : null,
         };

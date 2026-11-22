@@ -140,9 +140,9 @@ export const SpeedAccuracyChart = React.memo(function SpeedAccuracyChart({
     const isOptimal = secDiff <= 0 && accDiff >= 0;
     const status = isOptimal ? 'success' : (accDiff >= -8 && secDiff <= 25 ? 'warning' : 'danger');
     const gapParts = [];
-    if (secDiff > 0) gapParts.push(`+${secDiff}s/q`);
-    else gapParts.push(`${secDiff}s/q`);
-    gapParts.push(accDiff >= 0 ? `+${accDiff.toFixed(1)}pp` : `${accDiff.toFixed(1)}pp`);
+    if (secDiff > 0) gapParts.push(`+${secDiff}s/q lento`);
+    else gapParts.push('Ritmo ok');
+    gapParts.push(accDiff >= 0 ? `+${accDiff.toFixed(1)}pp meta` : `${accDiff.toFixed(1)}pp meta`);
     return {
       currentValue: `${formatSec(avgSec)}/q · ${avgAcc.toFixed(1)}%`,
       targetValue: `≤ ${formatSec(data.benchmarkSeconds)}/q · ≥ ${data.targetPct}%`,

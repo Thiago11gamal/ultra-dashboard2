@@ -193,8 +193,8 @@ export const PerformanceBarChart = React.memo(function PerformanceBarChart({
                             currentValue={`${formatValue(totals.accRate)}%`}
                             targetLabel="Meta"
                             targetValue={`${formatValue(targetPct)}%`}
-                            gapLabel={diff >= 0 ? `+${formatValue(diff)}pp acima` : `Faltam ${formatValue(Math.abs(diff))}pp`}
-                            status={diff >= 0 ? 'success' : diff >= -10 ? 'warning' : 'danger'}
+                            gapLabel={Math.abs(diff) < 0.05 ? 'Na meta ✓' : (diff > 0 ? `+${formatValue(diff)}pp acima` : `Faltam ${formatValue(Math.abs(diff))}pp`)}
+                            status={diff >= -0.05 ? 'success' : diff >= -10 ? 'warning' : 'danger'}
                             progressPct={targetPct > 0 ? (totals.accRate / targetPct) * 100 : 100}
                             extra={chartData.length > 1 ? `${totals.onTarget}/${chartData.length} na meta` : null}
                             compact

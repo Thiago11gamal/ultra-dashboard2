@@ -17,6 +17,8 @@ import { IRTPsychometricChart } from '../IRTPsychometricChart';
 import { MetacognitionFatigueChart } from '../MetacognitionFatigueChart';
 import { CriticalTopicsAnalysis } from '../CriticalTopicsAnalysis';
 import { TodayVsGeneralChart } from '../TodayVsGeneralChart';
+import WeeklyPerformanceChart from '../WeeklyPerformanceChart';
+import { CorrelationRegimeChart } from '../CorrelationRegimeChart';
 import { generateEvolutionInsights } from '../../../../engine/insightGenerator';
 import { buildProjectionFanData } from '../../../../utils/advancedChartHelpers';
 import {
@@ -666,5 +668,82 @@ describe('Evolution Menu — Data-to-Visual Parity Verification Suite', () => {
     expect(container.textContent).toContain('+10 vs 30d ant.');
     expect(container.textContent).toContain('+20pp vs 30d ant.');
     expect(container.textContent).toContain('Registrar simulado');
+  });
+
+  it('Benchmark accuracy audit: no -0s in TimeSpentChart, weighted 7d avg in WeeklyPerformanceChart, custom focus scale in PerformanceBarChart, and Hurst calibration notice in CorrelationRegimeChart', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-10T16:00:00.000Z'));
+
+    // 1) TimeSpentChart: diff === 0 displays "No alvo exato ✓" (never "-0s") and aligns recent displaySeconds with subject count
+    const tsExactHtml = renderToStaticMarkup(
+      <TimeSpentChart
+        subjectAggData={[{ id: 'c1', fullName: 'Português', timeSpent: 1200, timedQuestoes: 10 }]}
+        activeCategories={[{ id: 'c1', name: 'Português', simuladoStats: { history: [{ date: '2026-05-09', total: 10, timeSpent: 1200 }] } }]}
+        examDurationMinutes={200}
+        examTotalQuestions={100}
+      />
+    );
+    expect(tsExactHtml).toContain('No alvo exato ✓');
+    expect(tsExactHtml).not.toContain('−0s');
+    expect(tsExactHtml).toContain('1/1 no ritmo da prova');
+
+    // 2) WeeklyPerformanceChart: question-weighted 7d avg (100q @ 80% + 2q @ 50% => 81/102 = 79.4%, NOT unweighted 65%)
+    const wpHtml = renderToStaticMarkup(
+      <WeeklyPerformanceChart
+        categories={[
+          {
+            id: 'c1',
+            name: 'Português',
+            simuladoStats: {
+              history: [
+                { date: '2026-05-08', total: 100, correct: 80, score: 80 },
+                { date: '2026-05-09', total: 2, correct: 1, score: 50 },
+              ],
+            },
+          },
+        ]}
+        targetScore={80}
+        minScore={0}
+        maxScore={100}
+      />
+    );
+    expect(wpHtml).toMatch(/79[.,]4%/);
+    expect(wpHtml).not.toContain('65%');
+
+    // 3) PerformanceBarChart with custom focus scale (0..1000, targetScore 800 => 80%, NOT 100%)
+    const perfCustomHtml = renderToStaticMarkup(
+      <PerformanceBarChart
+        subjectAggData={[{ id: 'red', name: 'Redação', realQuestoes: 10, realAcertos: 8 }]}
+        showOnlyFocus={true}
+        focusCategory={{ id: 'red', name: 'Redação', minScore: 0, maxScore: 1000 }}
+        targetScore={800}
+        minScore={0}
+        maxScore={1000}
+      />
+    );
+    expect(perfCustomHtml).toContain('80%');
+    expect(perfCustomHtml).toContain('Na meta ✓');
+
+    // 4) CorrelationRegimeChart when all subjects have < 10 simulados (calibrating Hurst) shows "Em evolução (H calibrando)"
+    const corrHtml = renderToStaticMarkup(
+      <CorrelationRegimeChart
+        categories={[
+          {
+            id: 'c1',
+            name: 'Direito',
+            simuladoStats: {
+              history: [
+                { date: '2026-04-01', score: 60 },
+                { date: '2026-04-15', score: 70 },
+                { date: '2026-05-01', score: 80 },
+              ],
+            },
+          },
+        ]}
+      />
+    );
+    expect(corrHtml).toContain('Em evolução (H calibrando)');
+    expect(corrHtml).toContain('1/1 matérias');
+    expect(corrHtml).not.toContain('0/0');
   });
 });

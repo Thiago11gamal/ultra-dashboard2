@@ -216,7 +216,7 @@ export const IRTPsychometricChart = React.memo(function IRTPsychometricChart({
   const thetaBand = getThetaBand(irt.theta);
 
   // Calcula θ alvo correspondente à meta no modelo 2PL para item médio (b = 0, a = 1.35)
-  const { thetaTarget, targetPctLabel } = useMemo(() => {
+  const { thetaTarget, targetPctNum, targetPctLabel } = useMemo(() => {
     const gMin = isStrictNum(minScore) ? Number(minScore) : 0;
     const gMax = isStrictNum(maxScore) && Number(maxScore) > gMin ? Number(maxScore) : Math.max(gMin + 1, 100);
     const effTarget = isStrictNum(targetScore)
@@ -225,9 +225,11 @@ export const IRTPsychometricChart = React.memo(function IRTPsychometricChart({
     const rawRatio = (effTarget - gMin) / Math.max(1e-9, gMax - gMin);
     const safeP = Math.max(0.05, Math.min(0.95, rawRatio));
     const th = Math.max(-2.6, Math.min(2.6, Math.log(safeP / (1 - safeP)) / 1.35));
+    const pctNum = Math.round(rawRatio * 100);
     return {
       thetaTarget: Number(th.toFixed(2)),
-      targetPctLabel: `${Math.round(rawRatio * 100)}%`,
+      targetPctNum: pctNum,
+      targetPctLabel: `${pctNum}%`,
     };
   }, [targetScore, minScore, maxScore]);
 
@@ -389,6 +391,13 @@ export const IRTPsychometricChart = React.memo(function IRTPsychometricChart({
                       <XAxis dataKey="label" stroke="#94a3b8" fontSize={11} />
                       <YAxis domain={[0, 100]} stroke="#64748b" fontSize={10} tickFormatter={(v) => `${v}%`} />
                       <Tooltip content={<TierTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+                      <ReferenceLine
+                        y={targetPctNum}
+                        stroke="#10b981"
+                        strokeDasharray="5 3"
+                        strokeWidth={1.5}
+                        label={{ value: `Meta ${targetPctLabel}`, position: 'insideTopRight', fill: '#34d399', fontSize: 10, fontWeight: 700 }}
+                      />
                       <Bar dataKey="observedPct" name="Acerto Real (%)" fill="#38bdf8" radius={[6, 6, 0, 0]} barSize={28} />
                       <Line type="monotone" dataKey="predictedPct" name="Previsto TRI (%)" stroke="#a78bfa" strokeWidth={2.5} dot={{ r: 4 }} />
                     </ComposedChart>

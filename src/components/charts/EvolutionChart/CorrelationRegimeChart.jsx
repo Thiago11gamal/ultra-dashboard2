@@ -98,23 +98,51 @@ export const CorrelationRegimeChart = React.memo(function CorrelationRegimeChart
   const synergyPairs = corr.pairs.filter((p) => p.type === 'synergy');
   const consolidatedCount = regimes.filter((r) => Number(r.hurstH) >= 0.58 && Number(r.velocity) > 0).length;
   const positiveVelCount = regimes.filter((r) => Number(r.velocity) > 0).length;
+  const allCalibratingHurst = regimes.length > 0 && regimes.every((r) => Number(r.sampleSize) < 10);
 
   return (
     <div className="w-full space-y-6">
       {(regimes.length > 0 || corr.pairs.length > 0) && (
-        <BenchmarkStrip
-          currentLabel="Na zona consolidada"
-          currentValue={regimes.length > 0 ? `${consolidatedCount}/${regimes.length} matérias` : `${positiveVelCount} em alta`}
-          targetLabel="Zona alvo"
-          targetValue="H ≥ 0.58 · vel. > 0"
-          gapLabel={crowdingPairs.length > 0
-            ? `${crowdingPairs.length} ${crowdingPairs.length === 1 ? 'par em gangorra' : 'pares em gangorra'}`
-            : (regimes.length > 0 && consolidatedCount === regimes.length ? 'Todas consolidadas ✓' : `${positiveVelCount}/${regimes.length} em evolução`)}
-          status={crowdingPairs.length > 0 ? 'warning' : (regimes.length > 0 && consolidatedCount > 0 ? 'success' : 'neutral')}
-          progressPct={regimes.length > 0 ? (consolidatedCount / regimes.length) * 100 : null}
-          extra={`Efeito gangorra: ${crowdingPairs.length} (alvo: 0)`}
-          compact
-        />
+        regimes.length === 0 ? (
+          <BenchmarkStrip
+            currentLabel="Pares em gangorra"
+            currentValue={`${crowdingPairs.length}`}
+            targetLabel="Alvo"
+            targetValue="0 pares"
+            gapLabel={crowdingPairs.length === 0 ? 'Sem canibalização ✓' : `${crowdingPairs.length} ${crowdingPairs.length === 1 ? 'par em alerta' : 'pares em alerta'}`}
+            status={crowdingPairs.length === 0 ? 'success' : 'warning'}
+            extra={`${synergyPairs.length} ${synergyPairs.length === 1 ? 'sinergia' : 'sinergias'} positivas`}
+            compact
+          />
+        ) : allCalibratingHurst ? (
+          <BenchmarkStrip
+            currentLabel="Em evolução (H calibrando)"
+            currentValue={`${positiveVelCount}/${regimes.length} matérias`}
+            targetLabel="Alvo inicial"
+            targetValue="Velocidade > 0"
+            gapLabel={crowdingPairs.length > 0
+              ? `${crowdingPairs.length} ${crowdingPairs.length === 1 ? 'par em gangorra' : 'pares em gangorra'}`
+              : (positiveVelCount === regimes.length ? 'Todas subindo ✓' : `${positiveVelCount}/${regimes.length} em alta`)}
+            status={crowdingPairs.length > 0 ? 'warning' : (positiveVelCount > 0 ? 'success' : 'neutral')}
+            progressPct={(positiveVelCount / regimes.length) * 100}
+            extra={`Hurst calibra com ≥10 simulados · Gangorra: ${crowdingPairs.length} (alvo: 0)`}
+            compact
+          />
+        ) : (
+          <BenchmarkStrip
+            currentLabel="Na zona consolidada"
+            currentValue={`${consolidatedCount}/${regimes.length} matérias`}
+            targetLabel="Zona alvo"
+            targetValue="H ≥ 0.58 · vel. > 0"
+            gapLabel={crowdingPairs.length > 0
+              ? `${crowdingPairs.length} ${crowdingPairs.length === 1 ? 'par em gangorra' : 'pares em gangorra'}`
+              : (consolidatedCount === regimes.length ? 'Todas consolidadas ✓' : `${positiveVelCount}/${regimes.length} em evolução`)}
+            status={crowdingPairs.length > 0 ? 'warning' : (consolidatedCount > 0 ? 'success' : 'neutral')}
+            progressPct={(consolidatedCount / regimes.length) * 100}
+            extra={`Efeito gangorra: ${crowdingPairs.length} (alvo: 0)`}
+            compact
+          />
+        )
       )}
       {/* Parte A — Matriz Semanal de Correlação */}
       <div className="rounded-2xl border border-white/[0.08] bg-slate-950/55 p-4 space-y-3">

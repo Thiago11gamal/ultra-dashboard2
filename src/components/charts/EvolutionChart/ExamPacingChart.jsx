@@ -193,7 +193,7 @@ export const ExamPacingChart = React.memo(function ExamPacingChart({
             currentValue={`${fmtMinutes(data.totalProjectedMinutes)} (${Math.round(data.overallAvgSec)}s/q)`}
             targetLabel="Limite edital"
             targetValue={`${fmtMinutes(data.examDurationMinutes)} (${Math.round(data.idealSecPerQuestion)}s/q)`}
-            gapLabel={isOverTime ? `+${fmtMinutes(data.deltaMinutes)} acima` : `${fmtMinutes(Math.abs(data.deltaMinutes))} de folga`}
+            gapLabel={Math.round(data.deltaMinutes) === 0 ? 'No limite exato ✓' : (isOverTime ? `+${fmtMinutes(data.deltaMinutes)} acima` : `${fmtMinutes(Math.abs(data.deltaMinutes))} de folga`)}
             status={isOverTime ? (data.deltaMinutes > 15 ? 'danger' : 'warning') : 'success'}
             progressPct={Math.min(100, (data.examDurationMinutes / Math.max(1, data.totalProjectedMinutes)) * 100)}
             compact
