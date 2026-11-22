@@ -66,13 +66,13 @@ function SpeedAccuracyTooltip({ active, payload }) {
         </div>
       </div>
       <div className="grid grid-cols-2 gap-2 text-xs mb-2">
-        <div className="bg-slate-900/80 rounded-lg p-2">
-          <p className="text-[9px] uppercase text-slate-500 font-bold">Tempo / Q</p>
-          <p className="font-black font-mono text-cyan-300">{formatSec(pt.avgSeconds)}</p>
+        <div className="bg-slate-900/80 border border-white/[0.06] rounded-xl p-2">
+          <p className="text-[10px] uppercase text-slate-400 font-bold">Tempo / Q</p>
+          <p className="font-black font-mono tabular-nums text-cyan-300">{formatSec(pt.avgSeconds)}</p>
         </div>
-        <div className="bg-slate-900/80 rounded-lg p-2">
-          <p className="text-[9px] uppercase text-slate-500 font-bold">Acerto</p>
-          <p className="font-black font-mono text-emerald-300">{pt.accuracyPct}%</p>
+        <div className="bg-slate-900/80 border border-white/[0.06] rounded-xl p-2">
+          <p className="text-[10px] uppercase text-slate-400 font-bold">Acerto</p>
+          <p className="font-black font-mono tabular-nums text-emerald-300">{pt.accuracyPct}%</p>
         </div>
       </div>
       <div className="flex items-center justify-between gap-2 text-[10px]">
@@ -132,14 +132,15 @@ export const SpeedAccuracyChart = React.memo(function SpeedAccuracyChart({
     <div className="w-full space-y-5">
       {/* Controles + Resumo dos 4 quadrantes */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-1.5 bg-slate-950/70 border border-white/10 p-1 rounded-xl">
+        <div className="flex items-center gap-1 bg-slate-950/80 border border-white/[0.08] p-1 rounded-xl shadow-inner">
           <button
             type="button"
             onClick={() => setMode('subject')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all ${
+            aria-pressed={mode === 'subject'}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all ${
               mode === 'subject'
-                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-cyan-500/20 text-cyan-200 border-cyan-400/45 shadow-sm'
+                : 'text-slate-400 hover:text-white border-transparent hover:bg-white/[0.04]'
             }`}
           >
             <BookOpen size={13} />
@@ -148,10 +149,11 @@ export const SpeedAccuracyChart = React.memo(function SpeedAccuracyChart({
           <button
             type="button"
             onClick={() => setMode('topic')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all ${
+            aria-pressed={mode === 'topic'}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all ${
               mode === 'topic'
-                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-cyan-500/20 text-cyan-200 border-cyan-400/45 shadow-sm'
+                : 'text-slate-400 hover:text-white border-transparent hover:bg-white/[0.04]'
             }`}
           >
             <Layers size={13} />
@@ -159,7 +161,7 @@ export const SpeedAccuracyChart = React.memo(function SpeedAccuracyChart({
           </button>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold">
+        <div className="flex flex-wrap items-center gap-2 text-[11px] font-bold">
           {Object.entries(QUADRANT_BADGE).map(([key, meta]) => (
             <span
               key={key}
@@ -167,17 +169,17 @@ export const SpeedAccuracyChart = React.memo(function SpeedAccuracyChart({
               className={`px-2.5 py-1 rounded-full border ${meta.bg} ${meta.color} tabular-nums`}
             >
               {meta.label}: {data.quadrants[key] || 0}
-              <span className="hidden xl:inline opacity-70 font-medium"> ({meta.hint})</span>
+              <span className="hidden xl:inline opacity-75 font-medium"> ({meta.hint})</span>
             </span>
           ))}
         </div>
       </div>
 
       {data.points.length === 0 ? (
-        <div className="min-h-[300px] flex flex-col items-center justify-center gap-3 rounded-2xl border border-white/5 bg-slate-950/50 p-8 text-center">
-          <Gauge size={36} className="text-cyan-400/50" />
+        <div className="min-h-[300px] flex flex-col items-center justify-center gap-3 rounded-2xl border border-white/[0.08] bg-slate-950/55 p-8 text-center">
+          <Gauge size={34} className="text-cyan-400/60" />
           <p className="text-sm font-bold text-slate-300">Sem registros cronometrados de questões ainda</p>
-          <p className="text-xs text-slate-500 max-w-md">
+          <p className="text-xs text-slate-400 max-w-md">
             Realize simulados com cronômetro (como o Simulado IA ou registrando o tempo gasto) para cruzar velocidade (s/questão) × precisão (%).
           </p>
         </div>

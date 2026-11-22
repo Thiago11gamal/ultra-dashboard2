@@ -11,7 +11,7 @@ import {
   ReferenceArea,
   Cell,
 } from 'recharts';
-import { Network, Activity } from 'lucide-react';
+import { Network, Activity, Target, Info } from 'lucide-react';
 import { ChartFrame } from '../ChartFrame';
 import { computeWeeklyCategoryCorrelation, buildRegimeMapData } from '../../../engine/diagnostics';
 
@@ -36,9 +36,9 @@ function RegimeTooltip({ active, payload, unit = '%' }) {
       <div className="space-y-1 font-mono">
         <div className="flex justify-between gap-4">
           <span className="text-slate-400">Hurst (H):</span>
-          <span className="text-sky-300 font-bold">
+          <span className="text-sky-300 font-bold tabular-nums">
             {pt.hurstH}
-            {pt.sampleSize < 10 && <span className="text-[9px] text-slate-500 font-sans ml-1">(calibrando)</span>}
+            {pt.sampleSize < 10 && <span className="text-[10px] text-slate-400 font-sans ml-1">(calibrando)</span>}
           </span>
         </div>
         <div className="flex justify-between gap-4">
@@ -99,7 +99,7 @@ export const CorrelationRegimeChart = React.memo(function CorrelationRegimeChart
   return (
     <div className="w-full space-y-6">
       {/* Parte A — Matriz Semanal de Correlação */}
-      <div className="rounded-2xl border border-white/10 bg-slate-950/50 p-4 space-y-3">
+      <div className="rounded-2xl border border-white/[0.08] bg-slate-950/55 p-4 space-y-3">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-2">
             <Network size={16} className="text-indigo-400" />
@@ -107,21 +107,21 @@ export const CorrelationRegimeChart = React.memo(function CorrelationRegimeChart
               Matriz de Correlação Semanal (Matéria × Matéria)
             </h4>
           </div>
-          <span className="text-[10px] text-slate-400">
+          <span className="text-[11px] text-slate-400">
             Verde (r ≥ +0.25): sobem juntas · Vermelho (r ≤ −0.20): efeito gangorra / negligência
           </span>
         </div>
 
         {corr.categories.length < 2 || !corr.matrix.length ? (
-          <p className="text-xs text-slate-500 py-6 text-center">
+          <p className="text-xs text-slate-400 py-6 text-center">
             Cadastre simulados em pelo menos 2 disciplinas ao longo de ≥3 semanas comuns para montar a matriz de correlação.
           </p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full border-separate border-spacing-1 text-[10px] font-mono">
+            <table className="w-full border-separate border-spacing-1 text-[11px] font-mono tabular-nums">
               <thead>
                 <tr>
-                  <th className="p-1.5 text-left text-slate-500">Disciplina</th>
+                  <th className="p-1.5 text-left text-slate-400 font-sans">Disciplina</th>
                   {corr.categories.map((c) => (
                     <th
                       key={c.id}
@@ -140,11 +140,14 @@ export const CorrelationRegimeChart = React.memo(function CorrelationRegimeChart
                   return (
                     <tr key={catRow.id}>
                       <td
-                        className={`p-1.5 font-sans font-bold whitespace-nowrap max-w-[130px] truncate ${isFocusedRow ? 'text-indigo-300' : 'text-slate-200'
+                        className={`p-1.5 font-sans font-bold whitespace-nowrap max-w-[140px] truncate ${isFocusedRow ? 'text-indigo-300' : 'text-slate-200'
                           }`}
                         title={catRow.name}
                       >
-                        {isFocusedRow ? '🎯 ' : ''}{catRow.name}
+                        <span className="inline-flex items-center gap-1.5">
+                          {isFocusedRow && <Target size={11} className="text-indigo-300 shrink-0" />}
+                          <span className="truncate">{catRow.name}</span>
+                        </span>
                       </td>
                       {corr.matrix[i].map((cell, j) => (
                         <td
@@ -179,7 +182,7 @@ export const CorrelationRegimeChart = React.memo(function CorrelationRegimeChart
       </div>
 
       {/* Parte B — Mapa de Regimes (Hurst H × Velocidade) */}
-      <div className="rounded-2xl border border-white/10 bg-slate-950/50 p-4 space-y-3">
+      <div className="rounded-2xl border border-white/[0.08] bg-slate-950/55 p-4 space-y-3">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-2">
             <Activity size={16} className="text-emerald-400" />
@@ -187,14 +190,15 @@ export const CorrelationRegimeChart = React.memo(function CorrelationRegimeChart
               Mapa de Regimes Estatísticos (Hurst H × Velocidade)
             </h4>
           </div>
-          <span className="text-[10px] text-slate-400">
+          <span className="text-[11px] text-slate-400">
             H &gt; 0.58: tendência persistente · H &lt; 0.42: oscilação / reversão à média · Acima de 0: ganhando pontos/sem
           </span>
         </div>
 
         {hasCalibratingHurst && (
-          <p className="text-[10px] text-slate-400 bg-slate-900/70 border border-white/5 rounded-xl px-3 py-1.5">
-            ℹ️ Disciplinas com menos de 10 simulados permanecem em <strong className="text-slate-200">H = 0.50</strong> até acumular amostra suficiente para separar persistência de reversão.
+          <p className="text-[11px] text-slate-400 bg-slate-900/75 border border-white/[0.08] rounded-xl px-3 py-2 flex items-center gap-2">
+            <Info size={13} className="text-indigo-400 shrink-0" />
+            <span>Disciplinas com menos de 10 simulados permanecem em <strong className="text-slate-200">H = 0.50</strong> até acumular amostra suficiente para separar persistência de reversão.</span>
           </p>
         )}
 

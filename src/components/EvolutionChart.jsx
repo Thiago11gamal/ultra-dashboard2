@@ -63,6 +63,11 @@ import { generateEvolutionInsights } from '../engine/insightGenerator';
 import { StatusPill } from './ui/StatusPill';
 import { ChartGuide } from './ui/ChartGuide';
 import { computeEvolutionStatuses } from '../utils/evolutionStatus';
+import {
+  DEFAULT_EVOLUTION_UI_PREFS,
+  readEvolutionUiPrefs,
+  writeEvolutionUiPrefs,
+} from '../utils/evolutionUiPrefs';
 
 const EMPTY_ARRAY = Object.freeze([]);
 const EMPTY_OBJECT = Object.freeze({});
@@ -751,7 +756,8 @@ export default React.memo(function EvolutionChart({
     simuladoRows = [],
     unit = '%',
     minScore = 0,
-    maxScore = 100
+    maxScore = 100,
+    persistUiPrefs = !(typeof import.meta !== 'undefined' && import.meta.env?.MODE === 'test'),
 }) {
     const navigate = useNavigate();
     const rawCategories = useAppStore(useShallow(state => {
@@ -780,14 +786,13 @@ export default React.memo(function EvolutionChart({
         return hydrateCategoriesWithSimuladoRows(safeCategories, simuladoRowsArray, minScore, maxScore);
     }, [propCategories, rawCategories, simuladoRowsArray, minScore, maxScore]);
 
-    const [activeEngine, setActiveEngine] = useState("raw_weekly");
-    const [selectedSubjectId, setFocusSubjectId] = useState(null);
-    
     // RIGOR-09 FIX: Recuperar os pesos do store para o Global Pct ponderado
-    const { mcWeights, historicalCutoffs, examDurationMinutes, examTotalQuestions, examBoard, penaltyPerWrong, examGroupCutoffs } = useAppStore(
+    const { activeContestId, mcWeights, historicalCutoffs, examDurationMinutes, examTotalQuestions, examBoard, penaltyPerWrong, examGroupCutoffs } = useAppStore(
         useShallow((state) => {
-            const contest = state.appState?.contests?.[state.appState?.activeId];
+            const currentId = state.appState?.activeId || 'default';
+            const contest = state.appState?.contests?.[currentId];
             return {
+                activeContestId: currentId,
                 mcWeights: contest?.mcWeights || EMPTY_OBJECT,
                 historicalCutoffs: contest?.historicalCutoffs || EMPTY_ARRAY,
                 examDurationMinutes: contest?.examDurationMinutes ?? null,
@@ -798,6 +803,15 @@ export default React.memo(function EvolutionChart({
             };
         })
     );
+
+    const initialUiPrefs = useMemo(
+        () => (persistUiPrefs ? readEvolutionUiPrefs(activeContestId) : DEFAULT_EVOLUTION_UI_PREFS),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        []
+    );
+
+    const [activeEngine, setActiveEngine] = useState(initialUiPrefs.activeEngine);
+    const [selectedSubjectId, setFocusSubjectId] = useState(null);
     const { timeline, heatmapData, globalMetrics, activeCategories } = useChartData(categories, mcWeights, maxScore, minScore);
 
     // Prioriza activeCategories no default, mas respeita seleção explícita de qualquer categoria
@@ -843,19 +857,41 @@ export default React.memo(function EvolutionChart({
     const resolvedGlobalUnit = resolveUnitForScale(unit, minScore, maxScore);
 
     const [showOnlyFocus, setShowOnlyFocus] = useState(false);
-    const [timeWindow, setTimeWindow] = useState("all");
+    const [timeWindow, setTimeWindow] = useState(initialUiPrefs.timeWindow);
     const [isExporting, setIsExporting] = useState(false);
     const [exportError, setExportError] = useState(false);
-    const [statusViewMode, setStatusViewMode] = useState("compact");
+    const [statusViewMode, setStatusViewMode] = useState(initialUiPrefs.statusViewMode);
     const [selectedStatusId, setSelectedStatusId] = useState(null);
     const [showHeroGuide, setShowHeroGuide] = useState(false);
     const [showSecondaryGuide, setShowSecondaryGuide] = useState(false);
-    const [showDetailedGallery, setShowDetailedGallery] = useState(true);
+    const [showDetailedGallery, setShowDetailedGallery] = useState(initialUiPrefs.showDetailedGallery);
     const [heroExpanded, setHeroExpanded] = useState(false);
-    const [engineGroup, setEngineGroup] = useState("all");
+    const [engineGroup, setEngineGroup] = useState(initialUiPrefs.engineGroup);
+    const [prevContestIdForPrefs, setPrevContestIdForPrefs] = useState(activeContestId);
     const exportErrorTimerRef = useRef(null);
     const isMountedRef = useRef(true);
     const tabsScrollRef = useRef(null);
+
+    if (persistUiPrefs && activeContestId !== prevContestIdForPrefs) {
+        setPrevContestIdForPrefs(activeContestId);
+        const restored = readEvolutionUiPrefs(activeContestId);
+        setActiveEngine(restored.activeEngine);
+        setTimeWindow(restored.timeWindow);
+        setEngineGroup(restored.engineGroup);
+        setStatusViewMode(restored.statusViewMode);
+        setShowDetailedGallery(restored.showDetailedGallery);
+    }
+
+    useEffect(() => {
+        if (!persistUiPrefs) return;
+        writeEvolutionUiPrefs(activeContestId, {
+            activeEngine,
+            timeWindow,
+            engineGroup,
+            statusViewMode,
+            showDetailedGallery,
+        });
+    }, [persistUiPrefs, activeContestId, activeEngine, timeWindow, engineGroup, statusViewMode, showDetailedGallery]);
 
     const scrollEngineTabs = useCallback((direction) => {
         const el = tabsScrollRef.current;
@@ -1334,6 +1370,16 @@ export default React.memo(function EvolutionChart({
             .filter((v) => v !== null);
     }, [historicalCutoffs, focusCategory, focusMax, focusMin, maxScore, minScore]);
 
+    const insightUnit = useMemo(() => {
+        if (['compare', 'mc_density', 'projection_fan', 'kalman_latent'].includes(activeEngine)) {
+            return focusCategory ? resolvedFocusUnit : resolvedGlobalUnit;
+        }
+        if (['tornado_whatif', 'correlation_regimes'].includes(activeEngine)) {
+            return resolvedGlobalUnit;
+        }
+        return resolvedActiveUnit;
+    }, [activeEngine, focusCategory, resolvedFocusUnit, resolvedGlobalUnit, resolvedActiveUnit]);
+
     const insight = useMemo(() => {
         return generateEvolutionInsights({
             timeline,
@@ -1342,7 +1388,7 @@ export default React.memo(function EvolutionChart({
             activeEngine,
             categories,
             simuladoRows: simuladoRowsArray,
-            unit: resolvedActiveUnit,
+            unit: insightUnit,
             maxScore,
             minScore,
             targetScore,
@@ -1352,7 +1398,9 @@ export default React.memo(function EvolutionChart({
             examBoard,
             penaltyPerWrong,
             timeWindow,
-            showOnlyFocus
+            showOnlyFocus,
+            mcWeights,
+            activeMcResult
         });
     }, [
         timeline,
@@ -1361,7 +1409,7 @@ export default React.memo(function EvolutionChart({
         activeEngine,
         categories,
         simuladoRowsArray,
-        resolvedActiveUnit,
+        insightUnit,
         maxScore,
         minScore,
         targetScore,
@@ -1371,7 +1419,9 @@ export default React.memo(function EvolutionChart({
         examBoard,
         penaltyPerWrong,
         timeWindow,
-        showOnlyFocus
+        showOnlyFocus,
+        mcWeights,
+        activeMcResult
     ]);
 
     const statusList = useMemo(() => {
@@ -1456,6 +1506,7 @@ export default React.memo(function EvolutionChart({
     );
 
     const carouselMaskStyle = useMemo(() => {
+        if (isExporting) return undefined;
         if (canScrollLeft && canScrollRight) {
             return {
                 maskImage: 'linear-gradient(to right, transparent, black 28px, black calc(100% - 28px), transparent)',
@@ -1475,7 +1526,7 @@ export default React.memo(function EvolutionChart({
             };
         }
         return undefined;
-    }, [canScrollLeft, canScrollRight]);
+    }, [canScrollLeft, canScrollRight, isExporting]);
 
     const handleExport = async () => {
         if (isExporting) return;
@@ -1860,7 +1911,7 @@ export default React.memo(function EvolutionChart({
                     onMouseUp={handleCarouselMouseUpOrLeave}
                     onMouseLeave={handleCarouselMouseUpOrLeave}
                     style={carouselMaskStyle}
-                    className="flex overflow-x-auto snap-x gap-3 px-0.5 py-2 no-scrollbar scroll-smooth cursor-grab active:cursor-grabbing select-none"
+                    className="pdf-no-mask flex overflow-x-auto snap-x gap-3 px-0.5 py-2 no-scrollbar scroll-smooth cursor-grab active:cursor-grabbing select-none"
                 >
                     {activeCategories.map(cat => {
                         const cardCatMax = hasValidNumber(cat?.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : maxScore;

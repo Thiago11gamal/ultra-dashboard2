@@ -271,10 +271,10 @@ export const MetacognitionFatigueChart = React.memo(function MetacognitionFatigu
 
   if (telemetry.length === 0) {
     return (
-      <div className="min-h-[280px] flex flex-col items-center justify-center gap-3 rounded-2xl border border-white/5 bg-slate-950/50 p-8 text-center">
-        <Brain size={34} className="text-fuchsia-400/50" />
+      <div className="min-h-[280px] flex flex-col items-center justify-center gap-3 rounded-2xl border border-white/[0.08] bg-slate-950/55 p-8 text-center">
+        <Brain size={34} className="text-fuchsia-400/60" />
         <p className="text-sm font-bold text-slate-300">Telemetria por questão aguardando seu próximo Simulado IA</p>
-        <p className="text-xs text-slate-500 max-w-md">
+        <p className="text-xs text-slate-400 max-w-md">
           A partir do próximo Simulado IA, o tempo por questão é gravado automaticamente e você pode marcar confiança (<em>Certeza / Dúvida / Chute</em>) e causa do erro em 1 clique para desbloquear estas 3 análises.
         </p>
       </div>
@@ -288,7 +288,7 @@ export const MetacognitionFatigueChart = React.memo(function MetacognitionFatigu
   return (
     <div className="w-full space-y-6">
       {/* 1. Matriz de Metacognição */}
-      <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4 space-y-3">
+      <div className="rounded-2xl border border-white/[0.08] bg-slate-950/55 p-4 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Brain size={16} className="text-fuchsia-400" />
@@ -297,48 +297,48 @@ export const MetacognitionFatigueChart = React.memo(function MetacognitionFatigu
             </h4>
           </div>
           {metaMatrix.total > 0 && (
-            <span className="text-[10px] font-mono text-slate-400">
+            <span className="text-[11px] font-mono tabular-nums text-slate-400">
               {metaMatrix.total} {metaMatrix.total === 1 ? 'questão avaliada' : 'questões avaliadas'}
             </span>
           )}
         </div>
         {metaMatrix.total === 0 ? (
-          <p className="text-xs text-slate-500 py-3">Nenhuma questão marcada com confiança ainda.</p>
+          <p className="text-xs text-slate-400 py-3">Nenhuma questão marcada com confiança ainda.</p>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
             <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3">
               <div className="flex items-center justify-between gap-1">
                 <p className="text-[10px] font-bold uppercase text-emerald-300">Domínio Real</p>
-                <span className="text-[10px] font-mono text-emerald-200/80">{pctOf(metaMatrix.counts.certezaOk)}</span>
+                <span className="text-[11px] font-mono tabular-nums text-emerald-200/85">{pctOf(metaMatrix.counts.certezaOk)}</span>
               </div>
-              <p className="text-2xl font-black font-mono text-white mt-1">{metaMatrix.counts.certezaOk}</p>
-              <p className="text-[10px] text-emerald-200/70">Certeza + Acerto</p>
+              <p className="text-2xl font-black font-mono tabular-nums text-white mt-1">{metaMatrix.counts.certezaOk}</p>
+              <p className="text-[10px] text-emerald-200/75">Certeza + Acerto</p>
             </div>
             <div className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-3">
               <div className="flex items-center justify-between gap-1">
                 <p className="text-[10px] font-bold uppercase text-rose-300">Conceito Errado Crítico</p>
-                <span className="text-[10px] font-mono text-rose-200/80">{pctOf(metaMatrix.counts.certezaErr)}</span>
+                <span className="text-[11px] font-mono tabular-nums text-rose-200/85">{pctOf(metaMatrix.counts.certezaErr)}</span>
               </div>
-              <p className="text-2xl font-black font-mono text-white mt-1">{metaMatrix.counts.certezaErr}</p>
-              <p className="text-[10px] text-rose-200/70">Certeza + Erro (prioridade FSRS)</p>
+              <p className="text-2xl font-black font-mono tabular-nums text-white mt-1">{metaMatrix.counts.certezaErr}</p>
+              <p className="text-[10px] text-rose-200/75">Certeza + Erro (prioridade FSRS)</p>
             </div>
             <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3">
               <div className="flex items-center justify-between gap-1">
                 <p className="text-[10px] font-bold uppercase text-amber-300">Falso Domínio (Sorte / Dúvida)</p>
-                <span className="text-[10px] font-mono text-amber-200/80">{pctOf(uncertainOk)}</span>
+                <span className="text-[11px] font-mono tabular-nums text-amber-200/85">{pctOf(uncertainOk)}</span>
               </div>
-              <p className="text-2xl font-black font-mono text-white mt-1">{uncertainOk}</p>
-              <p className="text-[10px] text-amber-200/70">
+              <p className="text-2xl font-black font-mono tabular-nums text-white mt-1">{uncertainOk}</p>
+              <p className="text-[10px] text-amber-200/75">
                 {metaMatrix.counts.duvidaOk} dúvida · {metaMatrix.counts.chuteOk} chute (revisar)
               </p>
             </div>
             <div className="rounded-xl border border-sky-500/30 bg-sky-500/10 p-3">
               <div className="flex items-center justify-between gap-1">
                 <p className="text-[10px] font-bold uppercase text-sky-300">Lacuna Consciente</p>
-                <span className="text-[10px] font-mono text-sky-200/80">{pctOf(consciousGap)}</span>
+                <span className="text-[11px] font-mono tabular-nums text-sky-200/85">{pctOf(consciousGap)}</span>
               </div>
-              <p className="text-2xl font-black font-mono text-white mt-1">{consciousGap}</p>
-              <p className="text-[10px] text-sky-200/70">
+              <p className="text-2xl font-black font-mono tabular-nums text-white mt-1">{consciousGap}</p>
+              <p className="text-[10px] text-sky-200/75">
                 {metaMatrix.counts.duvidaErr} dúvida · {metaMatrix.counts.chuteErr} chute + Erro
               </p>
             </div>
@@ -348,7 +348,7 @@ export const MetacognitionFatigueChart = React.memo(function MetacognitionFatigu
 
       {/* 2. Curva de Fadiga Intraprova */}
       {fatigueCurve.length > 0 && (
-        <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4 space-y-3">
+        <div className="rounded-2xl border border-white/[0.08] bg-slate-950/55 p-4 space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <Timer size={16} className="text-cyan-400" />
@@ -358,7 +358,7 @@ export const MetacognitionFatigueChart = React.memo(function MetacognitionFatigu
             </div>
             {fatigueDelta !== null && (
               <span
-                className={`text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full border ${
+                className={`text-[11px] font-mono font-bold tabular-nums px-2.5 py-0.5 rounded-full border ${
                   fatigueDelta <= -12
                     ? 'bg-rose-500/15 border-rose-500/35 text-rose-300'
                     : fatigueDelta >= 5
@@ -399,7 +399,7 @@ export const MetacognitionFatigueChart = React.memo(function MetacognitionFatigu
 
       {/* 3. Anatomia dos Erros */}
       {errorAnatomy.length > 0 && (
-        <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4 space-y-3">
+        <div className="rounded-2xl border border-white/[0.08] bg-slate-950/55 p-4 space-y-3">
           <div className="flex items-center gap-2">
             <AlertOctagon size={16} className="text-rose-400" />
             <h4 className="text-xs font-black uppercase tracking-widest text-white">

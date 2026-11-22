@@ -10,7 +10,7 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from 'recharts';
-import { Activity, Sparkles } from 'lucide-react';
+import { Activity, Sparkles, Target, Globe, Zap } from 'lucide-react';
 import { ChartFrame } from '../ChartFrame';
 import { buildKalmanChartData } from '../../../utils/advancedChartHelpers';
 import { formatValue } from '../../../utils/scoreHelper';
@@ -61,8 +61,9 @@ function KalmanTooltip({ active, payload, unit }) {
         </div>
       </div>
       {pt.isOutlier && (
-        <p className="mt-2 pt-1.5 border-t border-rose-500/30 text-[10px] text-rose-300 font-semibold">
-          ⚡ Choque pontual de ruído absorvido pelo filtro
+        <p className="mt-2 pt-1.5 border-t border-rose-500/30 text-[10px] text-rose-300 font-semibold flex items-center gap-1">
+          <Zap size={11} className="shrink-0" />
+          <span>Choque pontual de ruído absorvido pelo filtro</span>
         </p>
       )}
     </div>
@@ -101,10 +102,10 @@ export const KalmanLatentChart = React.memo(function KalmanLatentChart({
 
   if (!kalman.points.length || !kalman.summary) {
     return (
-      <div className="min-h-[300px] flex flex-col items-center justify-center gap-3 rounded-2xl border border-white/5 bg-slate-950/50 p-8 text-center">
-        <Activity size={34} className="text-emerald-400/50" />
+      <div className="min-h-[300px] flex flex-col items-center justify-center gap-3 rounded-2xl border border-white/[0.08] bg-slate-950/55 p-8 text-center">
+        <Activity size={34} className="text-emerald-400/60" />
         <p className="text-sm font-bold text-slate-300">Necessário ao menos 2 simulados para ativar o Filtro de Kalman</p>
-        <p className="text-xs text-slate-500 max-w-md">
+        <p className="text-xs text-slate-400 max-w-md">
           O modelo State-Space separa sua habilidade real latente do ruído aleatório de simulados pontuais.
         </p>
       </div>
@@ -119,9 +120,10 @@ export const KalmanLatentChart = React.memo(function KalmanLatentChart({
     <div className="w-full space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-emerald-200 font-bold">
-          <span>{focusCategory ? `🎯 Foco: ${focusCategory.name}` : '🌐 Visão Global'}</span>
+          {focusCategory ? <Target size={12} className="shrink-0" /> : <Globe size={12} className="shrink-0" />}
+          <span>{focusCategory ? `Foco: ${focusCategory.name}` : 'Visão Global'}</span>
         </span>
-        <div className="flex flex-wrap items-center gap-3 text-[10px] text-slate-400">
+        <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-400">
           <span className="inline-flex items-center gap-1.5"><span className="w-3 h-0.5 bg-emerald-400 inline-block" /> Habilidade real (Kalman)</span>
           <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-orange-400 inline-block" /> Nota bruta</span>
           <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-rose-400 inline-block" /> Choque de ruído absorvido</span>
@@ -129,29 +131,29 @@ export const KalmanLatentChart = React.memo(function KalmanLatentChart({
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="rounded-xl bg-slate-950/70 border border-emerald-500/30 p-3" title="Seu domínio real estimado após filtrar oscilações aleatórias">
-          <p className="text-[9px] uppercase text-slate-400 font-bold">Habilidade Latente</p>
-          <p className="text-lg font-black font-mono text-emerald-300">{fmt(summary.ability)}</p>
-          <p className="text-[10px] text-slate-500 font-mono">±{summary.abilitySd.toFixed(1)}{unitSuffix} (1σ)</p>
+        <div className="rounded-xl bg-slate-950/60 border border-emerald-500/30 p-3" title="Seu domínio real estimado após filtrar oscilações aleatórias">
+          <p className="text-[10px] uppercase text-slate-400 font-bold tracking-wider">Habilidade Latente</p>
+          <p className="text-lg font-black font-mono tabular-nums text-emerald-300 mt-0.5">{fmt(summary.ability)}</p>
+          <p className="text-[10px] text-slate-500 font-mono tabular-nums">±{summary.abilitySd.toFixed(1)}{unitSuffix} (1σ)</p>
         </div>
-        <div className="rounded-xl bg-slate-950/70 border border-white/5 p-3" title="Ritmo estrutural de ganho ou perda projetado a cada 30 dias">
-          <p className="text-[9px] uppercase text-slate-400 font-bold">Tendência / Mês</p>
-          <p className={`text-lg font-black font-mono ${trendPositive ? 'text-sky-300' : 'text-rose-400'}`}>
+        <div className="rounded-xl bg-slate-950/60 border border-white/[0.08] p-3" title="Ritmo estrutural de ganho ou perda projetado a cada 30 dias">
+          <p className="text-[10px] uppercase text-slate-400 font-bold tracking-wider">Tendência / Mês</p>
+          <p className={`text-lg font-black font-mono tabular-nums mt-0.5 ${trendPositive ? 'text-sky-300' : 'text-rose-400'}`}>
             {trendPositive ? '+' : ''}{summary.trendPerMonth.toFixed(1)}{unitSuffix}
           </p>
           <p className="text-[10px] text-slate-500">velocidade estrutural</p>
         </div>
-        <div className="rounded-xl bg-slate-950/70 border border-white/5 p-3" title="Quanto da oscilação bruta foi filtrada pelo modelo">
-          <p className="text-[9px] uppercase text-slate-400 font-bold flex items-center gap-1">
-            <Sparkles size={10} className="text-indigo-400" /> Ruído Filtrado
+        <div className="rounded-xl bg-slate-950/60 border border-white/[0.08] p-3" title="Quanto da oscilação bruta foi filtrada pelo modelo">
+          <p className="text-[10px] uppercase text-slate-400 font-bold tracking-wider flex items-center gap-1">
+            <Sparkles size={11} className="text-indigo-400 shrink-0" /> Ruído Filtrado
           </p>
-          <p className="text-lg font-black font-mono text-indigo-300">{summary.noiseReductionPct}%</p>
-          <p className="text-[10px] text-slate-500">σ obs {summary.observationSd.toFixed(1)} → σ real {summary.abilitySd.toFixed(1)}</p>
+          <p className="text-lg font-black font-mono tabular-nums text-indigo-300 mt-0.5">{summary.noiseReductionPct}%</p>
+          <p className="text-[10px] text-slate-500 tabular-nums">σ obs {summary.observationSd.toFixed(1)} → σ real {summary.abilitySd.toFixed(1)}</p>
         </div>
-        <div className="rounded-xl bg-slate-950/70 border border-white/5 p-3" title="Simulados muito fora da curva que o filtro amortizou para não distorcer sua tendência">
-          <p className="text-[9px] uppercase text-slate-400 font-bold">Choques de Ruído</p>
-          <p className="text-lg font-black font-mono text-rose-300">{summary.outlierCount}</p>
-          <p className="text-[10px] text-slate-500">em {summary.sampleSize} simulados</p>
+        <div className="rounded-xl bg-slate-950/60 border border-white/[0.08] p-3" title="Simulados muito fora da curva que o filtro amortizou para não distorcer sua tendência">
+          <p className="text-[10px] uppercase text-slate-400 font-bold tracking-wider">Choques de Ruído</p>
+          <p className="text-lg font-black font-mono tabular-nums text-rose-300 mt-0.5">{summary.outlierCount}</p>
+          <p className="text-[10px] text-slate-500 tabular-nums">em {summary.sampleSize} simulados</p>
         </div>
       </div>
 

@@ -1,4 +1,5 @@
 import React, { useId, useCallback } from 'react';
+import { TrendingUp, CalendarOff } from 'lucide-react';
 import {
     ComposedChart,
     Bar,
@@ -149,8 +150,8 @@ const WeeklyPerformanceChart = React.memo(function WeeklyPerformanceChart({
             .filter((v, i, a) => a.findIndex(t => t.name === v.name) === i);
 
         return (
-            <div className="bg-slate-950/80 border border-white/10 p-3 sm:p-4 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] backdrop-blur-xl">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 border-b border-white/10 pb-2">
+            <div className="bg-slate-950/95 border border-white/15 p-3.5 rounded-2xl shadow-2xl backdrop-blur-xl">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5 border-b border-white/10 pb-2">
                     {label === "HOJE" ? "Hoje" : label}
                 </p>
                 <div className="flex flex-col gap-2">
@@ -162,7 +163,7 @@ const WeeklyPerformanceChart = React.memo(function WeeklyPerformanceChart({
                                     {entry.name === 'acertos' ? 'Acertos' : 'Horas'}
                                 </span>
                             </div>
-                            <span className={`text-sm sm:text-base font-black ${entry.name === 'acertos' ? 'text-emerald-400' : 'text-indigo-300'}`}>
+                            <span className={`text-sm sm:text-base font-black font-mono tabular-nums ${entry.name === 'acertos' ? 'text-emerald-400' : 'text-indigo-300'}`}>
                                 {entry.value != null && Number.isFinite(Number(entry.value))
                                     ? (entry.name === 'acertos' ? `${formatValue(entry.value)}${safeUnit}` : formatDuration(entry.value))
                                     : 'N/A'}
@@ -180,9 +181,11 @@ const WeeklyPerformanceChart = React.memo(function WeeklyPerformanceChart({
 
     if (!hasAnyData) {
       return (
-        <div className="w-full h-full min-h-[320px] flex flex-col items-center justify-center text-slate-500 text-sm gap-2">
-          <span className="text-3xl">📭</span>
-          Sem atividade nos últimos 7 dias.
+        <div className="w-full h-full min-h-[320px] flex flex-col items-center justify-center rounded-2xl border border-white/[0.08] bg-slate-950/55 text-slate-400 text-sm gap-2.5 p-6 text-center">
+          <div className="w-11 h-11 rounded-xl bg-slate-900/80 border border-white/[0.08] flex items-center justify-center text-slate-400">
+            <CalendarOff size={20} />
+          </div>
+          <p className="font-semibold text-slate-300">Sem atividade nos últimos 7 dias.</p>
         </div>
       );
     }
@@ -190,22 +193,27 @@ const WeeklyPerformanceChart = React.memo(function WeeklyPerformanceChart({
     return (
         <div className="w-full h-full min-h-[320px] flex flex-col">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 px-1 gap-2 shrink-0">
-                <div>
-                    <h3 className="text-white font-black text-sm sm:text-base flex items-center gap-2">
-                        📈 {showOnlyFocus ? 'Foco: Últimos 7 Dias' : 'Desempenho: Últimos 7 Dias'}
-                    </h3>
-                    <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mt-0.5">
-                        Horas de Estudo vs. Taxa de Acerto
-                    </p>
+                <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-emerald-500/15 border border-emerald-400/30 text-emerald-300 flex items-center justify-center shrink-0">
+                        <TrendingUp size={15} />
+                    </div>
+                    <div>
+                        <h3 className="text-white font-black text-sm sm:text-base tracking-tight">
+                            {showOnlyFocus ? 'Foco: Últimos 7 Dias' : 'Desempenho: Últimos 7 Dias'}
+                        </h3>
+                        <p className="text-[11px] text-slate-400 font-medium mt-0.5">
+                            Horas de Estudo vs. Taxa de Acerto
+                        </p>
+                    </div>
                 </div>
-                <div className="flex items-center gap-4 bg-slate-900/80 p-2 rounded-xl border border-white/10 shadow-sm backdrop-blur-sm">
+                <div className="flex items-center gap-4 bg-slate-950/65 px-3 py-1.5 rounded-xl border border-white/[0.08]">
                     <div className="flex items-center gap-1.5">
                         <div className="w-2 h-2 rounded-full bg-indigo-400 shadow-[0_0_8px_#818cf8]" />
-                        <span className="text-[10px] font-bold text-slate-300 capitalize">Horas</span>
+                        <span className="text-[11px] font-bold text-slate-300">Horas</span>
                     </div>
                     <div className="flex items-center gap-1.5">
                         <div className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]" />
-                        <span className="text-[10px] font-bold text-slate-300 capitalize">Acertos</span>
+                        <span className="text-[11px] font-bold text-slate-300">Acertos</span>
                     </div>
                 </div>
             </div>

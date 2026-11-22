@@ -10,6 +10,12 @@ import { normalizeProbability } from '../utils/evolutionGuards';
 const EMPTY_ARRAY = Object.freeze([]);
 const hasValidNumber = (v) =>
   v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
+const hasScoreField = (obj) =>
+  hasValidNumber(obj?.score) ||
+  hasValidNumber(obj?.scorePoints) ||
+  hasValidNumber(obj?.scorePct) ||
+  hasValidNumber(obj?.netPoints) ||
+  hasValidNumber(obj?.value);
 
 export default function Evolution() {
   const navigate = useNavigate();
@@ -57,16 +63,16 @@ export default function Evolution() {
     const list = Array.isArray(h) ? h : Object.values(h || {});
     return list.some(entry => {
       if (!entry || entry.valid === false || entry.validated === false) return false;
-      const hasHeaderData = Number(entry.total ?? entry.questoes ?? entry.totalQuestoes ?? entry.questions) > 0 || hasValidNumber(entry.score);
+      const hasHeaderData = Number(entry.total ?? entry.questoes ?? entry.totalQuestoes ?? entry.questions) > 0 || hasScoreField(entry);
       if (hasHeaderData) return true;
       const topics = Array.isArray(entry.topics) ? entry.topics : Object.values(entry.topics || {});
-      return topics.some(t => t && (Number(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions) > 0 || hasValidNumber(t.score)));
+      return topics.some(t => t && (Number(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions) > 0 || hasScoreField(t)));
     });
   })) || (Array.isArray(safeSimuladoRows) && safeSimuladoRows.some(row => {
     if (!row || row.valid === false || row.validated === false) return false;
-    if (Number(row.total ?? row.questoes ?? row.totalQuestoes ?? row.questions) > 0 || hasValidNumber(row.score)) return true;
+    if (Number(row.total ?? row.questoes ?? row.totalQuestoes ?? row.questions) > 0 || hasScoreField(row)) return true;
     const topics = Array.isArray(row.topics) ? row.topics : Object.values(row.topics || {});
-    return topics.some(t => t && (Number(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions) > 0 || hasValidNumber(t.score)));
+    return topics.some(t => t && (Number(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions) > 0 || hasScoreField(t)));
   }));
 
   // ✅ FIX: Converter targetProbability (percentual) para pontos na escala da prova

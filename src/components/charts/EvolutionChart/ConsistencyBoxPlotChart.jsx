@@ -59,10 +59,10 @@ export const ConsistencyBoxPlotChart = React.memo(function ConsistencyBoxPlotCha
 
   if (data.rows.length === 0) {
     return (
-      <div className="min-h-[280px] flex flex-col items-center justify-center gap-3 rounded-2xl border border-white/5 bg-slate-950/50 p-8 text-center">
-        <BarChart3 size={34} className="text-indigo-400/50" />
+      <div className="min-h-[280px] flex flex-col items-center justify-center gap-3 rounded-2xl border border-white/[0.08] bg-slate-950/55 p-8 text-center">
+        <BarChart3 size={34} className="text-indigo-400/60" />
         <p className="text-sm font-bold text-slate-300">Sem histórico suficiente para Box Plot de Consistência</p>
-        <p className="text-xs text-slate-500">Registre simulados nas disciplinas para visualizar amplitude (Mín–Q1–Mediana–Q3–Máx).</p>
+        <p className="text-xs text-slate-400">Registre simulados nas disciplinas para visualizar amplitude (Mín–Q1–Mediana–Q3–Máx).</p>
       </div>
     );
   }
@@ -128,10 +128,10 @@ export const ConsistencyBoxPlotChart = React.memo(function ConsistencyBoxPlotCha
               onMouseLeave={() => setHoveredRow(null)}
               onFocus={() => setHoveredRow(row)}
               onBlur={() => setHoveredRow(null)}
-              className={`rounded-xl border px-3.5 py-3 transition-all cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 ${
+              className={`rounded-2xl border px-3.5 py-3 transition-all cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 ${
                 isHovered
                   ? 'bg-slate-800/80 border-white/20 shadow-lg'
-                  : 'bg-slate-950/50 border-white/5 hover:border-white/15'
+                  : 'bg-slate-950/55 border-white/[0.08] hover:border-white/15'
               }`}
             >
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
@@ -142,7 +142,7 @@ export const ConsistencyBoxPlotChart = React.memo(function ConsistencyBoxPlotCha
                       {row.name}
                     </span>
                   </div>
-                  <span className={`shrink-0 px-2 py-0.5 rounded-full border text-[9px] font-bold uppercase ${badgeClass}`}>
+                  <span className={`shrink-0 px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase ${badgeClass}`}>
                     {row.stability}
                   </span>
                 </div>
@@ -245,39 +245,39 @@ export const ConsistencyBoxPlotChart = React.memo(function ConsistencyBoxPlotCha
 
       {/* Painel de detalhe da linha selecionada/hovered */}
       {activeRow && (
-        <div className="rounded-xl border border-white/10 bg-slate-950/90 p-3.5 space-y-2 text-xs">
+        <div className="rounded-2xl border border-white/[0.08] bg-slate-950/85 p-3.5 space-y-2.5 text-xs">
           <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-white/10">
             <span className="font-black text-white flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: activeRow.color }} />
               {activeRow.name}
             </span>
-            <span className="text-[10px] text-slate-400 font-mono">
+            <span className="text-[11px] text-slate-400 font-mono tabular-nums">
               {activeRow.count} simulados · {activeRow.stability}
             </span>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-6 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 tabular-nums">
             <div>
-              <p className="text-[9px] uppercase text-slate-500 font-bold">Mínimo</p>
+              <p className="text-[10px] uppercase text-slate-400 font-bold">Mínimo</p>
               <p className="font-mono font-bold text-rose-300">{fmt(activeRow.min)}</p>
             </div>
             <div>
-              <p className="text-[9px] uppercase text-slate-500 font-bold">Q1 (25%)</p>
+              <p className="text-[10px] uppercase text-slate-400 font-bold">Q1 (25%)</p>
               <p className="font-mono font-bold text-slate-200">{fmt(activeRow.q1)}</p>
             </div>
             <div>
-              <p className="text-[9px] uppercase text-slate-500 font-bold">Mediana</p>
+              <p className="text-[10px] uppercase text-slate-400 font-bold">Mediana</p>
               <p className="font-mono font-black text-white">{fmt(activeRow.median)}</p>
             </div>
             <div>
-              <p className="text-[9px] uppercase text-slate-500 font-bold">Q3 (75%)</p>
+              <p className="text-[10px] uppercase text-slate-400 font-bold">Q3 (75%)</p>
               <p className="font-mono font-bold text-slate-200">{fmt(activeRow.q3)}</p>
             </div>
             <div>
-              <p className="text-[9px] uppercase text-slate-500 font-bold">Máximo</p>
+              <p className="text-[10px] uppercase text-slate-400 font-bold">Máximo</p>
               <p className="font-mono font-bold text-emerald-300">{fmt(activeRow.max)}</p>
             </div>
             <div>
-              <p className="text-[9px] uppercase text-slate-500 font-bold">IQR / Desvio</p>
+              <p className="text-[10px] uppercase text-slate-400 font-bold">IQR / Desvio</p>
               <p className="font-mono font-bold text-amber-300">
                 {activeRow.iqr.toFixed(1)}{unit === '%' ? ' pp' : ` ${unit}`} / ±{activeRow.std.toFixed(1)}{unit === '%' ? ' pp' : ` ${unit}`}
               </p>

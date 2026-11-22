@@ -214,10 +214,10 @@ export const TornadoWhatIfChart = React.memo(function TornadoWhatIfChart({
 
   if (!result || !result.items.length) {
     return (
-      <div className="min-h-[280px] flex flex-col items-center justify-center gap-3 rounded-2xl border border-white/5 bg-slate-950/50 p-8 text-center">
-        <TrendingUp size={34} className="text-indigo-400/50" />
+      <div className="min-h-[280px] flex flex-col items-center justify-center gap-3 rounded-2xl border border-white/[0.08] bg-slate-950/55 p-8 text-center">
+        <TrendingUp size={34} className="text-indigo-400/60" />
         <p className="text-sm font-bold text-slate-300">Sem simulados suficientes para o Tornado & Simulador &quot;E Se?&quot;</p>
-        <p className="text-xs text-slate-500">Cadastre simulados em pelo menos 1 disciplina para simular sensibilidade e causas de eliminação.</p>
+        <p className="text-xs text-slate-400">Cadastre simulados em pelo menos 1 disciplina para simular sensibilidade e causas de eliminação.</p>
       </div>
     );
   }
@@ -239,7 +239,7 @@ export const TornadoWhatIfChart = React.memo(function TornadoWhatIfChart({
   return (
     <div className="w-full space-y-5">
       {/* Decomposição do Risco de Eliminação (Monte Carlo Multi-Restrição) */}
-      <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4 space-y-3">
+      <div className="rounded-2xl border border-white/[0.08] bg-slate-950/55 p-4 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <ShieldAlert size={16} className="text-amber-400" />
@@ -247,7 +247,7 @@ export const TornadoWhatIfChart = React.memo(function TornadoWhatIfChart({
               Decomposição do Risco de Eliminação
             </h4>
           </div>
-          <div className="flex flex-wrap items-center gap-3 text-xs font-mono">
+          <div className="flex flex-wrap items-center gap-3 text-xs font-mono tabular-nums">
             <span className="text-slate-400">
               Nota projetada: <strong className="text-white">{result.baseMean}{unitSuffix}</strong>
             </span>
@@ -263,7 +263,7 @@ export const TornadoWhatIfChart = React.memo(function TornadoWhatIfChart({
         </div>
 
         {/* Barra empilhada de destino das simulações */}
-        <div className="h-5 rounded-xl overflow-hidden flex bg-slate-900 border border-white/10 text-[9px] font-black">
+        <div className="h-5 rounded-xl overflow-hidden flex bg-slate-900 border border-white/[0.08] text-[10px] font-black tabular-nums">
           {risk.passedAllPct > 0 && (
             <div style={{ width: toRiskWidth(risk.passedAllPct) }} className="bg-emerald-500/80 text-emerald-950 flex items-center justify-center truncate px-1" title={`Aprovado: ${risk.passedAllPct}%`}>
               {risk.passedAllPct >= 10 ? `${risk.passedAllPct}%` : ''}
@@ -365,13 +365,14 @@ export const TornadoWhatIfChart = React.memo(function TornadoWhatIfChart({
               <span className="inline-flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-500/85" />Se subir +{deltaPct}%</span>
             </div>
           </div>
-          <div className="flex items-center gap-1 bg-slate-950/70 border border-white/10 p-1 rounded-xl text-[10px] font-bold">
+          <div className="flex items-center gap-1 bg-slate-950/80 border border-white/[0.08] p-1 rounded-xl text-[11px] font-bold shadow-inner">
             {[5, 10, 15].map((pct) => (
               <button
                 key={pct}
                 type="button"
                 onClick={() => setDeltaPct(pct)}
-                className={`px-2.5 py-1 rounded-lg transition-colors ${deltaPct === pct ? 'bg-indigo-500/30 text-indigo-200 border border-indigo-400/40' : 'text-slate-400 hover:text-white'}`}
+                aria-pressed={deltaPct === pct}
+                className={`px-2.5 py-1 rounded-lg border transition-colors ${deltaPct === pct ? 'bg-indigo-500/25 text-indigo-100 border-indigo-400/45' : 'text-slate-400 hover:text-white border-transparent'}`}
               >
                 ±{pct}%
               </button>
@@ -397,7 +398,7 @@ export const TornadoWhatIfChart = React.memo(function TornadoWhatIfChart({
       </div>
 
       {/* Sliders interativos "E Se?" */}
-      <div className="rounded-2xl border border-indigo-500/20 bg-slate-950/60 p-4 space-y-3">
+      <div className="rounded-2xl border border-indigo-500/25 bg-slate-950/55 p-4 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-indigo-300">
             <Sliders size={14} />
@@ -429,10 +430,10 @@ export const TornadoWhatIfChart = React.memo(function TornadoWhatIfChart({
           {sliderItems.map((item) => {
             const val = Number(overrides[item.id] || 0);
             return (
-              <label key={item.id} className="flex flex-col gap-1 bg-slate-900/60 rounded-xl p-2.5 border border-white/5 text-xs">
+              <label key={item.id} className="flex flex-col gap-1.5 bg-slate-900/65 rounded-xl p-3 border border-white/[0.08] text-xs">
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-bold text-slate-200 truncate">{item.name}</span>
-                  <span className={`font-mono font-black ${val > 0 ? 'text-emerald-400' : val < 0 ? 'text-rose-400' : 'text-slate-400'}`}>
+                  <span className={`font-mono font-black tabular-nums ${val > 0 ? 'text-emerald-400' : val < 0 ? 'text-rose-400' : 'text-slate-400'}`}>
                     {val > 0 ? `+${val}%` : `${val}%`}
                   </span>
                 </div>

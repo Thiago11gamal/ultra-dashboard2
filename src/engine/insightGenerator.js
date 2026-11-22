@@ -1,6 +1,8 @@
-import { normalizeDate, toDateMs } from "../utils/dateHelper.js";
+import { normalizeDate, toDateMs, getDateKey } from "../utils/dateHelper.js";
+import { parseNoonLocal, addDaysNoon } from "../utils/parseNoonLocal.js";
+import { normalize, isSubjectMatch } from "../utils/normalization.js";
 import { getSafeScore, getSyntheticTotal, extractTopicsTotals } from "../utils/scoreHelper.js";
-import { pointsToRatio } from "../utils/scoreHelper.conversions.js";
+import { pointsToRatio, ratioToPoints } from "../utils/scoreHelper.conversions.js";
 import {
     buildSpeedAccuracyData,
     buildExamPacingData,
@@ -21,6 +23,20 @@ const safeFinite = (value, fallback = 0) => {
     if (value === null || value === undefined || typeof value === 'boolean' || String(value).trim() === '') return fallback;
     const n = Number(value);
     return Number.isFinite(n) ? n : fallback;
+};
+
+const isStrictNum = (v) =>
+    v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
+
+const resolveCutoffMs = (timeWindow) => {
+    if (!timeWindow || timeWindow === 'all') return null;
+    const days = Number.parseInt(String(timeWindow), 10);
+    if (!Number.isFinite(days) || days <= 0) return null;
+    const todayKey = getDateKey(new Date());
+    const todayNoon = todayKey ? parseNoonLocal(todayKey) : new Date();
+    const cutoffNoon = todayNoon ? addDaysNoon(todayNoon, -days) : null;
+    const cutoffKey = cutoffNoon ? getDateKey(cutoffNoon) : null;
+    return cutoffKey ? toDateMs(cutoffKey) : null;
 };
 
 const sortByValidDate = (history) => {
@@ -56,7 +72,9 @@ export function generateEvolutionInsights({
     examTotalQuestions = null,
     examBoard = 'PADRAO',
     penaltyPerWrong = 0,
-    timeWindow = 'all'
+    timeWindow = 'all',
+    mcWeights = null,
+    activeMcResult = null
 }) {
     const defaultTitle = "Análise do Sistema";
     const effectiveTimeline =
@@ -144,6 +162,7 @@ export function generateEvolutionInsights({
         const DAY_NAMES_SINGULAR = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
         const dayStats = {};
         const now = new Date();
+        const cutoffMs = resolveCutoffMs(timeWindow);
         
         const allCategories = Array.isArray(categories)
             ? categories.filter(Boolean)
@@ -160,8 +179,15 @@ export function generateEvolutionInsights({
             const rawHistory = history
                 .filter(h => {
                     if (h?.valid === false || h?.validated === false) return false;
-                    const d = normalizeDate(h?.date || h?.createdAt);
-                    return d && Number.isFinite(d.getTime()) && d.getTime() <= now.getTime();
+                    const rawDate = h?.date || h?.createdAt;
+                    const d = normalizeDate(rawDate);
+                    if (!d || !Number.isFinite(d.getTime()) || d.getTime() > now.getTime()) return false;
+                    if (cutoffMs != null) {
+                        const dk = getDateKey(rawDate);
+                        const ms = dk ? toDateMs(dk) : d.getTime();
+                        if (Number.isFinite(ms) && ms < cutoffMs) return false;
+                    }
+                    return true;
                 })
                 .map(h => ({ ...h, score: getSafeScore(h, cMax, cMin) }))
                 .filter(h => Number.isFinite(h.score));
@@ -413,10 +439,18 @@ export function generateEvolutionInsights({
     const safeRowsList = Array.isArray(simuladoRows)
         ? simuladoRows.filter(Boolean)
         : Object.values(simuladoRows || {}).filter(Boolean);
-    const effTarget = safeFinite(
-        focusCategory?.minCutoff,
-        safeFinite(targetScore, safeMinScore + (safeMaxScore - safeMinScore) * 0.8)
+    const fullTimeline = Array.isArray(timeline) && timeline.length > 0 ? timeline : effectiveTimeline;
+    const globalEffTarget = safeFinite(
+        targetScore,
+        globalMinScore + (globalMaxScore - globalMinScore) * 0.8
     );
+    const rawFocusCutoff = safeFinite(focusCategory?.minCutoff, NaN);
+    const focusEffTarget = (Number.isFinite(rawFocusCutoff) && rawFocusCutoff > safeMinScore)
+        ? Math.max(safeMinScore, Math.min(safeMaxScore, rawFocusCutoff))
+        : ((safeMaxScore !== globalMaxScore || safeMinScore !== globalMinScore)
+            ? ratioToPoints(pointsToRatio(globalEffTarget, globalMaxScore, globalMinScore), safeMaxScore, safeMinScore)
+            : globalEffTarget);
+    const activeEffTarget = showOnlyFocus ? focusEffTarget : globalEffTarget;
 
     // Lógica Speed × Precisão
     if (activeEngine === "speed_accuracy") {
@@ -428,7 +462,7 @@ export function generateEvolutionInsights({
             showOnlyFocus,
             focusSubjectId: focusCategory.id,
             timeWindow,
-            targetScore: effTarget,
+            targetScore: activeEffTarget,
             minScore: showOnlyFocus ? safeMinScore : globalMinScore,
             maxScore: showOnlyFocus ? safeMaxScore : globalMaxScore,
             idealSecondsPerQuestion: idealSec
@@ -471,6 +505,7 @@ export function generateEvolutionInsights({
         const pacing = buildExamPacingData(safeCategoriesList, {
             examDurationMinutes: safeFinite(examDurationMinutes, 240),
             examTotalQuestions: safeFinite(examTotalQuestions, 100),
+            mcWeights,
             timeWindow
         });
         if (!pacing.hasData) {
@@ -534,11 +569,14 @@ export function generateEvolutionInsights({
 
     // Lógica Cone Futuro (Projection Fan)
     if (activeEngine === "projection_fan") {
-        const fan = buildProjectionFanData(focusCategory, effectiveTimeline, {
+        const examHorizon = Math.max(1, Math.min(365, Math.round(safeFinite(projectDays, 60))));
+        const fan = buildProjectionFanData(focusCategory, fullTimeline, {
             minScore: safeMinScore,
             maxScore: safeMaxScore,
-            targetScore: effTarget,
-            horizonDays: safeFinite(projectDays, 60)
+            targetScore: focusEffTarget,
+            horizonDays: examHorizon,
+            mcHorizonDays: examHorizon,
+            activeMcResult
         });
         if (!fan.summary) {
             return {
@@ -548,15 +586,18 @@ export function generateEvolutionInsights({
                 advice: "Quanto mais constante seu histórico, mais estreito e confiável fica o cone."
             };
         }
-        const hitsTarget = fan.summary.finalP50 >= effTarget;
+        const hitsTarget = fan.summary.finalP50 >= focusEffTarget;
+        const fanDetails = fan.alreadyAtTarget
+            ? `Você já está na meta (${focusEffTarget.toFixed(1)}${unit}) — mantenha a constância para blindar também o cenário P10.`
+            : (fan.targetCrossingDate
+                ? `A mediana P50 cruza a meta (${focusEffTarget.toFixed(1)}${unit}) em ++${fan.targetCrossingDate.split('-').reverse().join('/')}++.`
+                : `No ritmo atual (${fan.summary.monthlyTrend >= 0 ? '+' : ''}${fan.summary.monthlyTrend}${unit}/mês), a mediana ainda não alcança ${focusEffTarget.toFixed(1)}${unit} no prazo.`);
         return {
             type: hitsTarget ? 'success' : 'warning',
             icon: "🎯",
             title: hitsTarget ? "++Projeção P50 no Rumo da Meta++" : "!!Projeção P50 Abaixo da Meta!!",
             text: `Cenário provável (P50) em ${fan.summary.horizonDays}d: **${fan.summary.finalP50.toFixed(1)}${unit}** (P10: ${fan.summary.finalP10.toFixed(1)} – P90: ${fan.summary.finalP90.toFixed(1)}).`,
-            details: fan.targetCrossingDate
-                ? `A mediana P50 cruza a meta (${effTarget.toFixed(1)}${unit}) em ++${fan.targetCrossingDate.split('-').reverse().join('/')}++.`
-                : `No ritmo atual (${fan.summary.monthlyTrend >= 0 ? '+' : ''}${fan.summary.monthlyTrend}${unit}/mês), a mediana ainda não alcança ${effTarget.toFixed(1)}${unit} no prazo.`,
+            details: fanDetails,
             advice: hitsTarget
                 ? "Mantenha a frequência para puxar também o cenário conservador (P10) para cima da meta."
                 : "Eleve o volume de questões focadas nos subtópicos críticos para inclinar o cone para cima."
@@ -565,7 +606,7 @@ export function generateEvolutionInsights({
 
     // Lógica Kalman Latente
     if (activeEngine === "kalman_latent") {
-        const kalman = buildKalmanChartData(focusCategory, effectiveTimeline, {
+        const kalman = buildKalmanChartData(focusCategory, fullTimeline, {
             minScore: safeMinScore,
             maxScore: safeMaxScore,
             timeWindow
@@ -609,14 +650,14 @@ export function generateEvolutionInsights({
 
     // Lógica Correlação & Regimes
     if (activeEngine === "correlation_regimes") {
-        const corr = computeWeeklyCategoryCorrelation(safeCategoriesList, globalMaxScore, globalMinScore);
+        const corr = computeWeeklyCategoryCorrelation(safeCategoriesList, globalMaxScore, globalMinScore, { timeWindow });
         const crowding = corr.pairs.filter((p) => p.type === 'crowding_out');
         if (crowding.length > 0) {
             return {
                 type: 'warning',
                 icon: "🔗",
                 title: "!!Efeito Gangorra Detectado!!",
-                text: `!!${crowding[0].catA} × ${crowding[0].catB}!! oscilam em direções opostas (r = ${crowding[0].r}).`,
+                text: `!!${crowding[0].catA} × ${crowding[0].catB}!! oscilam em direções opostas (r = ${Number(crowding[0].r).toFixed(2)}).`,
                 details: "Quando você foca demais em uma, a outra perde rendimento por falta de revisão semanal.",
                 advice: "Intercale sessões curtas das duas disciplinas na mesma semana para quebrar a canibalização."
             };
@@ -633,9 +674,83 @@ export function generateEvolutionInsights({
 
     // Lógica TRI & Chute
     if (activeEngine === "irt_psychometric") {
-        const fromRows = safeRowsList.filter((r) => r.valid !== false && r.validated !== false);
-        const fromHist = safeCategoriesList.flatMap((c) => toHistoryArray(c?.simuladoStats?.history));
-        const irt = estimateIRTAbility(fromRows.length > 0 ? fromRows : fromHist, { minScore: globalMinScore, maxScore: globalMaxScore });
+        const cutoffMs = resolveCutoffMs(timeWindow);
+        const filterByWindow = (list) => {
+            if (cutoffMs == null) return list;
+            return list.filter((item) => {
+                const dk = getDateKey(item?.date || item?.createdAt);
+                if (!dk) return true;
+                const ms = toDateMs(dk);
+                return !Number.isFinite(ms) || ms >= cutoffMs;
+            });
+        };
+        const rowMatchesFocus = (r) => {
+            if (!showOnlyFocus || !focusCategory) return true;
+            if (r.categoryId != null && focusCategory.id != null) {
+                return String(r.categoryId) === String(focusCategory.id);
+            }
+            const rSubj = r.subject || r.categoryName || r.materia || '';
+            const fName = focusCategory.name || '';
+            return Boolean(rSubj && fName && isSubjectMatch(rSubj, fName));
+        };
+        const resolveCatForRow = (r) => {
+            if (r.categoryId != null) {
+                const byId = safeCategoriesList.find((c) => c?.id != null && String(c.id) === String(r.categoryId));
+                if (byId) return byId;
+            }
+            const subj = r.subject || r.categoryName || r.materia || '';
+            if (!subj) return null;
+            return safeCategoriesList.find((c) => c?.name && isSubjectMatch(subj, c.name)) || null;
+        };
+        const withCatScale = (entry, cat) => {
+            const cMin = isStrictNum(cat?.minScore) ? Number(cat.minScore) : globalMinScore;
+            const cMax = isStrictNum(cat?.maxScore) && Number(cat.maxScore) > cMin ? Number(cat.maxScore) : globalMaxScore;
+            return {
+                ...entry,
+                minScore: isStrictNum(entry?.minScore) ? Number(entry.minScore) : cMin,
+                maxScore: isStrictNum(entry?.maxScore) && Number(entry.maxScore) > cMin ? Number(entry.maxScore) : cMax,
+            };
+        };
+
+        const targetCats = showOnlyFocus && focusCategory ? [focusCategory] : safeCategoriesList;
+        const fromRows = filterByWindow(
+            safeRowsList.filter((r) => r && r.valid !== false && r.validated !== false && rowMatchesFocus(r))
+        ).map((r) => withCatScale(r, resolveCatForRow(r)));
+
+        const rowCoveredCats = new Set(
+            fromRows.map((r) => {
+                const matched = resolveCatForRow(r);
+                return matched?.id != null ? String(matched.id) : normalize(r.subject || r.categoryName || r.materia || '');
+            }).filter(Boolean)
+        );
+
+        const fromHist = targetCats.flatMap((c) => {
+            const catKey = c?.id != null ? String(c.id) : normalize(c?.name || '');
+            const hasRowsForCat = Boolean(catKey && rowCoveredCats.has(catKey));
+            return filterByWindow(
+                toHistoryArray(c?.simuladoStats?.history).filter((h) => h && h.valid !== false && h.validated !== false)
+            )
+                .filter((h) => !hasRowsForCat || Boolean(h.difficulty || h.dificuldade))
+                .map((h) => withCatScale(h, c));
+        });
+
+        let irtEntries;
+        if (fromRows.length === 0) {
+            irtEntries = fromHist;
+        } else if (fromHist.length === 0) {
+            irtEntries = fromRows;
+        } else {
+            const rowSigs = new Set(
+                fromRows.map((r) => `${getDateKey(r.date || r.createdAt) || ''}|${r.total ?? ''}|${r.correct ?? ''}|${r.score ?? ''}`)
+            );
+            const extraHist = fromHist.filter((h) => {
+                const sig = `${getDateKey(h.date || h.createdAt) || ''}|${h.total ?? ''}|${h.correct ?? ''}|${h.score ?? ''}`;
+                return !rowSigs.has(sig);
+            });
+            irtEntries = [...fromRows, ...extraHist];
+        }
+
+        const irt = estimateIRTAbility(irtEntries, { minScore: globalMinScore, maxScore: globalMaxScore });
         if (!irt.hasData) {
             return {
                 type: 'info', icon: "🧬", title: "Psicometria TRI & Estratégia de Chute",
@@ -666,8 +781,25 @@ export function generateEvolutionInsights({
 
     // Lógica Metacognição & Fadiga
     if (activeEngine === "metacognition_fatigue") {
+        const cutoffMs = resolveCutoffMs(timeWindow);
         const tel = safeRowsList
-            .filter((r) => r.valid !== false && r.validated !== false)
+            .filter((r) => {
+                if (!r || r.valid === false || r.validated === false) return false;
+                if (cutoffMs != null) {
+                    const dk = getDateKey(r.date || r.createdAt);
+                    const ms = dk ? toDateMs(dk) : NaN;
+                    if (Number.isFinite(ms) && ms < cutoffMs) return false;
+                }
+                if (showOnlyFocus && focusCategory) {
+                    if (r.categoryId != null && focusCategory.id != null) {
+                        return String(r.categoryId) === String(focusCategory.id);
+                    }
+                    const rSubj = r.subject || r.categoryName || r.materia || '';
+                    const fName = focusCategory.name || '';
+                    return Boolean(rSubj && fName && isSubjectMatch(rSubj, fName));
+                }
+                return true;
+            })
             .flatMap((r) => (Array.isArray(r.questionTelemetry) ? r.questionTelemetry : []));
         if (!tel.length) {
             return {
@@ -677,8 +809,9 @@ export function generateEvolutionInsights({
                 advice: "Use o Simulado IA — o tempo e o quartil de cada questão são capturados automaticamente."
             };
         }
-        const certezaErr = tel.filter((q) => q.confidence === 'certeza' && !q.correct && q.wasAnswered !== false).length;
-        const certezaOk = tel.filter((q) => q.confidence === 'certeza' && q.correct).length;
+        const answeredTel = tel.filter((q) => q && q.wasAnswered !== false);
+        const certezaErr = answeredTel.filter((q) => q.confidence === 'certeza' && !(q.correct ?? q.wasCorrect)).length;
+        const certezaOk = answeredTel.filter((q) => q.confidence === 'certeza' && Boolean(q.correct ?? q.wasCorrect)).length;
         if (certezaErr > 0) {
             return {
                 type: 'warning', icon: "🧠", title: "!!Ilusão de Competência Detectada!!",
@@ -690,7 +823,7 @@ export function generateEvolutionInsights({
         return {
             type: 'success', icon: "🧠", title: "++Boa Calibração Metacognitiva++",
             text: `++${certezaOk} acertos com certeza++ e nenhum erro crítico de ilusão de competência.`,
-            details: `Analisando ${tel.length} questões com telemetria para acompanhar fadiga do 1º ao 4º quarto.`,
+            details: `Analisando ${answeredTel.length} questões respondidas com telemetria para acompanhar fadiga do 1º ao 4º quarto.`,
             advice: "Continue marcando confiança nos simulados para monitorar resistência em provas longas."
         };
     }

@@ -962,6 +962,11 @@ input[type=range].custom-slider::-moz-range-thumb:active {
   max-height: none !important;
 }
 
+.pdf-render-mode .pdf-no-mask {
+  mask-image: none !important;
+  -webkit-mask-image: none !important;
+}
+
 @media print {
   .no-print {
     display: none !important;

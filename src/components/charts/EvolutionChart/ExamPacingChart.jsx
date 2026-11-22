@@ -136,7 +136,7 @@ export const ExamPacingChart = React.memo(function ExamPacingChart({
   return (
     <div className="w-full space-y-5">
       {/* Configuração rápida da prova */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-slate-950/60 p-3.5">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/[0.08] bg-slate-950/55 p-3.5">
         <div className="flex flex-wrap items-center gap-3 text-xs">
           <label className="flex items-center gap-2 text-slate-300 font-semibold">
             <span>Duração (min):</span>
@@ -147,7 +147,7 @@ export const ExamPacingChart = React.memo(function ExamPacingChart({
               value={durationInput}
               onChange={(e) => setDurationInput(e.target.value)}
               onBlur={() => setDurationInput(String(safeDurationNum))}
-              className="w-20 rounded-lg bg-slate-900 border border-white/10 px-2.5 py-1 text-white font-mono text-xs focus:outline-none focus:border-cyan-400"
+              className="w-20 rounded-xl bg-slate-900/90 border border-white/[0.09] px-2.5 py-1 text-white font-mono tabular-nums text-xs focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/25"
             />
           </label>
           <label className="flex items-center gap-2 text-slate-300 font-semibold">
@@ -159,10 +159,10 @@ export const ExamPacingChart = React.memo(function ExamPacingChart({
               value={questionsInput}
               onChange={(e) => setQuestionsInput(e.target.value)}
               onBlur={() => setQuestionsInput(String(safeQuestionsNum))}
-              className="w-20 rounded-lg bg-slate-900 border border-white/10 px-2.5 py-1 text-white font-mono text-xs focus:outline-none focus:border-cyan-400"
+              className="w-20 rounded-xl bg-slate-900/90 border border-white/[0.09] px-2.5 py-1 text-white font-mono tabular-nums text-xs focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/25"
             />
           </label>
-          <span className="text-[11px] text-cyan-300 font-mono font-bold">
+          <span className="text-[11px] text-cyan-300 font-mono font-bold tabular-nums px-2.5 py-1 rounded-lg bg-cyan-500/10 border border-cyan-500/25">
             Alvo: {data.idealSecPerQuestion}s/questão
           </span>
         </div>
@@ -170,7 +170,7 @@ export const ExamPacingChart = React.memo(function ExamPacingChart({
         <button
           type="button"
           onClick={handleSaveExamConfig}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/40 text-indigo-200 text-[11px] font-bold transition-colors"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-400/40 text-indigo-200 text-[11px] font-bold transition-all active:scale-[0.985]"
         >
           <Save size={13} />
           {savedFeedback ? 'Salvo no concurso!' : 'Salvar parâmetros'}
@@ -178,17 +178,17 @@ export const ExamPacingChart = React.memo(function ExamPacingChart({
       </div>
 
       {!data.hasData ? (
-        <div className="min-h-[260px] flex flex-col items-center justify-center gap-3 rounded-2xl border border-white/5 bg-slate-950/50 p-8 text-center">
-          <Clock size={34} className="text-cyan-400/50" />
+        <div className="min-h-[260px] flex flex-col items-center justify-center gap-3 rounded-2xl border border-white/[0.08] bg-slate-950/55 p-8 text-center">
+          <Clock size={34} className="text-cyan-400/60" />
           <p className="text-sm font-bold text-slate-300">Sem dados cronometrados para simular o ritmo de prova</p>
-          <p className="text-xs text-slate-500 max-w-md">
+          <p className="text-xs text-slate-400 max-w-md">
             Faça simulados com cronômetro ativo para estimar se você termina a prova inteira dentro de {safeDurationNum} minutos.
           </p>
         </div>
       ) : (
         <>
           {/* Veredito + Barra de Orçamento Global */}
-          <div className={`rounded-2xl border p-4 space-y-3 ${isOverTime ? 'border-rose-500/30 bg-rose-500/5' : 'border-emerald-500/30 bg-emerald-500/5'}`}>
+          <div className={`rounded-2xl border p-4 space-y-3 ${isOverTime ? 'border-rose-500/30 bg-rose-500/[0.07]' : 'border-emerald-500/30 bg-emerald-500/[0.07]'}`}>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 {isOverTime ? (
@@ -196,13 +196,13 @@ export const ExamPacingChart = React.memo(function ExamPacingChart({
                 ) : (
                   <CheckCircle2 size={18} className="text-emerald-400 shrink-0" />
                 )}
-                <p className="text-sm font-black text-white">
+                <p className="text-sm font-black text-white tabular-nums">
                   {isOverTime
                     ? `Estouro estimado de +${fmtMinutes(data.deltaMinutes)} (~${data.estimatedUnanswered} questões sem tempo)`
                     : `Folga estimada de ${fmtMinutes(Math.abs(data.deltaMinutes))} para revisão e gabarito`}
                 </p>
               </div>
-              <span className="text-xs font-mono font-bold text-slate-300">
+              <span className="text-xs font-mono font-bold tabular-nums text-slate-300">
                 Projetado: <strong className="text-white">{fmtMinutes(data.totalProjectedMinutes)}</strong> / Limite {fmtMinutes(data.examDurationMinutes)}
               </span>
             </div>

@@ -11,7 +11,7 @@ import {
   ReferenceArea,
   ReferenceLine,
 } from 'recharts';
-import { Brain, AlertTriangle, Scale, Save } from 'lucide-react';
+import { Brain, AlertTriangle, Scale, Save, Star } from 'lucide-react';
 import { ChartFrame } from '../ChartFrame';
 import {
   estimateIRTAbility,
@@ -261,7 +261,7 @@ export const IRTPsychometricChart = React.memo(function IRTPsychometricChart({
   return (
     <div className="w-full space-y-6">
       {/* Parte A — TRI / IRT 2PL */}
-      <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4 space-y-4">
+      <div className="rounded-2xl border border-white/[0.08] bg-slate-950/55 p-4 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <Brain size={16} className="text-violet-400" />
@@ -270,14 +270,14 @@ export const IRTPsychometricChart = React.memo(function IRTPsychometricChart({
             </h4>
           </div>
           {irt.hasData && (
-            <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
-              <span className="px-2.5 py-1 rounded-lg bg-violet-500/15 border border-violet-500/30 text-violet-200 font-black" title="Escala TRI vai de -3 (iniciante) a +3 (domínio avançado)">
+            <div className="flex flex-wrap items-center gap-2 text-xs font-mono tabular-nums">
+              <span className="px-2.5 py-1 rounded-xl bg-violet-500/15 border border-violet-500/30 text-violet-200 font-black" title="Escala TRI vai de -3 (iniciante) a +3 (domínio avançado)">
                 θ = {irt.theta >= 0 ? '+' : ''}{irt.theta} (±{irt.thetaSe})
               </span>
-              <span className={`px-2.5 py-1 rounded-lg border font-sans font-bold ${thetaBand.cls}`}>
+              <span className={`px-2.5 py-1 rounded-xl border font-sans font-bold ${thetaBand.cls}`}>
                 {thetaBand.label}
               </span>
-              <span className="px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-200 font-bold capitalize">
+              <span className="px-2.5 py-1 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-200 font-bold capitalize">
                 Zona Proximal: {irt.recommendedDifficulty}
               </span>
             </div>
@@ -285,7 +285,7 @@ export const IRTPsychometricChart = React.memo(function IRTPsychometricChart({
         </div>
 
         {irt.hasData && (
-          <p className="text-[10px] text-slate-400">
+          <p className="text-[11px] text-slate-400">
             Como ler θ (escala −3 a +3): &lt; −0.4 Base inicial · −0.4 a +0.4 Intermediário · +0.4 a +1.2 Competitivo · &gt; +1.2 Alto domínio. A faixa verde (65%–78%) marca sua zona ideal de treino.
           </p>
         )}
@@ -357,7 +357,7 @@ export const IRTPsychometricChart = React.memo(function IRTPsychometricChart({
       </div>
 
       {/* Parte B — Simulador de Banca & Valor Esperado de Chute (Cebraspe/Penalidade) */}
-      <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4 space-y-4">
+      <div className="rounded-2xl border border-white/[0.08] bg-slate-950/55 p-4 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <Scale size={16} className="text-amber-400" />
@@ -370,7 +370,7 @@ export const IRTPsychometricChart = React.memo(function IRTPsychometricChart({
               aria-label="Selecionar banca examinadora"
               value={selectedBoard}
               onChange={(e) => handleBoardChange(e.target.value)}
-              className="rounded-lg bg-slate-900 border border-white/10 px-2.5 py-1.5 text-slate-200 text-xs outline-none focus:border-amber-400"
+              className="rounded-xl bg-slate-900/90 border border-white/[0.09] px-2.5 py-1.5 text-slate-200 text-xs outline-none focus:border-amber-400"
             >
               {EXAM_BOARDS.map((b) => (
                 <option key={b.id} value={b.id}>{b.label}</option>
@@ -385,13 +385,13 @@ export const IRTPsychometricChart = React.memo(function IRTPsychometricChart({
                 step={0.25}
                 value={penalty}
                 onChange={(e) => setPenalty(Math.max(0, Math.min(2, Number(e.target.value) || 0)))}
-                className="w-16 rounded-lg bg-slate-900 border border-white/10 px-2 py-1 text-white font-mono text-xs"
+                className="w-16 rounded-xl bg-slate-900/90 border border-white/[0.09] px-2 py-1 text-white font-mono tabular-nums text-xs"
               />
             </label>
             <button
               type="button"
               onClick={handleSaveBoard}
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-200 text-[11px] font-bold"
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/40 text-amber-200 text-[11px] font-bold transition-all active:scale-[0.985]"
             >
               <Save size={12} /> {savedBoard ? 'Salvo!' : 'Salvar banca'}
             </button>
@@ -404,18 +404,18 @@ export const IRTPsychometricChart = React.memo(function IRTPsychometricChart({
         </p>
 
         {!guessing.hasData ? (
-          <p className="text-xs text-slate-500 py-4 text-center">
+          <p className="text-xs text-slate-400 py-4 text-center">
             Marque seu nível de confiança (<em>Certeza / Dúvida / Chute</em>) no Simulado IA para calcular seu saldo líquido real por estratégia.
           </p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               {guessing.levels.map((lv) => (
-                <div key={lv.key} className="flex items-center justify-between rounded-xl bg-slate-900/70 border border-white/5 px-3 py-2 text-xs font-mono">
-                  <span className="font-sans font-bold text-slate-200">{lv.label} <span className="text-slate-500">(n={lv.total})</span></span>
+                <div key={lv.key} className="flex items-center justify-between rounded-xl bg-slate-900/70 border border-white/[0.08] px-3 py-2 text-xs font-mono tabular-nums">
+                  <span className="font-sans font-bold text-slate-200">{lv.label} <span className="text-slate-400">(n={lv.total})</span></span>
                   <div className="flex items-center gap-3">
                     <span className="text-sky-300">{lv.accuracyPct != null ? `${lv.accuracyPct}%` : '—'}</span>
-                    <span className={`px-2 py-0.5 rounded-md font-bold ${lv.shouldAnswer ? 'bg-emerald-500/15 text-emerald-300' : 'bg-rose-500/15 text-rose-300'}`}>
+                    <span className={`px-2 py-0.5 rounded-lg font-bold ${lv.shouldAnswer ? 'bg-emerald-500/15 text-emerald-300' : 'bg-rose-500/15 text-rose-300'}`}>
                       {lv.shouldAnswer ? 'Marcar' : 'Deixar em branco'}
                     </span>
                   </div>
@@ -427,11 +427,14 @@ export const IRTPsychometricChart = React.memo(function IRTPsychometricChart({
                 <div
                   key={st.id}
                   className={`flex items-center justify-between rounded-xl border px-3 py-2 text-xs ${
-                    idx === 0 ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200' : 'border-white/5 bg-slate-900/50 text-slate-300'
+                    idx === 0 ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200' : 'border-white/[0.08] bg-slate-900/55 text-slate-300'
                   }`}
                 >
-                  <span className="font-bold">{idx === 0 ? '★ ' : ''}{st.label}</span>
-                  <span className="font-mono font-black">{st.netPoints >= 0 ? '+' : ''}{st.netPoints} pts líq.</span>
+                  <span className="font-bold inline-flex items-center gap-1.5">
+                    {idx === 0 && <Star size={12} className="text-emerald-300 fill-emerald-300 shrink-0" />}
+                    <span>{st.label}</span>
+                  </span>
+                  <span className="font-mono font-black tabular-nums">{st.netPoints >= 0 ? '+' : ''}{st.netPoints} pts líq.</span>
                 </div>
               ))}
             </div>

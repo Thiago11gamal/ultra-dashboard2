@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useId, useCallback } from 'react';
+import { Clock, TrendingDown } from 'lucide-react';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer, LabelList, Cell, ReferenceLine,
@@ -489,26 +490,28 @@ export const SubtopicsPerformanceChart = React.memo(({
     }, [chartData.length]);
 
     return (
-        <div className="rounded-3xl border border-slate-800/80 bg-slate-900/60 backdrop-blur-md p-4 sm:p-6 shadow-xl w-full min-h-[560px]" id={`subtopics_container_${instanceId}`}>
+        <div className="rounded-2xl border border-white/[0.08] bg-slate-900/65 backdrop-blur-xl p-4 sm:p-5 shadow-xl w-full min-h-[540px]" id={`subtopics_container_${instanceId}`}>
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-5 px-1 gap-3">
                 <div>
-                    <h3 className="text-lg font-black bg-clip-text text-transparent bg-gradient-to-r from-yellow-300 via-amber-400 to-amber-500 mb-0.5 tracking-tight">
+                    <h3 className="text-base sm:text-lg font-black text-white mb-0.5 tracking-tight">
                         Raio-X de Tópicos
                     </h3>
                     <p className="text-slate-400 text-xs mt-0.5">Taxa de acertos real por assunto e volume de questões realizadas.</p>
                 </div>
 
-                <div className="flex items-center gap-1.5 bg-slate-950/80 border border-slate-800 p-1 rounded-2xl shadow-inner shrink-0 w-full sm:w-auto">
+                <div className="flex items-center gap-1 bg-slate-950/80 border border-white/[0.08] p-1 rounded-xl shadow-inner shrink-0 w-full sm:w-auto">
                     <button
+                        type="button"
                         onClick={() => setViewMode('bars')}
-                        className={`flex-1 sm:flex-none px-4 py-1.5 text-[11px] font-black uppercase tracking-wider rounded-xl transition-all will-change-transform ${viewMode === 'bars' ? 'bg-amber-500/25 text-amber-300 border border-amber-500/40 shadow-sm' : 'text-slate-400 hover:text-slate-200 border border-transparent hover:bg-slate-800/40'}`}
+                        className={`flex-1 sm:flex-none px-3.5 py-1.5 text-[11px] font-bold rounded-lg border transition-all ${viewMode === 'bars' ? 'bg-amber-500/20 text-amber-200 border-amber-400/45 shadow-sm' : 'text-slate-400 hover:text-slate-200 border-transparent hover:bg-white/[0.04]'}`}
                         aria-pressed={viewMode === 'bars'}
                     >
                         Ranking (Barras)
                     </button>
                     <button
+                        type="button"
                         onClick={() => setViewMode('lines')}
-                        className={`flex-1 sm:flex-none px-4 py-1.5 text-[11px] font-black uppercase tracking-wider rounded-xl transition-all will-change-transform ${viewMode === 'lines' ? 'bg-indigo-500/25 text-indigo-300 border border-indigo-500/40 shadow-sm' : 'text-slate-400 hover:text-slate-200 border border-transparent hover:bg-slate-800/40'}`}
+                        className={`flex-1 sm:flex-none px-3.5 py-1.5 text-[11px] font-bold rounded-lg border transition-all ${viewMode === 'lines' ? 'bg-indigo-500/25 text-indigo-100 border-indigo-400/45 shadow-sm' : 'text-slate-400 hover:text-slate-200 border-transparent hover:bg-white/[0.04]'}`}
                         aria-pressed={viewMode === 'lines'}
                     >
                         Tempo (Linhas)
@@ -517,11 +520,13 @@ export const SubtopicsPerformanceChart = React.memo(({
             </div>
 
             {chartData.length === 0 ? (
-                <div className="h-[280px] flex flex-col items-center justify-center gap-4 rounded-2xl border border-slate-800 bg-slate-950/30 mt-4">
-                    <span className="text-5xl opacity-40">⏳</span>
+                <div className="h-[280px] flex flex-col items-center justify-center gap-3 rounded-2xl border border-white/[0.08] bg-slate-950/55 mt-4 p-6 text-center">
+                    <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-400/25 flex items-center justify-center text-amber-300/75">
+                        <Clock size={22} />
+                    </div>
                     <div className="text-center">
-                        <p className="text-slate-300 font-bold text-base mb-1">Nenhum assunto no período atual</p>
-                        <p className="text-slate-500 text-xs mt-1">Altere o filtro de período para <b className="text-slate-400">Tudo</b> caso seus simulados sejam mais antigos.</p>
+                        <p className="text-slate-200 font-bold text-sm mb-1">Nenhum assunto no período atual</p>
+                        <p className="text-slate-400 text-xs mt-1">Altere o filtro de período para <b className="text-slate-200">Tudo</b> caso seus simulados sejam mais antigos.</p>
                     </div>
                 </div>
             ) : viewMode === 'bars' ? (
@@ -613,7 +618,7 @@ export const SubtopicsPerformanceChart = React.memo(({
                 </div>
             ) : (
                 <div className="w-full relative min-h-[500px]">
-                    <div className="flex justify-end mb-1 text-[10px] text-indigo-400/80 font-mono pr-2">
+                    <div className="flex justify-end mb-1.5 text-[11px] text-indigo-300/85 font-mono tabular-nums pr-2">
                         {uniqueTopics.length} tópicos plotados simultaneamente
                     </div>
                     {timeSeriesData.length > 0 ? (
@@ -687,10 +692,12 @@ export const SubtopicsPerformanceChart = React.memo(({
                             </div>
                         </div>
                     ) : (
-                        <div className="h-[250px] flex flex-col items-center justify-center text-slate-500 italic">
-                            <span className="text-3xl mb-2">📉</span>
-                            <p>Dados insuficientes no período.</p>
-                            <p className="text-xs">Faça simulados em dias diferentes para formar a linha do tempo.</p>
+                        <div className="h-[250px] flex flex-col items-center justify-center rounded-2xl border border-white/[0.08] bg-slate-950/55 text-slate-400 gap-2 p-6 text-center">
+                            <div className="w-11 h-11 rounded-xl bg-slate-900/80 border border-white/[0.08] flex items-center justify-center text-slate-400">
+                                <TrendingDown size={20} />
+                            </div>
+                            <p className="text-sm font-bold text-slate-300">Dados insuficientes no período.</p>
+                            <p className="text-xs text-slate-400">Faça simulados em dias diferentes para formar a linha do tempo.</p>
                         </div>
                     )}
                 </div>

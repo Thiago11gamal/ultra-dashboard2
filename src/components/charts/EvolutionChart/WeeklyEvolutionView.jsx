@@ -3,7 +3,7 @@ import {
     LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
     Tooltip, ResponsiveContainer, ReferenceLine, Legend, Cell, Brush
 } from 'recharts';
-import { TrendingUp, BarChart3, HelpCircle, Zap } from 'lucide-react';
+import { TrendingUp, BarChart3, HelpCircle, Zap, Info, CheckCircle2 } from 'lucide-react';
 import { getSafeScore, formatValue, getSyntheticTotal, extractTopicsTotals, resolveEffectiveCorrect } from "../../../utils/scoreHelper";
 import WeeklyPerformanceChart from './WeeklyPerformanceChart';
 import { computeTopRegressions, computeTrendKpi } from '../../../utils/weeklyEvolutionInsights.js';
@@ -33,11 +33,11 @@ const WeeklyTooltip = React.memo(({ active, payload, label, hiddenKeys = {}, uni
     if (visibleEntries.length === 0) return null;
 
     return (
-        <div className="bg-slate-950/80 border border-white/10 p-4 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] backdrop-blur-xl min-w-[220px] max-w-[320px] break-words whitespace-normal">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 border-b border-white/10 pb-2">
+        <div className="bg-slate-950/95 border border-white/15 p-3.5 rounded-2xl shadow-2xl backdrop-blur-xl min-w-[220px] max-w-[320px] break-words whitespace-normal">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5 border-b border-white/10 pb-2">
                 Semana de {label}
             </p>
-            <div className="space-y-3">
+            <div className="space-y-2.5">
                 {visibleEntries.map((entry, idx) => {
                     const dataKey = String(entry.dataKey || '');
                     const isDelta = dataKey.startsWith('delta_');
@@ -58,17 +58,17 @@ const WeeklyTooltip = React.memo(({ active, payload, label, hiddenKeys = {}, uni
 
                         return (
                             <div key={idx} className="flex flex-col gap-0.5">
-                                <div className="flex justify-between items-center text-[10px]">
+                                <div className="flex justify-between items-center text-[11px]">
                                     <span style={{ color: entry.color || '#fff' }} className="font-bold flex items-center gap-1.5">
                                         <span className="w-1.5 h-1.5 rounded-sm" style={{ backgroundColor: entry.color }}></span>
                                         {entry.name.replace(' (Var.)', '')}
                                     </span>
-                                    <span style={{ color }} className="font-mono font-black text-xs">
+                                    <span style={{ color }} className="font-mono font-black text-xs tabular-nums">
                                         {prefix}{formatValue(val)}{unit}
                                     </span>
                                 </div>
                                 {meta && hasValidNumber(meta.prevPct) && hasValidNumber(currentPct) && (
-                                    <div className="flex justify-between text-[8px] text-slate-500 pl-3">
+                                    <div className="flex justify-between text-[10px] text-slate-400 pl-3 tabular-nums">
                                         <span>De {formatValue(meta.prevPct)}{unit}</span>
                                         <span>
                                             Para {formatValue(currentPct)}{unit} <strong style={{ color }}>(Δ {prefix}{formatValue(val)}{unit})</strong>
@@ -80,17 +80,17 @@ const WeeklyTooltip = React.memo(({ active, payload, label, hiddenKeys = {}, uni
                     } else {
                         return (
                             <div key={idx} className="flex flex-col gap-0.5">
-                                <div className="flex justify-between items-center text-[10px]">
+                                <div className="flex justify-between items-center text-[11px]">
                                     <span style={{ color: entry.color || '#fff' }} className="font-bold flex items-center gap-1.5">
                                         <span className="w-2 h-2 rounded-sm" style={{ backgroundColor: entry.color }}></span>
                                         {entry.name}
                                     </span>
-                                    <span className="font-mono font-bold text-white text-xs">
+                                    <span className="font-mono font-bold text-white text-xs tabular-nums">
                                         {formatValue(val)}{unit}
                                     </span>
                                 </div>
                                 {meta && meta.currTot > 0 && (
-                                    <span className="text-[8px] text-slate-500 pl-3.5 italic">
+                                    <span className="text-[10px] text-slate-400 pl-3.5">
                                         Volume: {meta.currTot} questões
                                     </span>
                                 )}
@@ -593,10 +593,10 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
 
     if (chartData.length < 1) {
         return (
-            <div className="min-h-[400px] flex flex-col items-center justify-center bg-slate-950/40 rounded-3xl border border-slate-700/50 p-6 shadow-inner">
-                <HelpCircle size={40} className="text-slate-600 mb-3" />
+            <div className="min-h-[360px] flex flex-col items-center justify-center bg-slate-950/55 rounded-2xl border border-white/[0.08] p-6 text-center">
+                <HelpCircle size={36} className="text-indigo-400/50 mb-3" />
                 <p className="text-sm font-semibold text-slate-300">Dados insuficientes</p>
-                <p className="text-slate-500 text-[10px] mt-2 text-center max-w-[250px]">
+                <p className="text-slate-400 text-xs mt-1.5 text-center max-w-[280px]">
                     Cadastre pelo menos uma semana de simulados para visualizar a curva de evolução e a variação semanal.
                 </p>
             </div>
@@ -604,17 +604,17 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
     }
 
     return (
-        <div className="w-full pt-4 animate-fade-in relative flex flex-col">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 px-2 gap-4 shrink-0">
+        <div className="w-full pt-2 animate-fade-in relative flex flex-col">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-5 px-1 gap-3 shrink-0">
                 <div>
                     <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest block mb-0.5">
                         Raio-X Temporal Avançado
                     </span>
-                    <h3 className="text-lg font-black text-white uppercase tracking-tight">
+                    <h3 className="text-base sm:text-lg font-black text-white tracking-tight">
                         {showOnlyFocus && focusSubjectId ? 'Semanas por Assunto' : 'Semanas por Matéria'}
                     </h3>
                     {trendKpi && (
-                        <div className="inline-flex items-center gap-2 mt-1.5 px-2.5 py-1 rounded-lg bg-slate-900/80 border border-white/10 text-[10px] text-slate-400 font-mono">
+                        <div className="inline-flex items-center gap-2 mt-1.5 px-2.5 py-1 rounded-lg bg-slate-950/75 border border-white/[0.08] text-[11px] text-slate-400 font-mono tabular-nums">
                             <span>Tendência:</span>
                             <span className={`font-black ${trendKpi.delta >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                                 {trendKpi.delta >= 0 ? '+' : ''}{formatValue(trendKpi.delta)}{unit}
@@ -624,39 +624,42 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
                     )}
                 </div>
 
-                <div className="flex items-center bg-slate-900/90 border border-white/10 rounded-2xl p-1 shadow-inner backdrop-blur-md">
+                <div className="flex items-center gap-1 bg-slate-950/80 border border-white/[0.08] rounded-xl p-1 shadow-inner">
                     <button
+                        type="button"
                         onClick={() => setViewMode('performance')}
                         aria-label="Alternar para visão de desempenho semanal"
                         aria-pressed={viewMode === 'performance'}
-                        className={`flex items-center justify-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all will-change-transform ${
+                        className={`flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all ${
                             viewMode === 'performance' 
-                                ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-500/25 border border-indigo-400/30 font-bold' 
-                                : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                                ? 'bg-indigo-500/25 text-indigo-100 border-indigo-400/45 shadow-sm' 
+                                : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04] border-transparent'
                         }`}
                     >
                         <Zap size={13} className="shrink-0" /> <span className="sm:hidden">7 dias</span><span className="hidden sm:inline">Desempenho (7d)</span>
                     </button>
                     <button
+                        type="button"
                         onClick={() => setViewMode('evolution')}
                         aria-label="Alternar para visão de evolução semanal"
                         aria-pressed={viewMode === 'evolution'}
-                        className={`flex items-center justify-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all will-change-transform ${
+                        className={`flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all ${
                             viewMode === 'evolution' 
-                                ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-500/25 border border-indigo-400/30 font-bold' 
-                                : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                                ? 'bg-indigo-500/25 text-indigo-100 border-indigo-400/45 shadow-sm' 
+                                : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04] border-transparent'
                         }`}
                     >
                         <TrendingUp size={13} className="shrink-0" /> <span className="sm:hidden">Evol.</span><span className="hidden sm:inline">Evolução</span>
                     </button>
                     <button
+                        type="button"
                         onClick={() => setViewMode('variation')}
                         aria-label="Alternar para visão de variação semanal"
                         aria-pressed={viewMode === 'variation'}
-                        className={`flex items-center justify-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all will-change-transform ${
+                        className={`flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all ${
                             viewMode === 'variation' 
-                                ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-500/25 border border-indigo-400/30 font-bold' 
-                                : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                                ? 'bg-indigo-500/25 text-indigo-100 border-indigo-400/45 shadow-sm' 
+                                : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04] border-transparent'
                         }`}
                     >
                         <BarChart3 size={13} className="shrink-0" /> <span className="sm:hidden">Delta</span><span className="hidden sm:inline">Delta</span>
@@ -676,10 +679,10 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
                         unit={unit}
                     />
                 ) : viewMode === 'variation' && !hasConsecutiveDelta ? (
-                    <div className="h-full flex flex-col items-center justify-center bg-slate-950/40 rounded-3xl border border-slate-800/60 p-6 text-center">
-                        <BarChart3 size={36} className="text-slate-600 mb-2" />
+                    <div className="h-full flex flex-col items-center justify-center bg-slate-950/55 rounded-2xl border border-white/[0.08] p-6 text-center">
+                        <BarChart3 size={34} className="text-indigo-400/50 mb-2.5" />
                         <p className="text-sm font-bold text-slate-300">Semanas consecutivas necessárias</p>
-                        <p className="text-xs text-slate-500 mt-1 max-w-xs">Registre simulados em pelo menos 2 semanas seguidas para calcular o acelerômetro de variação (Delta).</p>
+                        <p className="text-xs text-slate-400 mt-1 max-w-xs">Registre simulados em pelo menos 2 semanas seguidas para calcular o acelerômetro de variação (Delta).</p>
                     </div>
                 ) : (
                     <ResponsiveContainer width="100%" height="100%" minHeight={320} minWidth={1}>
@@ -798,29 +801,33 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
             </div>
 
             {viewMode === 'variation' && (
-                <div className="mt-4 rounded-2xl border border-rose-500/25 bg-rose-950/20 backdrop-blur-sm p-4 shadow-sm">
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-rose-300 mb-2.5 flex items-center gap-1.5">
+                <div className="mt-4 rounded-2xl border border-rose-500/25 bg-rose-950/20 backdrop-blur-sm p-4">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-rose-300 mb-2.5 flex items-center gap-1.5">
                         <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse"></span> Principais quedas na semana
                     </p>
                     {topRegressions.length > 0 ? (
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                             {topRegressions.map(item => (
-                                <div key={item.key} className="rounded-xl bg-slate-950/60 border border-white/10 px-3 py-2 text-[10px] flex items-center justify-between min-w-0 gap-2 shadow-inner">
+                                <div key={item.key} className="rounded-xl bg-slate-950/65 border border-white/[0.08] px-3 py-2 text-[11px] flex items-center justify-between min-w-0 gap-2">
                                     <span className="truncate min-w-0 font-bold" style={{ color: item.color }} title={item.fullName}>{item.name}</span>
-                                    <span className="font-mono font-black text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/20">{formatValue(item.delta)}{unit}</span>
+                                    <span className="font-mono font-black tabular-nums text-rose-300 bg-rose-500/15 px-1.5 py-0.5 rounded-md border border-rose-500/25">{formatValue(item.delta)}{unit}</span>
                                 </div>
                             ))}
                         </div>
                     ) : (
-                        <p className="text-slate-400 text-xs text-center py-3">Nenhuma queda visível no filtro atual. ✅</p>
+                        <p className="text-slate-300 text-xs flex items-center justify-center gap-1.5 py-2.5">
+                            <CheckCircle2 size={14} className="text-emerald-400 shrink-0" />
+                            <span>Nenhuma queda visível no filtro atual.</span>
+                        </p>
                     )}
                 </div>
             )}
 
             {viewMode !== 'performance' && (
-                <div className="flex justify-center mt-3 opacity-60">
-                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest bg-slate-900 px-3 py-1 rounded-md border border-slate-800 shrink-0 select-none">
-                        💡 Dica: clique nos itens da legenda para ocultar ou isolar o gráfico.
+                <div className="flex justify-center mt-3">
+                    <p className="inline-flex items-center gap-1.5 text-[11px] text-slate-400 font-medium bg-slate-950/65 px-3 py-1 rounded-xl border border-white/[0.08] shrink-0 select-none">
+                        <Info size={12} className="text-indigo-400 shrink-0" />
+                        <span>Dica: clique nos itens da legenda para ocultar ou isolar séries no gráfico.</span>
                     </p>
                 </div>
             )}

@@ -11,7 +11,7 @@ import {
   ReferenceLine,
   ReferenceArea,
 } from 'recharts';
-import { Compass, Target } from 'lucide-react';
+import { Compass, Target, Globe } from 'lucide-react';
 import { ChartFrame } from '../ChartFrame';
 import { buildProjectionFanData } from '../../../utils/advancedChartHelpers';
 import { formatValue } from '../../../utils/scoreHelper';
@@ -90,10 +90,10 @@ export const ProjectionFanChart = React.memo(function ProjectionFanChart({
 
   if (!data.series.length) {
     return (
-      <div className="min-h-[300px] flex flex-col items-center justify-center gap-3 rounded-2xl border border-white/5 bg-slate-950/50 p-8 text-center">
-        <Compass size={34} className="text-indigo-400/50" />
+      <div className="min-h-[300px] flex flex-col items-center justify-center gap-3 rounded-2xl border border-white/[0.08] bg-slate-950/55 p-8 text-center">
+        <Compass size={34} className="text-indigo-400/60" />
         <p className="text-sm font-bold text-slate-300">Sem simulados suficientes para projetar o Cone Futuro</p>
-        <p className="text-xs text-slate-500">Cadastre ao menos 1 simulado para traçar as faixas P10 / P50 / P90 até a prova.</p>
+        <p className="text-xs text-slate-400">Cadastre ao menos 1 simulado para traçar as faixas P10 / P50 / P90 até a prova.</p>
       </div>
     );
   }
@@ -102,9 +102,10 @@ export const ProjectionFanChart = React.memo(function ProjectionFanChart({
     <div className="w-full space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-500/15 border border-indigo-400/30 text-indigo-200 font-bold">
-          <span>{focusCategory ? `🎯 Foco: ${focusCategory.name}` : '🌐 Visão Global'}</span>
+          {focusCategory ? <Target size={12} className="shrink-0" /> : <Globe size={12} className="shrink-0" />}
+          <span>{focusCategory ? `Foco: ${focusCategory.name}` : 'Visão Global'}</span>
         </span>
-        <span className="text-[10px] text-slate-400">
+        <span className="text-[11px] text-slate-400">
           Faixa clara = P25–P75 (50% dos cenários) · Faixa externa = P10–P90 (80% dos cenários)
         </span>
       </div>
@@ -112,40 +113,41 @@ export const ProjectionFanChart = React.memo(function ProjectionFanChart({
       {/* Cabeçalho KPIs + Seletor de horizonte */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 flex-1 min-w-[260px]">
-          <div className="rounded-xl bg-slate-950/70 border border-white/5 px-3 py-2" title="Cenário pessimista: 90% de chance de ficar acima desta nota">
-            <p className="text-[9px] uppercase text-slate-500 font-bold">Conservador (P10)</p>
-            <p className="text-sm font-black font-mono text-amber-300">{fmt(data.summary.finalP10)}</p>
-            <p className="text-[9px] text-slate-500">piso cauteloso</p>
+          <div className="rounded-xl bg-slate-950/60 border border-white/[0.08] px-3 py-2.5" title="Cenário pessimista: 90% de chance de ficar acima desta nota">
+            <p className="text-[10px] uppercase text-slate-400 font-bold tracking-wider">Conservador (P10)</p>
+            <p className="text-sm font-black font-mono tabular-nums text-amber-300 mt-0.5">{fmt(data.summary.finalP10)}</p>
+            <p className="text-[10px] text-slate-500">piso cauteloso</p>
           </div>
-          <div className="rounded-xl bg-slate-950/70 border border-sky-500/30 px-3 py-2" title="Cenário central mais provável mantendo o ritmo atual">
-            <p className="text-[9px] uppercase text-slate-500 font-bold">Mediana (P50)</p>
-            <p className="text-sm font-black font-mono text-sky-300">{fmt(data.summary.finalP50)}</p>
-            <p className="text-[9px] text-slate-500">cenário provável</p>
+          <div className="rounded-xl bg-slate-950/60 border border-sky-500/30 px-3 py-2.5" title="Cenário central mais provável mantendo o ritmo atual">
+            <p className="text-[10px] uppercase text-slate-400 font-bold tracking-wider">Mediana (P50)</p>
+            <p className="text-sm font-black font-mono tabular-nums text-sky-300 mt-0.5">{fmt(data.summary.finalP50)}</p>
+            <p className="text-[10px] text-slate-500">cenário provável</p>
           </div>
-          <div className="rounded-xl bg-slate-950/70 border border-white/5 px-3 py-2" title="Cenário favorável se você acelerar a constância">
-            <p className="text-[9px] uppercase text-slate-500 font-bold">Otimista (P90)</p>
-            <p className="text-sm font-black font-mono text-emerald-300">{fmt(data.summary.finalP90)}</p>
-            <p className="text-[9px] text-slate-500">teto favorável</p>
+          <div className="rounded-xl bg-slate-950/60 border border-white/[0.08] px-3 py-2.5" title="Cenário favorável se você acelerar a constância">
+            <p className="text-[10px] uppercase text-slate-400 font-bold tracking-wider">Otimista (P90)</p>
+            <p className="text-sm font-black font-mono tabular-nums text-emerald-300 mt-0.5">{fmt(data.summary.finalP90)}</p>
+            <p className="text-[10px] text-slate-500">teto favorável</p>
           </div>
-          <div className="rounded-xl bg-slate-950/70 border border-white/5 px-3 py-2" title="Data estimada em que a linha P50 alcança a meta">
-            <p className="text-[9px] uppercase text-slate-500 font-bold flex items-center gap-1">
-              <Target size={10} className="text-emerald-400" /> Cruzamento Meta
+          <div className="rounded-xl bg-slate-950/60 border border-white/[0.08] px-3 py-2.5" title="Data estimada em que a linha P50 alcança a meta">
+            <p className="text-[10px] uppercase text-slate-400 font-bold tracking-wider flex items-center gap-1">
+              <Target size={11} className="text-emerald-400 shrink-0" /> Cruzamento Meta
             </p>
-            <p className="text-xs font-black font-mono text-white">
+            <p className="text-xs font-black font-mono tabular-nums text-white mt-0.5">
               {data.alreadyAtTarget
                 ? 'Já na meta ✓'
                 : (data.targetCrossingDate ? data.targetCrossingDate.split('-').reverse().join('/') : 'Acima do prazo')}
             </p>
-            <p className="text-[9px] text-slate-500">quando P50 bate {fmt(targetScore)}</p>
+            <p className="text-[10px] text-slate-500">quando P50 bate {fmt(targetScore)}</p>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-1 bg-slate-950/70 border border-white/10 p-1 rounded-xl text-[10px] font-bold">
+        <div className="flex flex-wrap items-center gap-1 bg-slate-950/80 border border-white/[0.08] p-1 rounded-xl text-[11px] font-bold shadow-inner">
           <button
             type="button"
             onClick={() => setCustomHorizon(null)}
-            className={`px-2.5 py-1 rounded-lg transition-colors ${
-              customHorizon === null ? 'bg-emerald-500/25 text-emerald-200 border border-emerald-400/40' : 'text-slate-400 hover:text-white'
+            aria-pressed={customHorizon === null}
+            className={`px-2.5 py-1 rounded-lg border transition-colors ${
+              customHorizon === null ? 'bg-emerald-500/25 text-emerald-200 border-emerald-400/45' : 'text-slate-400 hover:text-white border-transparent'
             }`}
           >
             Prova ({examHorizon}d)
@@ -155,8 +157,9 @@ export const ProjectionFanChart = React.memo(function ProjectionFanChart({
               key={d}
               type="button"
               onClick={() => setCustomHorizon(d)}
-              className={`px-2.5 py-1 rounded-lg transition-colors ${
-                customHorizon === d ? 'bg-indigo-500/30 text-indigo-200 border border-indigo-400/40' : 'text-slate-400 hover:text-white'
+              aria-pressed={customHorizon === d}
+              className={`px-2.5 py-1 rounded-lg border transition-colors ${
+                customHorizon === d ? 'bg-indigo-500/25 text-indigo-100 border-indigo-400/45' : 'text-slate-400 hover:text-white border-transparent'
               }`}
             >
               {d}d
