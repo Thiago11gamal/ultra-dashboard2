@@ -1,8 +1,7 @@
 import { getDateKey, normalizeDate, toDateMs, getAppTimezone } from './dateHelper.js';
 import { parseNoonLocal, addDaysNoon } from './parseNoonLocal.js';
 import { getSafeScore, getSyntheticTotal, extractTopicsTotals, resolveEffectiveCorrect, isPhantomZeroTimeAttempt } from './scoreHelper.js';
-import { normalize } from './normalization.js';
-import { aliases } from '../data/initialData.js';
+import { normalize, aliases } from './normalization.js';
 import { kalmanAbilitySeries } from '../engine/probabilistic/stateSpace.js';
 import {
   computeTopicGraphMetrics,
