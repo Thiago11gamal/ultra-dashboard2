@@ -54,7 +54,7 @@ export function analisarDesempenhoHistorico(historico) {
 export const getCognitiveState = (studyLogs = [], options = {}) => {
     const safeOpts = options && typeof options === 'object' ? options : {};
     const safeLogs = safeArray(studyLogs).filter(log => {
-        if (!log || typeof log !== 'object') return false;
+        if (!log || typeof log !== 'object' || log.type === 'flashcard') return false;
         const hasDate = log.date || log.createdAt || log.lastUpdated;
         if (!hasDate) return false;
         const parsed = normalizeDate(hasDate);

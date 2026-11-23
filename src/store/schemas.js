@@ -260,11 +260,6 @@ export const repairContestHistory = (rawData, maxScore = 100, minScore = 0) => {
           : Math.min(rawTotal > 0 ? rawTotal : rawCorrect, rawCorrect);
 
         if (rawTotal === 0 && safeScore !== null) {
-          const synTotal = 100;
-          const ratio = (safeScore - minScore) / scoreRange;
-          const synCorrect = Math.round(Math.max(0, Math.min(1, ratio)) * synTotal);
-          dailyStats[dk].correct += synCorrect;
-          dailyStats[dk].total += synTotal;
           dailyStats[dk].directScoreSum += safeScore;
           dailyStats[dk].directScoreCount += 1;
         } else {
@@ -276,20 +271,27 @@ export const repairContestHistory = (rawData, maxScore = 100, minScore = 0) => {
 
       const rebuiltHistory = Object.entries(dailyStats).map(([date, stats]) => {
         let finalScore = minScore;
-        if (stats.directScoreCount > 0 && stats.normalRowCount === 0) {
+        const isPureDirect = stats.directScoreCount > 0 && stats.normalRowCount === 0;
+        if (isPureDirect) {
           finalScore = stats.directScoreSum / stats.directScoreCount;
         } else if (stats.total > 0 && Number.isFinite(stats.correct)) {
           finalScore = minScore + (stats.correct / stats.total) * scoreRange;
         } else if (stats.directScoreCount > 0) {
           finalScore = stats.directScoreSum / stats.directScoreCount;
         }
+        const clampedFinal = Math.min(maxScore, Math.max(minScore, finalScore));
+        const synTotal = typeof getSyntheticTotal === 'function' ? getSyntheticTotal(maxScore) : 20;
+        const outTotal = isPureDirect ? synTotal : stats.total;
+        const outCorrect = isPureDirect
+          ? Math.round(Math.max(0, Math.min(1, (clampedFinal - minScore) / scoreRange)) * synTotal)
+          : stats.correct;
         const batchIdsArr = Array.from(stats.batchIds || []);
         return {
           date,
-          correct: stats.correct,
-          total: stats.total,
-          score: Math.min(maxScore, Math.max(minScore, finalScore)),
-          syntheticVolume: stats.normalRowCount === 0 && stats.directScoreCount > 0,
+          correct: outCorrect,
+          total: outTotal,
+          score: clampedFinal,
+          syntheticVolume: isPureDirect,
           ...(batchIdsArr.length > 0 ? { batchId: batchIdsArr[batchIdsArr.length - 1], batchIds: batchIdsArr } : {})
         };
       }).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);

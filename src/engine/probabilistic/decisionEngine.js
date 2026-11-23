@@ -254,7 +254,7 @@ export function rankDecisionCandidates(candidates = [], options = {}) {
   const inferredMaxWeight = candidateWeights.length > 0 ? Math.max(...candidateWeights) : 10;
   const resolvedDecisionOptions = options.maxWeight !== undefined
     ? options
-    : { ...options, maxWeight: inferredMaxWeight > 10 || inferredMaxWeight <= 1 ? inferredMaxWeight : 10 };
+    : { ...options, maxWeight: inferredMaxWeight };
 
   const enriched = safeCandidates.map((candidate, index) => {
     const decision = computeDecisionUtility(candidate, resolvedDecisionOptions);

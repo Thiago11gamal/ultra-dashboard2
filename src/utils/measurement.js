@@ -253,8 +253,8 @@ export function normalizeScoreValue(row, maxScore, minScore = 0) {
     correct = Math.max(0, Math.min(total, Math.trunc(correctRaw)));
   }
 
-  // ── 1) total/correct ──────────────────────────────────────
-  if (total > 0 && (hasExplicitCorrect || !hasAnyScoreField)) {
+  // ── 1) total/correct (quando não há scorePoints autoritativo explícito, ex.: TRI) ──
+  if (total > 0 && !isStrictNumericInput(r.scorePoints) && (hasExplicitCorrect || !hasAnyScoreField)) {
     const penaltyPerWrong = Number(r.penaltyPerWrong) || 0;
     const ratio = penaltyPerWrong > 0
       ? computeEffectiveScoreRatio(correct, total, {

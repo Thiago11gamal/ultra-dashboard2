@@ -832,8 +832,10 @@ export function computeBayesianLevel(
 
     // ✅ FIX BUG-16 & BUG-22: Inversão linear exata de [0, 1] → [safeMinScore, safeMaxScore]
     // (funciona para domínios simétricos [-120, 120], assimétricos [-30, 100] e positivos [200, 1000])
-    const centerForCI = Math.max(safeMinScore, Math.min(safeMaxScore, safeMinScore + p_tilde * safeRange));
-    const trueMean = Math.max(safeMinScore, Math.min(safeMaxScore, safeMinScore + p * safeRange));
+    const unshiftedPTilde = useLegacyZeroFloorPenalizedShift ? Math.max(0, Math.min(1, 2 * p_tilde - 1)) : p_tilde;
+    const unshiftedP = useLegacyZeroFloorPenalizedShift ? Math.max(0, Math.min(1, 2 * p - 1)) : p;
+    const centerForCI = Math.max(safeMinScore, Math.min(safeMaxScore, safeMinScore + unshiftedPTilde * safeRange));
+    const trueMean = Math.max(safeMinScore, Math.min(safeMaxScore, safeMinScore + unshiftedP * safeRange));
 
     let ciLow = centerForCI - adjustedMarginOfError;
     let ciHigh = centerForCI + adjustedMarginOfError;
