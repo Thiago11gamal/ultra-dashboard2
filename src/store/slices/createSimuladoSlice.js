@@ -196,9 +196,15 @@ if (c.simuladoStats?.history) {
 
       const dayTimeSpent = catRowsForDay.reduce((sum, r) => sum + (Number(r.timeSpent) || 0), 0);
       const dayTimedQuestoes = catRowsForDay.reduce(
-        (sum, r) => sum + (Number(r.timeSpent) > 0 ? getSimuladoRowTotal(r) : 0),
+        (sum, r) => {
+          if (!(Number(r.timeSpent) > 0)) return sum;
+          const explicitTq = Number(r.timedQuestoes);
+          return sum + (Number.isFinite(explicitTq) && explicitTq > 0 ? explicitTq : getSimuladoRowTotal(r));
+        },
         0
       );
+      const dayBlanks = catRowsForDay.reduce((sum, r) => sum + Math.max(0, Number(r.blanks) || 0), 0);
+      const dayPenalty = catRowsForDay.reduce((maxP, r) => Math.max(maxP, Math.max(0, Number(r.penaltyPerWrong) || 0)), 0);
 
       const topicsMap = {};
       let totalDiffWeight = 0;
@@ -256,17 +262,33 @@ if (c.simuladoStats?.history) {
         };
       });
 
+      const dayEff = dayTotal > 0
+        ? computeEffectiveScoreRatio(dayCorrect, dayTotal, {
+            blanks: dayBlanks,
+            penaltyPerWrong: dayPenalty,
+            minScore: catMinScore,
+            maxScore: catMaxScore,
+          })
+        : null;
       const computedScore = dayTotal > 0
-        ? catMinScore + (dayCorrect / dayTotal) * catRange
+        ? catMinScore + dayEff.ratio * catRange
         : scoreOnlyRows.reduce((sum, r) => sum + getSafeScore(r, catMaxScore, catMinScore), 0) / scoreOnlyRows.length;
 
       const remainingBatchIds = Array.from(new Set(
         catRowsForDay.map(r => r?.batchId).filter(Boolean).map(String)
       ));
+      const cleanedH = { ...h };
+      delete cleanedH.scorePoints;
+      delete cleanedH.scorePct;
+      delete cleanedH.netPoints;
+      delete cleanedH.blanks;
+      delete cleanedH.penaltyPerWrong;
       const nextEntry = {
-        ...h,
+        ...cleanedH,
         correct: dayCorrect,
         total: dayTotal,
+        ...(dayEff && dayEff.blanks > 0 ? { blanks: dayEff.blanks } : {}),
+        ...(dayEff && dayEff.penaltyApplied ? { penaltyPerWrong: dayPenalty, netPoints: dayEff.netPoints } : {}),
         isPercentage: false,
         score: Math.min(catMaxScore, Math.max(catMinScore, Number(computedScore.toFixed(2)))),
         difficulty: diffRowSum > 0 ? (Number((totalDiffWeight / diffRowSum).toFixed(2)) || 1.0) : 1.0,

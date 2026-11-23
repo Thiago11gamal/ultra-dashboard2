@@ -450,18 +450,21 @@ export function loadPersistedCoachFlags(contestId, options = {}) {
 
     const sampled = safeRanked.map((strategy) => {
       const entry = state?.[strategy.id] || {};
-
-      const baseScore = clampFinite(strategy.score, 0, 1, 0);
+      const hasEvidenceOrTrials = Boolean(strategy.hasEvidence) || (Number(entry.trials) > 0);
+      const baseScore = hasEvidenceOrTrials
+        ? clampFinite(strategy.score, 0, 1, 0.5)
+        : 0.5;
+      const priorWeight = hasEvidenceOrTrials ? 5 : 1;
 
       const alpha =
         1 +
         (entry.alpha || 0) +
-        baseScore * 5;
+        baseScore * priorWeight;
 
       const beta =
         1 +
         (entry.beta || 0) +
-        (1 - baseScore) * 5;
+        (1 - baseScore) * priorWeight;
 
       const sampledScore = sampleBeta(alpha, beta, rng);
 

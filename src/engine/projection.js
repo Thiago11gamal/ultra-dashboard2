@@ -1069,7 +1069,12 @@ export function monteCarloSimulation(
 
     // 4. Agregação Estatística
     // Note: We need to count successes before sorting results!
-    const rawCutoffs = Array.isArray(options.historicalCutoffs) ? options.historicalCutoffs.map(Number).filter(n => Number.isFinite(n) && n >= minScore && n <= maxScore) : [];
+    const rawCutoffs = Array.isArray(options.historicalCutoffs)
+        ? options.historicalCutoffs
+            .filter(v => v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '')
+            .map(Number)
+            .filter(n => Number.isFinite(n) && n >= minScore && n <= maxScore)
+        : [];
     const hasHistCutoffs = rawCutoffs.length > 0;
     const cutoffsMean = hasHistCutoffs ? kahanSum(rawCutoffs) / rawCutoffs.length : targetScore;
     const cutoffsSD = hasHistCutoffs ? (rawCutoffs.length > 1 ? Math.sqrt(Math.max(1e-6, kahanSum(rawCutoffs.map(v => Math.pow(v - cutoffsMean, 2))) / (rawCutoffs.length - 1))) : Math.max(1e-6, (maxScore - minScore) * 0.025, Math.abs(cutoffsMean) * 0.05)) : 0;

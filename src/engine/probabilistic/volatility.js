@@ -225,7 +225,8 @@ export function estimateDynamicVolatility(history = [], options = {}) {
   let persistence = 0.94;
 
   const maxDailyVol = domain * 0.20;
-  const maxSigma2 = Math.pow(maxDailyVol, 2);
+  const maxExamVol = domain * 0.45;
+  const maxSigma2 = Math.pow(maxExamVol, 2);
 
   if (useGarch && returns.length >= 5) {
     model = 'garch11';
@@ -251,22 +252,23 @@ export function estimateDynamicVolatility(history = [], options = {}) {
     persistence = alpha + beta;
 
     const sigma2Inf = omega / Math.max(1e-6, 1 - persistence);
+    const refGapDays = Math.max(1, medianGapDays);
 
     for (let i = 0; i < winsorizedReturns.length; i++) {
       const dt = clampFinite(dts[i], 0.25, 30, 1);
       const centered = winsorizedReturns[i] - returnMean;
       const shock = centered * centered;
-      const dtEffective = Math.min(dt, 30);
+      const dtIntervals = Math.min(30, dt / refGapDays);
 
-      // FIX causal em tempo irregular: primeiro decai a variância ANTERIOR durante o hiato dt
-      // em direção a sigma2Inf, e SÓ ENTÃO aplica o choque de hoje com peso alpha integral.
-      if (dtEffective >= 1) {
-        const rhoDecay = Math.pow(persistence, dtEffective - 1);
+      // FIX causal em tempo irregular: primeiro decai a variância ANTERIOR pelo número de intervalos
+      // equivalentes (dt / medianGapDays) em direção a sigma2Inf, e SÓ ENTÃO aplica o choque de hoje.
+      if (dtIntervals >= 1) {
+        const rhoDecay = Math.pow(persistence, dtIntervals - 1);
         const decayedPrior = sigma2Inf + rhoDecay * (sigma2Daily - sigma2Inf);
         sigma2Daily = omega + alpha * shock + beta * decayedPrior;
       } else {
-        const oneDayNext = omega + alpha * shock + beta * sigma2Daily;
-        sigma2Daily = sigma2Daily + dtEffective * (oneDayNext - sigma2Daily);
+        const oneStepNext = omega + alpha * shock + beta * sigma2Daily;
+        sigma2Daily = sigma2Daily + dtIntervals * (oneStepNext - sigma2Daily);
       }
 
       sigma2Daily = clampFinite(sigma2Daily, 1e-12, maxSigma2, sigma2Daily);
@@ -276,10 +278,11 @@ export function estimateDynamicVolatility(history = [], options = {}) {
 
     const lambda = 0.94;
     persistence = lambda;
+    const refGapDays = Math.max(1, medianGapDays);
 
     for (let i = 0; i < winsorizedReturns.length; i++) {
       const dt = clampFinite(dts[i], 0.25, 30, 1);
-      const lambdaEffective = Math.pow(lambda, dt);
+      const lambdaEffective = Math.pow(lambda, dt / refGapDays);
       const centered = winsorizedReturns[i] - returnMean;
       const shock = centered * centered;
 

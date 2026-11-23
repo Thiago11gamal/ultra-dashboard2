@@ -680,12 +680,11 @@ export function estimateDoublyRobustUplift(events = [], options = {}) {
       drScore -= (observed - mu0) / (1 - e);
     }
 
-    drScore = clampFinite(drScore, -maxOutcome, maxOutcome, 0);
-
     sumDR += drScore;
   });
 
-  const uplift = safeEvents.length > 0 ? sumDR / safeEvents.length : 0;
+  const rawUplift = safeEvents.length > 0 ? sumDR / safeEvents.length : 0;
+  const uplift = clampFinite(rawUplift, -maxOutcome, maxOutcome, 0);
 
   return {
     method: 'doubly_robust',
@@ -898,10 +897,14 @@ export function estimateUpliftByAction(events = [], options = {}) {
       if (isStudyModeAction(actionType)) {
         return;
       }
-      const relevantControls =
+      const treatedTimestamps = new Set(treatedInGroup.map((e) => e.timestamp));
+      const filterNonOverlapping = (ctrlList) =>
+        ctrlList.filter((c) => !treatedTimestamps.has(c.timestamp));
+      const rawRelevantControls =
         actionType === 'study_volume'
-          ? (volumeControls.length > 0 ? volumeControls : globalControls)
-          : (taskControls.length > 0 ? taskControls : globalControls);
+          ? (volumeControls.length > 0 ? volumeControls : filterNonOverlapping(globalControls))
+          : (taskControls.length > 0 ? taskControls : filterNonOverlapping(globalControls));
+      const relevantControls = filterNonOverlapping(rawRelevantControls);
       controlsInPool = relevantControls;
       poolForAction = [...treatedInGroup, ...relevantControls];
     }

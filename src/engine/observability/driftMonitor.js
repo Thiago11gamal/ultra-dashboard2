@@ -75,8 +75,10 @@ export function computeEwmaControlChart(values, options = {}) {
   const lambda = clampFinite(options.lambda, 0.05, 0.95, 0.2);
   const L = clampFinite(options.L, 1, 5, 2.7);
 
-  const center = meanValues(safe);
-  const sigma = sdValues(safe);
+  const baselineCount = safe.length >= 6 ? Math.max(3, Math.floor(safe.length * 0.7)) : safe.length;
+  const baselineSlice = safe.slice(0, baselineCount);
+  const center = meanValues(baselineSlice);
+  const sigma = sdValues(baselineSlice);
 
   const sigmaEwma = sigma * Math.sqrt(lambda / (2 - lambda));
 
@@ -148,9 +150,13 @@ export function cusumDrift(values, options = {}) {
   const recent = safe.slice(baselineSize);
   const baseMean = meanValues(baseline);
   const recentMean = meanValues(recent);
-  const isImproving = badDirection === 'up'
+  const lastVal = safe[safe.length - 1];
+  const tailImproving = badDirection === 'up'
+    ? (lastVal <= baseMean)
+    : (lastVal >= baseMean);
+  const isImproving = (badDirection === 'up'
     ? (recentMean < baseMean)
-    : (recentMean > baseMean);
+    : (recentMean > baseMean)) && tailImproving;
 
   // Se melhorando, usar a média GLOBAL como target (não só o baseline)
   const target = isImproving ? meanValues(safe) : baseMean;
@@ -512,7 +518,7 @@ export function detectProbabilityCalibrationDrift(pairs = [], options = {}) {
     const maxTs = safePairs[safePairs.length - 1].timestamp;
     const cutoffTs = minTs + (maxTs - minTs) * (1 - recentFraction);
     splitIndex = safePairs.findIndex(p => p.timestamp >= cutoffTs);
-    if (splitIndex <= 0 || splitIndex >= safePairs.length - 1) {
+    if (splitIndex < 4 || splitIndex > safePairs.length - 4) {
       splitIndex = Math.floor(safePairs.length * (1 - recentFraction));
     }
   } else {

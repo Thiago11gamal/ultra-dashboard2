@@ -34,7 +34,7 @@ export const PerformanceBarChart = React.memo(function PerformanceBarChart({
 
     const chartData = useMemo(() => {
         return filteredAggData.map((d) => {
-            const hasReal = d.realQuestoes !== undefined && d.realQuestoes !== null;
+            const hasReal = d.realQuestoes !== undefined && d.realQuestoes !== null && Number(d.realQuestoes) > 0;
             const questoes = sanitizeCount(hasReal ? d.realQuestoes : d.questoes);
             const acertosBrutos = sanitizeCount(hasReal ? d.realAcertos : d.acertos);
             const acertos = Math.min(questoes, acertosBrutos);
@@ -105,11 +105,10 @@ export const PerformanceBarChart = React.memo(function PerformanceBarChart({
 
                         <div className="flex justify-between items-center pt-1.5 border-t border-white/10 gap-2">
                             <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">Aproveitamento</span>
-                            <span className={`text-xs font-mono font-black px-2 py-0.5 rounded-md tabular-nums ${
-                                rendPctRaw >= targetPct ? 'bg-emerald-500/15 text-emerald-300' :
+                            <span className={`text-xs font-mono font-black px-2 py-0.5 rounded-md tabular-nums ${rendPctRaw >= targetPct ? 'bg-emerald-500/15 text-emerald-300' :
                                 rendPctRaw >= warnFloor ? 'bg-amber-500/15 text-amber-300' :
-                                'bg-rose-500/15 text-rose-300'
-                            }`}>{rendPct}%</span>
+                                    'bg-rose-500/15 text-rose-300'
+                                }`}>{rendPct}%</span>
                         </div>
                         <div className="flex justify-between items-center text-[11px] font-mono tabular-nums">
                             <span className="text-slate-400 font-sans">vs Meta ({formatValue(targetPct)}%):</span>

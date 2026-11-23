@@ -156,10 +156,10 @@ export const computeBayesianProficiency = (acertos, total, mediaGlobal = 0.5, gl
     const safeGlobalTotal = Number.isFinite(globalTotal) ? Math.max(0, globalTotal) : 0;
     const K = Math.max(3, Math.min(15, Math.log10(safeGlobalTotal + 1) * 3));
     const untestedPrior = 0.25;
-    const dataTrust = Math.min(1, rawTotal / K);
-    const prior = rawTotal === 0
-        ? untestedPrior
-        : (untestedPrior * (1 - dataTrust)) + (safeMedia * dataTrust);
+    if (rawTotal === 0) return untestedPrior;
+    const observedRate = rawAcertos / rawTotal;
+    const dataTrust = Math.min(1, rawTotal / K) * observedRate;
+    const prior = (untestedPrior * (1 - dataTrust)) + (safeMedia * dataTrust);
     const smoothedAcertos = rawAcertos + (prior * K);
     const smoothedTotal = rawTotal + K;
     const proficiency = smoothedTotal > 0 ? smoothedAcertos / smoothedTotal : untestedPrior;

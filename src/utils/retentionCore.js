@@ -13,13 +13,14 @@ export function clamp(value, min, max) {
 }
 
 export function toFiniteNumber(value, fallback = 0) {
-  if (value == null) return fallback;
+  if (value == null || typeof value === 'boolean') return fallback;
+  if (typeof value === 'string' && value.trim() === '') return fallback;
 
   if (typeof value?.toNumber === 'function') {
     try {
       value = value.toNumber();
     } catch {
-      value = 0;
+      return fallback;
     }
   }
 

@@ -168,13 +168,17 @@ export function kalmanAbilityTrend(observations = [], options = {}) {
     const totalDt = kahanSum(dts);
     const driftPerDay = totalDt > 1e-6 ? kahanSum(diffs) / totalDt : 0;
     let sumNoiseSq = 0;
+    let sumC = 0;
     for (let i = 0; i < diffs.length; i++) {
       const detrended = diffs[i] - driftPerDay * dts[i];
-      // Subtrai difusão de processo esperada qAbility * dt_i para isolar 2 * sigma_eps^2
+      // Subtrai difusão de processo esperada qAbility * dt_i para isolar c_i * 2 * sigma_eps^2
       const pureMeasSq = Math.max(0, detrended * detrended - qAbility * dts[i]);
       sumNoiseSq += pureMeasSq;
+      const ratioDt = totalDt > 1e-6 ? dts[i] / totalDt : 1 / diffs.length;
+      sumC += 1 - 2 * ratioDt + ratioDt * ratioDt;
     }
-    const diffVar = sumNoiseSq / Math.max(1, diffs.length - 1);
+    // Fator exato para processo MA(1) de primeiras diferenças: E[sum(detrended^2)] = 2 * sigma_eps^2 * sumC
+    const diffVar = sumNoiseSq / Math.max(1, sumC);
     const estMeasurementVar = 0.5 * diffVar;
 
     observationVariance = Math.max(
@@ -513,15 +517,22 @@ export function runStateSpaceModel(scores, options = {}) {
     };
   }
 
-  // Ordena cronologicamente se todos os itens possuírem timestamp válido
-  const allHaveTime = rawEntries.every((item) => Number.isFinite(item.time));
-  const validEntries = allHaveTime
-    ? rawEntries.slice().sort((a, b) => a.time - b.time)
+  // Ordena cronologicamente itens datados mantendo posição relativa de itens sem timestamp
+  const hasAnyTime = rawEntries.some((item) => Number.isFinite(item.time));
+  const validEntries = hasAnyTime
+    ? rawEntries
+        .map((item, idx) => ({ ...item, _idx: idx }))
+        .sort((a, b) => {
+          const aFin = Number.isFinite(a.time);
+          const bFin = Number.isFinite(b.time);
+          if (aFin && bFin && a.time !== b.time) return a.time - b.time;
+          return a._idx - b._idx;
+        })
     : rawEntries;
 
   // Inicialização causal sem usar média futura da série inteira como prior
   let ability = fallbackMean;
-  let variance = Math.max(initialVariance, Math.pow((safeMax - safeMin) * 0.35, 2));
+  let variance = initialVariance;
 
   let trendSum = 0;
   let trendTimeSum = 0;

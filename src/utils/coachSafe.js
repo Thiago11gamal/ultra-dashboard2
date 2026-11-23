@@ -53,8 +53,8 @@ function normalizeNumericString(raw) {
   }
 
   if (commaCount === 1) {
-    // FIX (BUG-06): vírgula seguida de exatamente 3 dígitos no final = milhar US (ex: "1,234")
-    if (/^-?\d{1,3},\d{3}$/.test(cleaned)) {
+    // FIX (BUG-06): vírgula seguida de exatamente 3 dígitos no final e sem zero à esquerda = milhar US (ex: "1,234")
+    if (/^-?[1-9]\d{0,2},\d{3}$/.test(cleaned)) {
       return cleaned.replace(/,/g, '');
     }
     return cleaned.replace(',', '.');

@@ -76,8 +76,10 @@ export function shrinkageAlpha(sampleSize, priorStrength = 4) {
 }
 
 export function blendPriorEmpirical(priorVal, empiricalVal, sampleSize, priorStrength = 4) {
-  const p = Number(priorVal);
-  const e = Number(empiricalVal);
+  const hasPrior = priorVal !== null && priorVal !== undefined && typeof priorVal !== 'boolean' && String(priorVal).trim() !== '';
+  const hasEmp = empiricalVal !== null && empiricalVal !== undefined && typeof empiricalVal !== 'boolean' && String(empiricalVal).trim() !== '';
+  const p = hasPrior ? Number(priorVal) : NaN;
+  const e = hasEmp ? Number(empiricalVal) : NaN;
   if (!Number.isFinite(e)) return Number.isFinite(p) ? p : 0;
   if (!Number.isFinite(p)) return e;
   const alpha = shrinkageAlpha(sampleSize, priorStrength);
@@ -129,7 +131,9 @@ export function blendPriorEmpirical(priorVal, empiricalVal, sampleSize, priorStr
         activeWeeks.add(Math.floor(ms / (7 * 86_400_000)));
       }
       if (log.studyMode) studyModeCount += 1;
-      if (Number.isFinite(Number(log.energyLevel))) energyLogCount += 1;
+      if (log.energyLevel !== null && log.energyLevel !== undefined && typeof log.energyLevel !== 'boolean' && String(log.energyLevel).trim() !== '' && Number.isFinite(Number(log.energyLevel))) {
+        energyLogCount += 1;
+      }
     });
 
     let confidenceCount = 0;

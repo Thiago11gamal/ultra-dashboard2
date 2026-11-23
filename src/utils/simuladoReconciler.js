@@ -45,7 +45,10 @@ export function reconcileDayTopics(oldTopics = [], incomingTopics = []) {
       blanks: 0,
       penaltyPerWrong: 0,
       score: topic?.score,
-      isPercentage: !!topic?.isPercentage
+      isPercentage: !!topic?.isPercentage,
+      _rowCount: 0,
+      _scoreSum: 0,
+      _scoreCount: 0,
     };
     const incTotal = Math.max(0, Number(topic?.total) || 0);
     const incCorrect = Math.min(incTotal, Math.max(0, Number(topic?.correct) || 0));
@@ -55,6 +58,16 @@ export function reconcileDayTopics(oldTopics = [], incomingTopics = []) {
     prev.total += incTotal;
     prev.blanks += incBlanks;
     prev.penaltyPerWrong = Math.max(prev.penaltyPerWrong || 0, incPenalty);
+    prev._rowCount += 1;
+    if (topic?.score !== undefined && topic?.score !== null && String(topic.score).trim() !== '' && Number.isFinite(Number(topic.score))) {
+      prev._scoreSum += Number(topic.score);
+      prev._scoreCount += 1;
+    }
+    if (prev._rowCount > 1) {
+      prev.score = prev.total > 0
+        ? undefined
+        : (prev._scoreCount > 0 ? prev._scoreSum / prev._scoreCount : prev.score);
+    }
     incomingByKey.set(key, prev);
   });
 
@@ -322,10 +335,16 @@ export function reconcileContestCategoriesHistory(
         } else {
           const prevSc = getSafeScore(prev, catMax, catMin);
           const nextSc = getSafeScore(h, catMax, catMin);
-          if (Number.isFinite(prevSc) && Number.isFinite(nextSc)) {
-            prev.score = (prevSc + nextSc) / 2;
+          const prevCount = Number(prev._directScoreCount) || (Number.isFinite(prevSc) ? 1 : 0);
+          const prevSum = Number.isFinite(Number(prev._directScoreSum)) ? Number(prev._directScoreSum) : (Number.isFinite(prevSc) ? prevSc : 0);
+          if (prevCount > 0 && Number.isFinite(nextSc)) {
+            prev._directScoreSum = prevSum + nextSc;
+            prev._directScoreCount = prevCount + 1;
+            prev.score = prev._directScoreSum / prev._directScoreCount;
             prev.isPercentage = false;
           } else if (Number.isFinite(nextSc)) {
+            prev._directScoreSum = nextSc;
+            prev._directScoreCount = 1;
             prev.score = nextSc;
             prev.isPercentage = false;
           }

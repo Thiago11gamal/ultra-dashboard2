@@ -20,7 +20,7 @@ function safeSeed(val) {
     return Number.isFinite(num) ? num : str;
 }
 
-function sanitizeSubjects(subjects) {
+function sanitizeSubjects(subjects, defaultMin = 0, defaultMax = 100) {
     if (!Array.isArray(subjects)) return [];
 
     return subjects.filter(Boolean).map(s => {
@@ -32,8 +32,8 @@ function sanitizeSubjects(subjects) {
             mean: safeNum(s?.mean, 0),
             sd: Math.max(0.01, safeNum(s?.sd, 1)),
             minCutoff: hasCutoff ? Number(rawCutoff) : undefined,
-            maxScore: safeNum(s?.maxScore, 100),
-            minScore: safeNum(s?.minScore, 0),
+            maxScore: safeNum(s?.maxScore, defaultMax),
+            minScore: safeNum(s?.minScore, defaultMin),
             immunityFactor: safeNum(s?.immunityFactor, 1.0),
             weight: safeNum(s?.weight, 1.0)
         };
@@ -114,7 +114,7 @@ function sanitizeOptions(options) {
     if (options.maxScore !== undefined) newOpts.maxScore = safeNum(options.maxScore, 100);
 
     if (options.seed !== undefined) newOpts.seed = safeSeed(options.seed);
-    if (options.subjects !== undefined) newOpts.subjects = sanitizeSubjects(options.subjects);
+    if (options.subjects !== undefined) newOpts.subjects = sanitizeSubjects(options.subjects, newOpts.minScore ?? 0, newOpts.maxScore ?? 100);
     if (options.history !== undefined) newOpts.history = sanitizeHistory(options.history);
     if (options.flashcardImmunity !== undefined) newOpts.flashcardImmunity = safeNum(options.flashcardImmunity, 1.0);
     if (options.bayesianCI !== undefined) newOpts.bayesianCI = sanitizeBayesianCI(options.bayesianCI);
@@ -122,7 +122,10 @@ function sanitizeOptions(options) {
 
     if (options.historicalCutoffs !== undefined) {
         newOpts.historicalCutoffs = Array.isArray(options.historicalCutoffs)
-            ? options.historicalCutoffs.map(v => Number(v)).filter(n => Number.isFinite(n))
+            ? options.historicalCutoffs
+                .filter(v => v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '')
+                .map(v => Number(v))
+                .filter(n => Number.isFinite(n))
             : [];
     }
     if (options.examGroupCutoffs !== undefined) {

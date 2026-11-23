@@ -57,16 +57,16 @@ export function computeDecisionUtility(candidate = {}, options = {}) {
   const evidence = clampFinite(candidate.evidence, 0, 1, 0);
   const recencyDays = clampFinite(candidate.recencyDays, 0, 180, 21);
   const errorRate = clampFinite(candidate.errorRate, 0, 1, 0);
-  const rawWeight = Number(candidate.weight);
-  const safePositiveWeight = Number.isFinite(rawWeight) && rawWeight > 0 ? rawWeight : 5;
+  const rawWeight = (candidate.weight !== null && candidate.weight !== undefined && typeof candidate.weight !== 'boolean' && String(candidate.weight).trim() !== '')
+    ? Number(candidate.weight)
+    : NaN;
+  const safePositiveWeight = Number.isFinite(rawWeight) && rawWeight >= 0 ? rawWeight : 5;
   const maxWeightScale = Number.isFinite(Number(options.maxWeight)) && Number(options.maxWeight) > 0
     ? Number(options.maxWeight)
     : (safePositiveWeight > 10 ? safePositiveWeight : 10);
-  const weight = maxWeightScale > 10
-    ? clampFinite((safePositiveWeight / maxWeightScale) * 10, 1, 10, 5)
-    : (maxWeightScale <= 1
-      ? clampFinite((safePositiveWeight / maxWeightScale) * 10, 1, 10, 5)
-      : clampFinite(safePositiveWeight, 1, 10, 5));
+  const weight = maxWeightScale !== 10
+    ? clampFinite((safePositiveWeight / maxWeightScale) * 10, 0, 10, 5)
+    : clampFinite(safePositiveWeight, 0, 10, 5);
   const costMinutes = clampFinite(candidate.costMinutes, 0, 480, 30);
   // fatigue em [0, 100]: 0 = descansado (sem penalidade), 100 = exausto (penalidade máxima),
   // alinhado com getCognitiveState().fatigue em coachHistory.js.

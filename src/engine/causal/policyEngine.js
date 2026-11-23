@@ -161,7 +161,10 @@ export function addSystemActionCandidates(candidates = [], metrics = {}, options
     });
   }
 
-  const probability = Number(metrics?.mcProbability);
+  const rawProb = metrics?.mcProbability;
+  const probability = (rawProb !== null && rawProb !== undefined && typeof rawProb !== 'boolean' && String(rawProb).trim() !== '')
+    ? Number(rawProb)
+    : NaN;
 
   if (
     Number.isFinite(probability) &&
@@ -260,10 +263,12 @@ export function scoreCandidatesWithCausal(candidates = [], causalModel = null, o
         ? baseCausalWeight * (0.25 + 0.75 * evidenceFactor)
         : 0;
 
-      const modelMaxScore = Number.isFinite(Number(causalModel?.maxScore)) && Number(causalModel.maxScore) > 0
+      const hasModelMax = causalModel?.maxScore !== null && causalModel?.maxScore !== undefined && typeof causalModel?.maxScore !== 'boolean' && String(causalModel.maxScore).trim() !== '' && Number.isFinite(Number(causalModel.maxScore)) && Number(causalModel.maxScore) > 0;
+      const modelMaxScore = hasModelMax
         ? Number(causalModel.maxScore)
         : maxScore;
-      const modelMinScore = Number.isFinite(Number(causalModel?.minScore))
+      const hasModelMin = causalModel?.minScore !== null && causalModel?.minScore !== undefined && typeof causalModel?.minScore !== 'boolean' && String(causalModel.minScore).trim() !== '' && Number.isFinite(Number(causalModel.minScore));
+      const modelMinScore = hasModelMin
         ? Number(causalModel.minScore)
         : minScore;
       const causalScore = normalizeCausalUplift(uplift, modelMaxScore, modelMinScore) * 100;

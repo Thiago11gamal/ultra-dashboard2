@@ -90,7 +90,7 @@ function sanitizeSimulations(simulations) {
     return clamp(normalized, 1, MAX_SIMULATIONS);
 }
 
-function sanitizeSubjects(subjects) {
+function sanitizeSubjects(subjects, defaultMin = DEFAULT_DOMAIN_MIN, defaultMax = DEFAULT_DOMAIN_MAX) {
     if (!Array.isArray(subjects)) return [];
 
     return subjects.filter(Boolean).map(s => {
@@ -98,8 +98,8 @@ function sanitizeSubjects(subjects) {
         const safeSd = Math.max(1e-6, toFiniteNumber(s?.sd, 1));
         const hasMinCutoff = s?.minCutoff !== undefined && s?.minCutoff !== null && s?.minCutoff !== '';
         const safeMinCutoff = hasMinCutoff ? toFiniteNumber(s.minCutoff, 0) : null;
-        const safeMinScore = toFiniteNumber(s?.minScore, DEFAULT_DOMAIN_MIN);
-        const safeMaxScore = toFiniteNumber(s?.maxScore, DEFAULT_DOMAIN_MAX);
+        const safeMinScore = toFiniteNumber(s?.minScore, defaultMin);
+        const safeMaxScore = toFiniteNumber(s?.maxScore, defaultMax);
         const safeImmunity = toFiniteNumber(s?.immunityFactor, 1.0);
         const safeWeight = Math.max(1e-6, toFiniteNumber(s?.weight, 1));   // ✅ LOTE-01
 
@@ -197,13 +197,13 @@ export function simulateNormalDistribution(
     mean = Number(mean);
     if (!Number.isFinite(mean)) mean = (minScore + maxScore) / 2;
 
-    subjects = sanitizeSubjects(subjects);
+    subjects = sanitizeSubjects(subjects, minScore, maxScore);
 
     const rawCutoffs = Array.isArray(historicalCutoffs)
         ? historicalCutoffs
         : Object.values(historicalCutoffs || {});
     historicalCutoffs = rawCutoffs
-        .filter(v => v !== null && v !== undefined && v !== '')
+        .filter(v => v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '')
         .map(Number)
         .filter(n => Number.isFinite(n) && n >= minScore && n <= maxScore);
 
@@ -388,7 +388,7 @@ export function simulateNormalDistribution(
     // era sobrescrito pela média SÓ delas — as demais eram descartadas da
     // probabilidade silenciosamente. minCutoff agora só afeta a restrição de
     // aprovação (passedMins), nunca a composição do score.
-    const allSubjects = sanitizeSubjects(subjects).filter(s => {
+    const allSubjects = sanitizeSubjects(subjects, minScore, maxScore).filter(s => {
         const w = Number(s?.weight);
         return Number.isFinite(w) && w > 1e-6;
     });
@@ -690,10 +690,12 @@ export function simulateNormalDistribution(
     if (!Number.isFinite(truncNormFactor) || truncNormFactor <= 0) truncNormFactor = 1e-6;
 
     let analyticalProbability;
+    const hasSubjOrGroupCutoffs = activeGroupEntries.length > 0 ||
+        subjectParams.some(s => s.hasMinCutoff && Number.isFinite(s.minCutoff) && s.minCutoff > s.minScore);
 
     if (effectiveTarget >= maxScore && !hasCutoffs) {
         analyticalProbability = 0;
-    } else if (effectiveTarget <= minScore && !hasCutoffs) {
+    } else if (effectiveTarget <= minScore && !hasCutoffs && !hasSubjOrGroupCutoffs) {
         analyticalProbability = 100;
     } else {
         analyticalProbability = (isUnderflowStress || hasCutoffs || subjectParams.length > 0)
@@ -840,7 +842,7 @@ export function runTornadoSensitivity({
     simulations = 1500,
     overrides = {},
 } = {}) {
-    const safeSubjects = sanitizeSubjects(subjects);
+    const safeSubjects = sanitizeSubjects(subjects, minScore, maxScore);
     if (!safeSubjects.length) {
         return { baseProbability: 0, baseMean: 0, baseRisk: null, items: [] };
     }
@@ -991,12 +993,15 @@ export function runMonteCarloAnalysis(params = {}, ...legacyArgs) {
     // ✅ LOTE-03 FIX: "simular hoje" é um caso de uso válido (effectiveSimulateToday)
     const safeProjectionDays = Math.max(0, Math.floor(toFiniteNumber(projectionDays, 90)));
 
-    const safeSubjects = objSubjects === undefined ? undefined : sanitizeSubjects(objSubjects);
+    const safeSubjects = objSubjects === undefined ? undefined : sanitizeSubjects(objSubjects, domainMin, domainMax);
 
     const safeHistoricalCutoffs = objHistoricalCutoffs === undefined
         ? undefined
         : (Array.isArray(objHistoricalCutoffs)
-            ? objHistoricalCutoffs.map(Number).filter(n => Number.isFinite(n) && n >= domainMin && n <= domainMax)
+            ? objHistoricalCutoffs
+                .filter(v => v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '')
+                .map(Number)
+                .filter(n => Number.isFinite(n) && n >= domainMin && n <= domainMax)
             : []);
 
     const mergedOptions = {
@@ -1031,9 +1036,16 @@ export function runMonteCarloAnalysis(params = {}, ...legacyArgs) {
 
             const baseObj = (typeof score === 'object' && score !== null) ? score : {};
             const syntheticDate = getDateKey(new Date(syntheticNowMs - (Math.max(1, safeValues.length) - 1 - index) * 7 * 86400000));
+            const cleanedBase = { ...baseObj };
+            delete cleanedBase.isPercentage;
+            delete cleanedBase.unit;
+            delete cleanedBase.scorePct;
+            delete cleanedBase.scorePoints;
+            delete cleanedBase.sourceMinScore;
+            delete cleanedBase.sourceMaxScore;
 
             return {
-                ...baseObj,
+                ...cleanedBase,
                 score: isNuloOuVazio ? NaN : Number(rawScore),
                 date: safeDates[index] || baseObj.date || syntheticDate
             };

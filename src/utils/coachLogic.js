@@ -746,11 +746,11 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
         effectiveMCTarget = averageScore + Math.max(mssdVolatility, domain * 0.05) + (domain * 0.02);
         effectiveMCTarget = Math.max(averageScore, Math.min(effectiveMCTarget, targetScore));
         if (Number.isFinite(daysToExam)) {
-            const totalGap = Math.max(1, targetScore - averageScore);
+            const totalGap = Math.max(1e-6, targetScore - averageScore);
             const proximalGap = effectiveMCTarget - averageScore;
             const gapRatio = clamp(proximalGap / totalGap, 0, 1);
             effectiveMCDays = daysToExam > 0
-                ? Math.max(7, Math.min(daysToExam, Math.max(7, Math.floor(gapRatio * daysToExam))))
+                ? Math.min(daysToExam, Math.max(7, Math.floor(gapRatio * daysToExam)))
                 : 0;
         } else {
             effectiveMCDays = 21;
@@ -1905,7 +1905,8 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                 .map(t => `${t?.id ?? ''}:${t?.text ?? t?.title ?? ''}:${t?.topicName ?? t?.topic ?? ''}:${normalizePriority(t?.priority)}:${t?.completed ? 1 : 0}`)
                 .join('|')
         );
-        const tasksHash = `${safeTasks.length}_${completedCount}_${pendingCount}_${pendingHighCount}_${options?.hasHighPriorityTasks ? 1 : 0}_${tasksContentHash}`;
+        const hasHighFlag = options?.hasHighPriorityTasks === true ? '1' : (options?.hasHighPriorityTasks === false ? '0' : 'u');
+        const tasksHash = `${safeTasks.length}_${completedCount}_${pendingCount}_${pendingHighCount}_${hasHighFlag}_${tasksContentHash}`;
         // FIX (BUG-13): activeId deve vir de options prioritariamente para manter pureza
         const activeId = sharedCtx
             ? sharedCtx.activeId
@@ -1941,7 +1942,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const catStatsHistory = safeArray(safeCat.simuladoStats?.history);
         const catStatsHash = simpleHash(
             catStatsHistory
-                .map(s => `${s?.date || s?.createdAt || ''}:${s?.score ?? s?.value ?? ''}:${s?.correct ?? ''}:${s?.total ?? ''}:${s?.timeSpent ?? ''}:${s?.timedQuestoes ?? ''}:${s?.avgSeconds ?? ''}:${Array.isArray(s?.topics) ? s.topics.reduce((acc, t) => `${acc},${t?.timeSpent ?? ''}:${t?.timedQuestoes ?? ''}`, '') : ''}:${s?.valid === false ? 0 : 1}`)
+                .map(s => `${s?.date || s?.createdAt || ''}:${s?.score ?? s?.value ?? ''}:${s?.scorePoints ?? ''}:${s?.scorePct ?? ''}:${s?.netPoints ?? ''}:${s?.isPercentage ? 1 : 0}:${s?.correct ?? ''}:${s?.total ?? ''}:${s?.blanks ?? ''}:${s?.penaltyPerWrong ?? ''}:${s?.timeSpent ?? ''}:${s?.timedQuestoes ?? ''}:${s?.avgSeconds ?? ''}:${Array.isArray(s?.topics) ? s.topics.reduce((acc, t) => `${acc},${t?.timeSpent ?? ''}:${t?.timedQuestoes ?? ''}`, '') : ''}:${s?.valid === false ? 0 : 1}:${s?.validated === false ? 0 : 1}`)
                 .join('|')
         );
         const optSimsHash = sharedCtx
@@ -1953,7 +1954,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                     ...(Array.isArray(options.history) ? options.history : Object.values(options.history || {}))
                 ]
                     .filter(Boolean)
-                    .map(s => `${s?.id ?? ''}:${s?.date ?? s?.createdAt ?? ''}:${s?.subject ?? s?.categoryName ?? s?.materia ?? ''}:${s?.categoryId ?? ''}:${s?.score ?? s?.value ?? ''}:${s?.correct ?? ''}:${s?.total ?? ''}:${s?.timeSpent ?? s?.timedQuestoes ?? s?.avgSeconds ?? ''}:${s?.valid === false ? 0 : 1}`)
+                    .map(s => `${s?.id ?? ''}:${s?.date ?? s?.createdAt ?? ''}:${s?.subject ?? s?.categoryName ?? s?.materia ?? ''}:${s?.categoryId ?? ''}:${s?.score ?? s?.value ?? ''}:${s?.scorePoints ?? ''}:${s?.scorePct ?? ''}:${s?.netPoints ?? ''}:${s?.isPercentage ? 1 : 0}:${s?.correct ?? ''}:${s?.total ?? ''}:${s?.blanks ?? ''}:${s?.penaltyPerWrong ?? ''}:${s?.timeSpent ?? s?.timedQuestoes ?? s?.avgSeconds ?? ''}:${s?.valid === false ? 0 : 1}:${s?.validated === false ? 0 : 1}`)
                     .join('|')
             );
 

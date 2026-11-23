@@ -2403,9 +2403,9 @@ return (
                                     focusSubjectId={focusSubjectId}
                                     showOnlyFocus={showOnlyFocus}
                                     timeWindow={timeWindow}
-                                    targetScore={targetScore}
-                                    minScore={minScore}
-                                    maxScore={maxScore}
+                                    targetScore={showOnlyFocus ? focusTarget : targetScore}
+                                    minScore={showOnlyFocus ? focusMin : minScore}
+                                    maxScore={showOnlyFocus ? focusMax : maxScore}
                                 />
                             ) : activeEngine === "time_spent" ? (
                                 <TimeSpentChart
@@ -2567,8 +2567,8 @@ return (
                                     focusSubjectId={focusSubjectId}
                                     timeWindow={timeWindow}
                                     targetScore={showOnlyFocus ? focusTarget : targetScore}
-                                    maxScore={maxScore}
-                                    minScore={minScore}
+                                    maxScore={showOnlyFocus ? focusMax : maxScore}
+                                    minScore={showOnlyFocus ? focusMin : minScore}
                                     unit={resolvedActiveUnit}
                                 />
                             ) : activeEngine === "today_vs_general" ? (

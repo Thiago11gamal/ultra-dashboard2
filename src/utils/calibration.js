@@ -5,6 +5,9 @@ import { getSafeScore } from './scoreHelper.js';
 import { isSubjectMatch } from './normalization.js';
 import { generateId } from './idGenerator.js';
 
+const isStrictFiniteNum = (v) =>
+  v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
+
 const clamp01 = (v) => Math.max(0, Math.min(1, Number(v) || 0));
 
 // [LOTE 5] PAV extraído para reuso com restrição de bloco mínimo
@@ -68,7 +71,7 @@ export function summarizeCalibration(scores = [], options = {}) {
   if (!Array.isArray(scores) || scores.length === 0) {
     return { avgBrier: null, calibrationPenalty: 0, sampleSize: 0 };
   }
-  const finiteScores = scores.map(v => Number(v)).filter(Number.isFinite);
+  const finiteScores = scores.filter(isStrictFiniteNum).map(v => Number(v));
   if (finiteScores.length === 0) return { avgBrier: null, calibrationPenalty: 0, sampleSize: 0 };
   // Sem trimming simétrico: Brier é assimétrico à direita e o trim ocultaria os piores erros
   const avgBrier = kahanSum(finiteScores) / finiteScores.length;
@@ -81,9 +84,10 @@ export function computeCalibrationDiagnostics(pairs = [], options = {}) {
   // em vez de 0 que sinaliza falsamente "calibração perfeita"
   if (!Array.isArray(pairs) || pairs.length === 0) return { ece: null, mce: null, reliability: [], brierDecomposition: null };
   const cleanPairs = pairs
+    .filter((p) => p && isStrictFiniteNum(p.probability) && (typeof p.observed === 'boolean' || isStrictFiniteNum(p.observed)))
     .map((p) => ({
-      probability: Math.max(0, Math.min(1, Number(p?.probability))),
-      observed: Math.max(0, Math.min(1, Number(p?.observed)))
+      probability: Math.max(0, Math.min(1, Number(p.probability))),
+      observed: Math.max(0, Math.min(1, typeof p.observed === 'boolean' ? (p.observed ? 1 : 0) : Number(p.observed)))
     }))
     .filter((p) => Number.isFinite(p.probability) && Number.isFinite(p.observed));
   if (cleanPairs.length === 0) return { ece: null, mce: null, reliability: [], brierDecomposition: null };
@@ -250,12 +254,12 @@ export function backfillObservedFromSimulados(calibrationEvents = [], simuladoRo
   return calibrationEvents.map(ev => {
     if (!ev || ev.observed != null || !ev.category) return ev;
     if (ev.targetScore == null || !Number.isFinite(Number(ev.timestamp))) return ev;
-    const minHorizonMs = Number.isFinite(Number(ev.minBackfillDays))
+    const minHorizonMs = isStrictFiniteNum(ev.minBackfillDays)
       ? Number(ev.minBackfillDays) * 86400000
       : 0;
-    const target = Number.isFinite(Number(ev.stepTargetScore))
+    const target = isStrictFiniteNum(ev.stepTargetScore)
       ? Number(ev.stepTargetScore)
-      : (Number.isFinite(Number(ev.targetScore)) ? Number(ev.targetScore) : 70);
+      : (isStrictFiniteNum(ev.targetScore) ? Number(ev.targetScore) : 70);
     // ✅ LOTE-03 FIX (C6): eventos com category 'global' NUNCA casavam porque
     // simuladoRows são registros POR MATÉRIA — o loop de aprendizagem global
     // estava morto (observed ficava null para sempre).
@@ -335,9 +339,9 @@ export function computeRollingCalibrationParams(history = [], cfg = {}) {
   const maxSamples = Number(cfg.maxSamples) || 20;
 
   const isSignalEvent = (h) => {
-    if (!h || !Number.isFinite(Number(h?.timestamp))) return false;
-    const hasObserved = Number.isFinite(Number(h.probability)) && (h.observed === 0 || h.observed === 1);
-    const hasBrier = Number.isFinite(Number(h.avgBrier));
+    if (!h || !isStrictFiniteNum(h?.timestamp)) return false;
+    const hasObserved = isStrictFiniteNum(h.probability) && (h.observed === 0 || h.observed === 1);
+    const hasBrier = isStrictFiniteNum(h.avgBrier);
     return hasObserved || hasBrier;
   };
 
@@ -355,7 +359,7 @@ export function computeRollingCalibrationParams(history = [], cfg = {}) {
   let sw = 0, swb = 0;
   for (const h of recent) {
     let b = null;
-    if (Number.isFinite(Number(h.probability)) && (h.observed === 0 || h.observed === 1)) {
+    if (isStrictFiniteNum(h.probability) && (h.observed === 0 || h.observed === 1)) {
       const rawP = Number(h.probability);
       // FIX-I06: auto-detecção de escala + flag explícita.
       // Se rawP > 1, é escala percentual (0-100). Se cfg.scale='pct', força divisão.
@@ -370,7 +374,7 @@ export function computeRollingCalibrationParams(history = [], cfg = {}) {
       }
       p = Math.max(0, Math.min(1, p));
       b = (p - h.observed) ** 2;
-    } else if (Number.isFinite(Number(h.avgBrier))) {
+    } else if (isStrictFiniteNum(h.avgBrier)) {
       b = Number(h.avgBrier);
     }
     if (b === null) continue;
@@ -396,12 +400,23 @@ export const ALERT_COOLDOWN_MS = 1000 * 60 * 60 * 12;
 // [LOTE 5] PAV com bloco mínimo anti-escada
 export function fitIsotonicCalibration(pairs = [], options = {}) {
   const clean = (pairs || [])
-    .map(p => ({ x: Number(p?.probability), y: Number(p?.observed) }))
-    .filter(p => Number.isFinite(p.x) && Number.isFinite(p.y))
-    .map(p => ({ x: clamp01(p.x), y: clamp01(p.y) }))
-    .sort((a, b) => a.x - b.x);
+    .filter(p => p && isStrictFiniteNum(p.probability) && (typeof p.observed === 'boolean' || isStrictFiniteNum(p.observed)))
+    .map(p => ({ x: clamp01(Number(p.probability)), y: clamp01(typeof p.observed === 'boolean' ? (p.observed ? 1 : 0) : Number(p.observed)) }))
+    .sort((a, b) => (a.x - b.x) || (b.y - a.y));
   if (clean.length === 0) return [];
-  let blocks = pavBlocks(clean.map(p => ({ minX: p.x, maxX: p.x, sumWY: p.y, sumW: 1, mean: p.y })));
+  // Pré-agregar empates exatos em x para que o PAVA seja invariante à ordem de entrada
+  const tiedBlocks = [];
+  for (const pt of clean) {
+    const prev = tiedBlocks[tiedBlocks.length - 1];
+    if (prev && Math.abs(prev.minX - pt.x) <= 1e-12) {
+      prev.sumWY += pt.y;
+      prev.sumW += 1;
+      prev.mean = prev.sumWY / prev.sumW;
+    } else {
+      tiedBlocks.push({ minX: pt.x, maxX: pt.x, sumWY: pt.y, sumW: 1, mean: pt.y });
+    }
+  }
+  let blocks = pavBlocks(tiedBlocks);
   const minBlock = Math.max(2, Math.floor(clean.length / (Number(options.maxBlocks) || 6)));
   let guard = 0;
   // ✅ FIX #6: Guard++ ANTES da condição para evitar iterações extras
@@ -450,9 +465,11 @@ export function predictIsotonicProbability(probability01, model = []) {
 export function calibrateWithBBQ(probability01, pairs = [], options = {}) {
   const p = clamp01(probability01);
   const clean = (pairs || [])
-    .map(x => ({ probability: Number(x?.probability), observed: Number(x?.observed) }))
-    .filter(x => Number.isFinite(x.probability) && Number.isFinite(x.observed))
-    .map(x => ({ probability: clamp01(x.probability), observed: clamp01(x.observed) }));
+    .filter(x => x && isStrictFiniteNum(x.probability) && (typeof x.observed === 'boolean' || isStrictFiniteNum(x.observed)))
+    .map(x => ({
+      probability: clamp01(Number(x.probability)),
+      observed: clamp01(typeof x.observed === 'boolean' ? (x.observed ? 1 : 0) : Number(x.observed))
+    }));
   if (clean.length < 4) return p;
   const sorted = [...clean].sort((a, b) => a.probability - b.probability);
   const alpha0 = Math.max(0.1, Number(options.alpha0) || 0.5);
@@ -527,8 +544,11 @@ export function calibrateWithBBQ(probability01, pairs = [], options = {}) {
 export function conformalizedCalibrationInterval(probability01, pairs = [], alpha = 0.1, options = {}) {
   const p = clamp01(probability01);
   const clean = (pairs || [])
-    .map(x => ({ probability: clamp01(x?.probability), observed: clamp01(x?.observed) }))
-    .filter(x => Number.isFinite(x.probability) && Number.isFinite(x.observed));
+    .filter(x => x && isStrictFiniteNum(x.probability) && (typeof x.observed === 'boolean' || isStrictFiniteNum(x.observed)))
+    .map(x => ({
+      probability: clamp01(Number(x.probability)),
+      observed: clamp01(typeof x.observed === 'boolean' ? (x.observed ? 1 : 0) : Number(x.observed))
+    }));
   if (clean.length < 8) {
     let low = p - 0.15;
     let high = p + 0.15;
@@ -580,9 +600,8 @@ export function computeStackingWeights(candidateProbs = [], observed = [], compl
     const lossSum = loss * n;
     const kParam = Number(complexityParams?.[m]) || 0;
     const base = 2 * lossSum + 2 * kParam;
-    const aicc = n > kParam + 1
-      ? base + ((2 * kParam * (kParam + 1)) / (n - kParam - 1))
-      : base;
+    const effectiveDenom = Math.max(1, n - kParam - 1);
+    const aicc = base + ((2 * kParam * (kParam + 1)) / effectiveDenom);
     return Number.isFinite(aicc) ? aicc : base;
   });
   const minAic = Math.min(...aic);
@@ -648,12 +667,10 @@ export function buildCalibrationDashboardSeries(events = []) {
 
 export function computeContinuousMcBoost(mcProbability, danger, safe, options = {}) {
   // BUG: probability/danger/safe inválidos produziam boost NaN e contaminavam adaptiveRisk.
+  if (!isStrictFiniteNum(mcProbability) || !isStrictFiniteNum(danger) || !isStrictFiniteNum(safe)) return 0;
   const p = Number(mcProbability);
   const d = Number(danger);
   const s = Number(safe);
-
-  if (!Number.isFinite(p)) return 0;
-  if (!Number.isFinite(d) || !Number.isFinite(s)) return 0;
 
   const safeProbability = Math.max(0, Math.min(100, p));
   const safeDanger = Math.max(0, Math.min(99, d));

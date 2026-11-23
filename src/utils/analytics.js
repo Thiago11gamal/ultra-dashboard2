@@ -219,7 +219,7 @@ export const calculateStudyStreak = (studyLogs) => {
         const getRowCorrect = (row) => Number(row?.correct ?? row?.acertos ?? row?.correctCount);
 
         const validSimulados = toArray(contestData?.simuladoRows).filter(r => {
-            if (!r || r.validated === false || r.valid === false || !r.validated) return false;
+            if (!r || r.validated === false || r.valid === false) return false;
             if (typeof filterByReset === 'function' && !filterByReset(r)) return false;
             const t = getRowTotal(r);
             const rawC = r.correct ?? r.acertos ?? r.correctCount;
@@ -881,7 +881,11 @@ export const calculateStudyStreak = (studyLogs) => {
 
         const streakSource = safeStudyLogs.length > 0
             ? safeStudyLogs
-            : safeStudySessions.map(s => ({ date: s?.startTime || s?.date }));
+            : safeStudySessions.map(s => ({
+                date: s?.startTime || s?.date,
+                duration: s?.duration ?? s?.minutes ?? 25,
+                minutes: s?.minutes ?? s?.duration ?? 25,
+            }));
 
         const streak = calculateStudyStreak(streakSource);
 

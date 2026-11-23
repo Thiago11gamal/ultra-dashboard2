@@ -147,7 +147,12 @@ export function extractQuestionCounts(entry, maxScore = 100, minScore = 0) {
     }
 
     const safeCorrect = Math.max(0, Math.min(total, Number.isFinite(c) ? Math.round(c) : 0));
-    const safeWrong = Math.max(0, total - safeCorrect);
+    const rawBlanks = entry?.blanks;
+    const hasBlanks = rawBlanks !== null && rawBlanks !== undefined && typeof rawBlanks !== 'boolean' && String(rawBlanks).trim() !== '' && Number.isFinite(Number(rawBlanks));
+    const safeBlanks = hasBlanks ? Math.min(Math.max(0, total - safeCorrect), Math.max(0, Math.round(Number(rawBlanks)))) : 0;
+    const safeWrong = Number.isFinite(explicitWrong)
+        ? Math.max(0, Math.min(total - safeCorrect, explicitWrong))
+        : Math.max(0, total - safeCorrect - safeBlanks);
 
     return {
         total,

@@ -83,7 +83,20 @@ const normalizeHistoryEntry = (h, catMax = 100, catMin = 0, options = {}) => {
   const hasValidScore = Number.isFinite(resolvedScore);
   const clampedScore = hasValidScore
     ? Math.min(safeMax, Math.max(safeMin, resolvedScore))
-    : (rawTotal > 0 ? safeMin + (Math.min(rawTotal, rawCorrect) / rawTotal) * scoreRange : safeMin);
+    : (rawTotal > 0
+      ? (() => {
+          const pen = Math.max(0, Number(h.penaltyPerWrong) || 0);
+          const blk = Math.max(0, Number(h.blanks) || 0);
+          const cBounded = Math.min(rawTotal, rawCorrect);
+          const wrong = Math.max(0, rawTotal - cBounded - Math.min(rawTotal - cBounded, blk));
+          const netRatio = pen > 0
+            ? (safeMin < 0 ? (cBounded - wrong * pen) / rawTotal : Math.max(0, (cBounded - wrong * pen) / rawTotal))
+            : (cBounded / rawTotal);
+          return safeMin < 0 && pen > 0
+            ? Math.min(safeMax, Math.max(safeMin, ((netRatio + 1) / 2) * scoreRange + safeMin))
+            : Math.min(safeMax, Math.max(safeMin, safeMin + Math.max(0, Math.min(1, netRatio)) * scoreRange));
+        })()
+      : safeMin);
 
   let total = rawTotal;
   let correct = Math.min(total, rawCorrect);
@@ -152,6 +165,7 @@ export const repairContestHistory = (rawData, maxScore = 100, minScore = 0) => {
     const catAliases = aliases[catNorm] || [];
 
     const myRows = rows.filter(r => {
+      if (!r || r.valid === false || r.validated === false) return false;
       if (r.categoryId && r.categoryId === cat.id) return true;
 
       const subNorm = normalize(r.subject);
@@ -165,9 +179,11 @@ export const repairContestHistory = (rawData, maxScore = 100, minScore = 0) => {
 
     const currentHistory = cat.simuladoStats?.history || [];
     const maxScore = Number(cat.maxScore) || Number(rawData?.maxScore) || 100;
-    const minScore = Number.isFinite(Number(cat.minScore))
+    const hasCatMin = cat.minScore !== null && cat.minScore !== undefined && typeof cat.minScore !== 'boolean' && String(cat.minScore).trim() !== '' && Number.isFinite(Number(cat.minScore));
+    const hasRawMin = rawData?.minScore !== null && rawData?.minScore !== undefined && typeof rawData?.minScore !== 'boolean' && String(rawData.minScore).trim() !== '' && Number.isFinite(Number(rawData.minScore));
+    const minScore = hasCatMin
       ? Number(cat.minScore)
-      : (Number.isFinite(Number(rawData?.minScore)) ? Number(rawData.minScore) : 0);
+      : (hasRawMin ? Number(rawData.minScore) : 0);
     const scoreRange = Math.max(1e-9, maxScore - minScore);
 
     const currentUniqueDays = new Set(
@@ -429,9 +445,12 @@ export const sanitizeContest = (data, contestId = '') => {
         id: t.id || generateId('task'),
         text: t.text || t.title || t.topic || "Nova Tarefa",
         title: t.title || t.text || t.topic || "Nova Tarefa",
+        ...(t.topic ? { topic: String(t.topic) } : {}),
+        ...(t.topicName ? { topicName: String(t.topicName) } : {}),
         completed: Boolean(t.completed),
         completedAt: t.completedAt || null,
         lastStudiedAt: t.lastStudiedAt || null,
+        ...(t.createdAt ? { createdAt: t.createdAt } : {}),
         ...(t.updatedAt ? { updatedAt: t.updatedAt } : {}),
         ...(t.lastUpdated ? { lastUpdated: t.lastUpdated } : {}),
         priority: normalizePriority(t.priority || "medium"),
@@ -513,6 +532,10 @@ export const sanitizeContest = (data, contestId = '') => {
         ...(cat.lastFlashcardReview ? { lastFlashcardReview: cat.lastFlashcardReview } : {}),
         ...(cat.flashcardCorrect != null && Number.isFinite(Number(cat.flashcardCorrect)) ? { flashcardCorrect: Math.max(0, Number(cat.flashcardCorrect)) } : {}),
         ...(Array.isArray(cat.deletedTaskIds) && cat.deletedTaskIds.length > 0 ? { deletedTaskIds: cat.deletedTaskIds.slice(-100) } : {}),
+        ...(cat.knowledgeGraph && typeof cat.knowledgeGraph === 'object' ? { knowledgeGraph: cat.knowledgeGraph } : {}),
+        ...(cat.prerequisites && typeof cat.prerequisites === 'object' ? { prerequisites: cat.prerequisites } : {}),
+        ...(Array.isArray(cat.graphEdges) ? { graphEdges: cat.graphEdges } : {}),
+        ...(cat.bayesianStats && typeof cat.bayesianStats === 'object' ? { bayesianStats: cat.bayesianStats } : {}),
         simuladoStats: {
           history: cleanHistory,
           average,
@@ -565,6 +588,7 @@ export const sanitizeContest = (data, contestId = '') => {
       adaptiveCalibrationEnabled: source.settings?.adaptiveCalibrationEnabled ?? true,
     },
     mcWeights: (source.mcWeights && typeof source.mcWeights === 'object') ? source.mcWeights : {},
+    ...(typeof source.mcEqualWeights === 'boolean' ? { mcEqualWeights: source.mcEqualWeights } : {}),
     mcSavedCustomWeights: (source.mcSavedCustomWeights && typeof source.mcSavedCustomWeights === 'object' && !Array.isArray(source.mcSavedCustomWeights))
       ? source.mcSavedCustomWeights
       : {},

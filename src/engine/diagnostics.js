@@ -211,7 +211,7 @@ function expectedAnisLloydRS(tau) {
   } else {
     gammaRatio = 1 / Math.sqrt(Math.PI * (n / 2));
   }
-  return ((n - 0.5) / n) * gammaRatio * sum;
+  return gammaRatio * sum;
 }
 
 export function computeHurstExponent(scores) {

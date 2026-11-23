@@ -571,9 +571,21 @@ export function runCoachStrategyBacktest(config = {}) {
             }
           }
 
+          const isolateSimArrayBefore = (arr) => {
+            if (!Array.isArray(arr) || !Number.isFinite(cutoffMs)) return arr;
+            return arr.filter((s) => {
+              if (!s) return false;
+              const sTime = toTime(s?.date ?? s?.createdAt);
+              return !Number.isFinite(sTime) || sTime <= cutoffMs;
+            });
+          };
+          const baseOpts = config.options && typeof config.options === 'object' ? config.options : {};
           const runOptions = {
-            ...(config.options || {}),
-            daysToExam: config.options?.daysToExam ?? splitHorizonDays,
+            ...baseOpts,
+            ...(Array.isArray(baseOpts.allSimulados) ? { allSimulados: isolateSimArrayBefore(baseOpts.allSimulados) } : {}),
+            ...(Array.isArray(baseOpts.simuladoRows) ? { simuladoRows: isolateSimArrayBefore(baseOpts.simuladoRows) } : {}),
+            ...(Array.isArray(baseOpts.history) ? { history: isolateSimArrayBefore(baseOpts.history) } : {}),
+            daysToExam: baseOpts.daysToExam ?? splitHorizonDays,
             maxScore: splitMaxScore,
             minScore: splitMinScore,
             targetScore: splitTargetScore,

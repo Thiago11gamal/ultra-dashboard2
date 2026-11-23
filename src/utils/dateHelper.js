@@ -110,6 +110,17 @@ function formatDayKeyInTimezone(date, timeZone = APP_TIMEZONE) {
 }
 
 export function getManausDateKey(date = new Date()) {
+  if (typeof date === 'string') {
+    const trimmed = date.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      const [y, m, day] = trimmed.split('-').map(Number);
+      if (isValidCalendarYMD(y, m, day)) return trimmed;
+    }
+    const norm = normalizeDate(trimmed);
+    if (norm && !Number.isNaN(norm.getTime())) {
+      return formatDayKeyInTimezone(norm, APP_TIMEZONE);
+    }
+  }
   const d = date instanceof Date ? date : new Date(date);
   if (Number.isNaN(d.getTime())) return getDateKey(date);
   return formatDayKeyInTimezone(d, APP_TIMEZONE);
@@ -122,8 +133,12 @@ export function getStreakDateKey(date = new Date()) {
 const MS_PER_DAY_MANAUS = 24 * 60 * 60 * 1000;
 
 export function getManausDayRange(dateInput = new Date()) {
-  const d = dateInput instanceof Date ? dateInput : new Date(dateInput);
-  const key = Number.isNaN(d.getTime()) ? getDateKey(dateInput) : getManausDateKey(d);
+  const key = typeof dateInput === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateInput.trim())
+    ? getManausDateKey(dateInput.trim())
+    : (() => {
+        const d = dateInput instanceof Date ? dateInput : new Date(dateInput);
+        return Number.isNaN(d.getTime()) ? getDateKey(dateInput) : getManausDateKey(d);
+      })();
   if (!key || !/^\d{4}-\d{2}-\d{2}$/.test(key)) {
     return null;
   }
@@ -163,14 +178,15 @@ export const safeDateParse = (dateInput, fallback = null) => {
     return fallback;
   }
   if (typeof dateInput === 'string') {
-    if (dateInput.includes('/') || /^\d{2}-\d{2}-\d{4}/.test(dateInput)) {
-      const norm = normalizeDate(dateInput);
+    const trimmed = dateInput.trim();
+    if (trimmed.includes('/') || /^\d{2}-\d{2}-\d{4}/.test(trimmed) || /^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      const norm = normalizeDate(trimmed);
       if (norm instanceof Date && !isNaN(norm.getTime())) return norm;
     }
-    const normalizedString = dateInput.replace(' ', 'T');
+    const normalizedString = trimmed.replace(' ', 'T');
     const d = new Date(normalizedString);
     if (!isNaN(d.getTime())) return d;
-    const norm = normalizeDate(dateInput);
+    const norm = normalizeDate(trimmed);
     return (norm instanceof Date && !isNaN(norm.getTime())) ? norm : fallback;
   }
   const d = new Date(dateInput);

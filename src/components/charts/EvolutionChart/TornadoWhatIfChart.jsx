@@ -140,8 +140,14 @@ export const TornadoWhatIfChart = React.memo(function TornadoWhatIfChart({
           ? Math.max(cRange * 0.03, Math.sqrt(recentHist.reduce((acc, v) => acc + Math.pow(v - mean, 2), 0) / (recentHist.length - 1)))
           : cRange * 0.1;
         const hasCutoff = isStrictNum(cat.minCutoff) && Number(cat.minCutoff) > cMin;
-        const rawOverrideWeight = mcWeights && cat.id != null && isStrictNum(mcWeights[cat.id]) ? Number(mcWeights[cat.id]) : NaN;
-        const resolvedWeight = Number.isFinite(rawOverrideWeight) && rawOverrideWeight > 0
+        const hasOverrideWeight = mcWeights && (
+          (cat.id != null && isStrictNum(mcWeights[cat.id])) ||
+          (cat.name != null && isStrictNum(mcWeights[cat.name]))
+        );
+        const rawOverrideWeight = hasOverrideWeight
+          ? Number(isStrictNum(mcWeights[cat.id]) ? mcWeights[cat.id] : mcWeights[cat.name])
+          : NaN;
+        const resolvedWeight = hasOverrideWeight && Number.isFinite(rawOverrideWeight) && rawOverrideWeight >= 0
           ? rawOverrideWeight
           : (isStrictNum(cat.weight) ? Number(cat.weight) : 10);
         if (resolvedWeight <= 0) return null;
@@ -209,11 +215,7 @@ export const TornadoWhatIfChart = React.memo(function TornadoWhatIfChart({
   const handleSaveCutoffsClick = () => {
     if (typeof onSaveGroupCutoffs === 'function') {
       const nextCutoffs = effectiveGroupCutoffs || {};
-      const nextKey = JSON.stringify({
-        basicos: nextCutoffs?.basicos ?? '',
-        especificos: nextCutoffs?.especificos ?? '',
-        discursiva: nextCutoffs?.discursiva ?? '',
-      });
+      const nextKey = `${nextCutoffs?.basicos ?? ''}|${nextCutoffs?.especificos ?? ''}|${nextCutoffs?.discursiva ?? ''}`;
       setLastSavedCutoffsKey(nextKey);
       onSaveGroupCutoffs(nextCutoffs);
       setSavedCutoffs(true);
@@ -239,9 +241,9 @@ export const TornadoWhatIfChart = React.memo(function TornadoWhatIfChart({
   const riskSum = Math.max(
     1e-6,
     (Number(risk.passedAllPct) || 0) +
-      (Number(risk.failedGlobalOnlyPct) || 0) +
-      (Number(risk.failedMinCutoffOnlyPct) || 0) +
-      (Number(risk.failedBothPct) || 0)
+    (Number(risk.failedGlobalOnlyPct) || 0) +
+    (Number(risk.failedMinCutoffOnlyPct) || 0) +
+    (Number(risk.failedBothPct) || 0)
   );
   const toRiskWidth = (pct) => `${((Number(pct) || 0) / riskSum) * 100}%`;
   const unitSuffix = unit === '%' ? '%' : ` ${unit}`;

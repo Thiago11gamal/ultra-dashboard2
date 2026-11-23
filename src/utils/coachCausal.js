@@ -64,8 +64,9 @@ function normalizeGroupKey(value) {
  * Constrói eventos causais baseados em volume de estudo entre simulados.
  */
 export function buildStudyVolumeCausalEvents(simulados = [], studyLogs = [], options = {}) {
+  const isStrictNum = (v) => v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
   const maxScore = Number(options.maxScore) > 0 ? Number(options.maxScore) : 100;
-  const minScore = Number.isFinite(Number(options.minScore)) ? Math.min(Number(options.minScore), maxScore) : 0;
+  const minScore = isStrictNum(options.minScore) ? Math.min(Number(options.minScore), maxScore) : 0;
   const globalRange = Math.max(1e-6, maxScore - minScore);
   const minTreatmentMinutes = Number(options.minTreatmentMinutes) || 60;
   const categoryId = options.categoryId || null;
@@ -81,10 +82,10 @@ export function buildStudyVolumeCausalEvents(simulados = [], studyLogs = [], opt
       return Boolean(cat.name && simLabel && isSubjectMatch(simLabel, cat.name));
     });
     if (!matched) return { cMin: minScore, cMax: maxScore };
-    const cMax = Number.isFinite(Number(matched.maxScore)) && Number(matched.maxScore) > 0
+    const cMax = isStrictNum(matched.maxScore) && Number(matched.maxScore) > 0
       ? Number(matched.maxScore)
       : maxScore;
-    const cMin = Number.isFinite(Number(matched.minScore))
+    const cMin = isStrictNum(matched.minScore)
       ? Math.min(Number(matched.minScore), cMax)
       : minScore;
     return { cMin, cMax };
@@ -259,8 +260,9 @@ export function buildStudyVolumeCausalEvents(simulados = [], studyLogs = [], opt
  * Constrói eventos causais baseados em tarefas concluídas.
  */
 export function buildTaskCausalEvents(categories = [], simulados = [], options = {}) {
+  const isStrictNum = (v) => v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
   const maxScore = Number(options.maxScore) > 0 ? Number(options.maxScore) : 100;
-  const minScore = Number.isFinite(Number(options.minScore)) ? Math.min(Number(options.minScore), maxScore) : 0;
+  const minScore = isStrictNum(options.minScore) ? Math.min(Number(options.minScore), maxScore) : 0;
   const maxHorizonDays = Number(options.maxHorizonDays) || 45;
   const safeCategories = safeArray(categories);
   const events = [];
@@ -270,8 +272,8 @@ export function buildTaskCausalEvents(categories = [], simulados = [], options =
   safeCategories.forEach((category) => {
     const categoryName = category?.name || '';
     const categoryId = category?.id || categoryName || 'unknown';
-    const catMax = Number.isFinite(Number(category?.maxScore)) && Number(category?.maxScore) > 0 ? Number(category.maxScore) : maxScore;
-    const catMin = Number.isFinite(Number(category?.minScore)) ? Math.min(Number(category.minScore), catMax) : minScore;
+    const catMax = isStrictNum(category?.maxScore) && Number(category?.maxScore) > 0 ? Number(category.maxScore) : maxScore;
+    const catMin = isStrictNum(category?.minScore) ? Math.min(Number(category.minScore), catMax) : minScore;
     const catRange = Math.max(1e-6, catMax - catMin);
     const normalizeScoreToGlobal = (rawScore) =>
       catMax === maxScore && catMin === minScore
@@ -464,14 +466,29 @@ export function buildStudyModeCausalEvents(simulados = [], studyLogs = [], optio
   if (safeLogs.length === 0) return [];
   const modes = Array.from(new Set(safeLogs.map((l) => l.studyMode.trim().toLowerCase())));
   const modeEvents = [];
+  const minModeMins = Math.max(20, Number(options.minTreatmentMinutes) || 30);
+
+  // Baseline de todos os logs (independente da modalidade) para identificar intervalos genuinamente sem estudo
+  const allVolumeEvents = buildStudyVolumeCausalEvents(simulados, studyLogs, {
+    ...options,
+    minTreatmentMinutes: minModeMins,
+  });
+  const unstudiedTimestamps = new Set(
+    allVolumeEvents.filter((ev) => ev.treated === 0).map((ev) => ev.timestamp)
+  );
 
   modes.forEach((mode) => {
     const modeLogs = safeLogs.filter((l) => l.studyMode.trim().toLowerCase() === mode);
     const rawEv = buildStudyVolumeCausalEvents(simulados, modeLogs, {
       ...options,
-      minTreatmentMinutes: Math.max(20, Number(options.minTreatmentMinutes) || 30),
+      minTreatmentMinutes: minModeMins,
     });
+    const pureControls = rawEv.filter((ev) => ev.treated === 0 && unstudiedTimestamps.has(ev.timestamp));
+    const usePureControls = pureControls.length > 0;
     rawEv.forEach((ev, idx) => {
+      if (ev.treated === 0 && usePureControls && !unstudiedTimestamps.has(ev.timestamp)) {
+        return;
+      }
       modeEvents.push({
         ...ev,
         id: `mode-${mode}-${ev.id || idx}`,

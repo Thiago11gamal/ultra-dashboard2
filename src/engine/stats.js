@@ -766,9 +766,10 @@ export function computeBayesianLevel(
 
                 const safeMaxNEver = Number.isFinite(maxNEver) ? maxNEver : 0;
                 const epistemicFloor = Math.max(3.0, Math.min(10.0, safeMaxNEver * 0.05));
+                const safeEpistemicFloor = Math.min(nBeforeDecay, epistemicFloor);
 
-                const nAfterDecayRaw = Math.max(epistemicFloor, Math.min(nBeforeDecay, nBeforeDecay * epistemicDecay));
-                const nAfterDecay = Number.isFinite(nAfterDecayRaw) ? nAfterDecayRaw : Math.max(epistemicFloor, Math.min(nBeforeDecay, epistemicFloor));
+                const nAfterDecayRaw = Math.max(safeEpistemicFloor, Math.min(nBeforeDecay, nBeforeDecay * epistemicDecay));
+                const nAfterDecay = Number.isFinite(nAfterDecayRaw) ? nAfterDecayRaw : safeEpistemicFloor;
 
                 let regressedP = currentP;
                 if (gapToToday > 14) {
@@ -904,6 +905,10 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
                     ...(h && typeof h === 'object' ? h : { original: h }),
                     total: syntheticTotal
                 };
+            }
+
+            if (Number.isFinite(total) && total > 0 && h && typeof h === 'object' && !Number.isFinite(Number(h.total))) {
+                return { ...h, total };
             }
 
             return h;

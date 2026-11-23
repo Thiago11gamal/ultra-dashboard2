@@ -88,15 +88,17 @@ export function estimateEmpiricalHalfLife(category, options = {}) {
     );
 
     // Power-law inversion: R = (1 + dt / H)^-1  =>  H = dt / (1/R - 1)
+    if (studiedInBetween) continue;
     if (ratio < 0.97) {
       const denom = (1 / Math.max(0.2, ratio)) - 1;
       if (denom > 0.02) {
-        const estH = clamp(dtDays / denom, 3, 60);
+        const estH = clamp(dtDays / denom, 3, 55);
         impliedHalfLives.push(estH);
       }
-    } else if (ratio >= 0.97 && dtDays >= 3 && !studiedInBetween) {
-      // Estabilidade genuína sem estudo intermediário => esquecimento lento
-      impliedHalfLives.push(clamp(dtDays * 2.4, 14, 55));
+    } else if (dtDays >= 2) {
+      // Estabilidade genuína sem estudo intermediário => continua monotônica a partir do limite R=0.97
+      const boundaryDenom = (1 / 0.97) - 1;
+      impliedHalfLives.push(clamp(dtDays / boundaryDenom, 14, 55));
     }
   }
 

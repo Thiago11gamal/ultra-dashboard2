@@ -101,7 +101,10 @@ export function computeACWR(studyLogs = [], options = {}) {
       const safeChronicDenom = Math.max(0.5, rawChronicWeeklyHours);
       const rawAcwr = acuteHours / safeChronicDenom;
       const stabilizedAcwr = spanUpToDay < 14
-        ? blendPriorEmpirical(1.0, rawAcwr, Math.max(0, spanUpToDay - 6), 4)
+        ? (() => {
+            const w = clamp((spanUpToDay - 6) / 8, 0, 1);
+            return 1.0 * (1 - w) + rawAcwr * w;
+          })()
         : rawAcwr;
       acwr = Number(clamp(stabilizedAcwr, 0, 3.0).toFixed(2));
     }

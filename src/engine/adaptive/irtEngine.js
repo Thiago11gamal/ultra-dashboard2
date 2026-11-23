@@ -28,8 +28,16 @@ export const EXAM_BOARDS = [
 ];
 
 export function resolveDifficultyTier(rawDiff) {
+  if (rawDiff === null || rawDiff === undefined || typeof rawDiff === 'boolean') {
+    return DIFFICULTY_TIERS[1];
+  }
   if (typeof rawDiff === 'string') {
-    const clean = rawDiff.trim().toLowerCase();
+    const clean = rawDiff
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+    if (!clean) return DIFFICULTY_TIERS[1];
     const byKey = DIFFICULTY_TIERS.find((t) => t.key === clean);
     if (byKey) return byKey;
   }
@@ -81,10 +89,30 @@ export function estimateIRTAbility(entries = [], options = {}) {
       Number.isFinite(Number(rawCorrectField));
     let explicitCorrect = hasExplicitCorrect ? Number(rawCorrectField) : NaN;
       if ((!Number.isFinite(rawTotal) || rawTotal <= 0) && !isSynthEntry && entry.topics != null) {
-        const tf = extractTopicsTotals(entry, eMax, eMin);
-        if (tf.total > 0) {
-          rawTotal = tf.total;
-          explicitCorrect = tf.correct;
+        const safeTopics = safeArr(entry.topics);
+        let physTotal = 0;
+        let physCorrect = 0;
+        let hasPhysCorrect = false;
+        safeTopics.forEach((t) => {
+          const tTot = Number(t?.total ?? t?.questoes ?? t?.totalQuestoes ?? t?.questions) || 0;
+          const tCorrField = t?.correct ?? t?.acertos ?? t?.correctCount;
+          if (tTot > 0) {
+            physTotal += tTot;
+            if (!t?.isPercentage && isStrictNum(tCorrField)) {
+              physCorrect += clamp(Number(tCorrField), 0, tTot);
+              hasPhysCorrect = true;
+            }
+          }
+        });
+        if (physTotal > 0 && hasPhysCorrect) {
+          rawTotal = physTotal;
+          explicitCorrect = physCorrect;
+        } else {
+          const tf = extractTopicsTotals(entry, eMax, eMin);
+          if (tf.total > 0) {
+            rawTotal = tf.total;
+            explicitCorrect = tf.correct;
+          }
         }
       }
       const rawBlanks = Math.max(0, Number(entry.blanks) || 0);
@@ -95,7 +123,7 @@ export function estimateIRTAbility(entries = [], options = {}) {
         if (attempted <= 0) return;
         const corr = Number.isFinite(explicitCorrect)
           ? clamp(explicitCorrect, 0, attempted)
-          : clamp(((getSafeScore(entry, eMax, eMin) - eMin) / eRange) * attempted, 0, attempted);
+          : clamp(((getSafeScore(entry, eMax, eMin) - eMin) / eRange) * rawTotal, 0, attempted);
         bucket.total += attempted;
         bucket.correct += corr;
       } else {
@@ -238,7 +266,11 @@ export function nextAdaptiveDifficulty(currentDifficulty = 'medio', accuracyPct 
  * Usa a acurácia real observada por nível de confiança (`certeza`, `duvida`, `chute`).
  */
 export function computeGuessingStrategy(questionTelemetry = [], options = {}) {
-  const penalty = Math.max(0, Number(options.penaltyPerWrong ?? 1.0));
+  const rawPen = options.penaltyPerWrong;
+  const parsedPen = (rawPen !== null && rawPen !== undefined && typeof rawPen !== 'boolean' && String(rawPen).trim() !== '' && Number.isFinite(Number(rawPen)))
+    ? Number(rawPen)
+    : 1.0;
+  const penalty = Math.max(0, parsedPen);
   const breakEvenPct = penalty > 0 ? Number(((penalty / (1 + penalty)) * 100).toFixed(1)) : 0;
 
   const buckets = {

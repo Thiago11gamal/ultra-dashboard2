@@ -228,7 +228,8 @@ export function estimateCategoryFsrsBoost(history, options = {}) {
 
   if (retentionPct < triggerPct) {
     const intensity = Math.pow((triggerPct - retentionPct) / triggerPct, 1.2);
-    const boost = (Number(cfg.SRS_BOOST) || 16) * 2.0 * intensity;
+    const srsBoostBase = toFiniteNumber(cfg.SRS_BOOST, 16);
+    const boost = srsBoostBase * 2.0 * intensity;
     let label;
     if (retentionPct < 30) {
       label = '⚠️ Memória Crítica (FSRS)';
@@ -281,7 +282,8 @@ export function computeFlashcardRetrievability(card, nowMs = Date.now()) {
  * Mantém compatibilidade com `interval` e `ease` para métricas/testes legados.
  */
 export function scheduleFlashcardFsrs(card = {}, rating = 2, options = {}) {
-  const safeRating = Math.min(3, Math.max(0, Math.round(Number(rating) || 0)));
+  const parsedRating = toFiniteNumber(rating, 2);
+  const safeRating = Math.min(3, Math.max(0, Math.round(parsedRating)));
   const desiredRetention = clamp(toFiniteNumber(options.desiredRetention, 0.9), 0.7, 0.97);
   const nowMs = Number.isFinite(Number(options.nowMs)) ? Number(options.nowMs) : Date.now();
 
@@ -346,11 +348,14 @@ export function scheduleFlashcardFsrs(card = {}, rating = 2, options = {}) {
     : Math.min(365 * 5, Math.max(1, fsrsIntervalForRetention(S, effectiveTargetR)));
 
   // Garantir ordenação monotônica intuitiva entre botões (Difícil <= Bom < Fácil)
+  // exceto quando a revisão ocorre no mesmo dia (R > 0.98) ou quando desiredRetention > 0.90 exige intervalo menor
+  const isSameDayReview = reviews > 0 && computeFlashcardRetrievability(card, nowMs) > 0.98;
+  const allowLegacyFloor = !isSameDayReview && effectiveTargetR <= 0.90;
   if (safeRating === 1) {
     intervalDays = Math.max(1, Math.min(intervalDays, Math.max(1, Math.round(legacyInterval * 1.1))));
-  } else if (safeRating === 2 && reviews > 0) {
+  } else if (safeRating === 2 && reviews > 0 && allowLegacyFloor) {
     intervalDays = Math.max(legacyInterval + 1, intervalDays);
-  } else if (safeRating === 3) {
+  } else if (safeRating === 3 && allowLegacyFloor) {
     intervalDays = Math.max(legacyInterval + 2, intervalDays);
   }
 

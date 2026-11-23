@@ -319,7 +319,13 @@ export const deduplicateCategoryNamesPure = (contest) => {
       winner.tasks = Array.from(
         new Map(mergedTasks.map((t) => [t.id || `${t.text || t.title || ''}-${t.priority || ''}`, t])).values()
       );
-      if (winner.simuladoStats) {
+      if (winner.simuladoStats || mergedHistory.length > 0) {
+        if (!winner.simuladoStats) {
+          winner.simuladoStats = {
+            ...(loser.simuladoStats || {}),
+            history: []
+          };
+        }
         const getHistoryKey = (h) => {
           if (!h || typeof h !== 'object') return null;
           if (h.id) return `id:${String(h.id)}`;
@@ -422,9 +428,10 @@ export const mergeArraysPure = (arr1, arr2, options = {}) => {
   return Array.from(map.values()).filter(item => item !== null && item !== undefined && item !== '');
 };
 
-export const mergeMonteCarloHistoryPure = (localMC = [], cloudMC = []) => {
+export const mergeMonteCarloHistoryPure = (localMC = [], cloudMC = [], preferCloudBase = true) => {
   const mcMap = new Map();
-  [...localMC, ...cloudMC].filter(Boolean).forEach((item) => {
+  const ordered = preferCloudBase ? [...localMC, ...cloudMC] : [...cloudMC, ...localMC];
+  ordered.filter(Boolean).forEach((item) => {
     if (item?.date) {
       const sanitized = {
         ...item,
@@ -634,8 +641,13 @@ export const mergeContestCategoriesPure = (
   preferCloudBase = false,
   localTrash = [],
   localContestTime = 0,
-  contestId = null
+  contestId = null,
+  contestMaxScore = 100,
+  contestMinScore = 0
 ) => {
+  const isStrictNum = (v) => v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
+  const fallbackMax = isStrictNum(contestMaxScore) && Number(contestMaxScore) > 0 ? Number(contestMaxScore) : 100;
+  const fallbackMin = isStrictNum(contestMinScore) ? Number(contestMinScore) : 0;
   const mergedCatsMap = new Map();
   const safeLocalCats = Array.isArray(localCats) ? localCats : Object.values(localCats || {});
   const safeCloudCats = Array.isArray(cloudCats) ? cloudCats : Object.values(cloudCats || {});
@@ -647,8 +659,14 @@ export const mergeContestCategoriesPure = (
     if (mergedCatsMap.has(c.id)) {
       const localCat = mergedCatsMap.get(c.id);
       const baseCat = preferCloudBase ? { ...localCat, ...c } : { ...c, ...localCat };
-      const catMaxScore = Number(c.maxScore ?? localCat.maxScore ?? 100) || 100;
-      const catMinScore = Number(c.minScore ?? localCat.minScore ?? 0) || 0;
+      const primaryCat = preferCloudBase ? c : localCat;
+      const secondaryCat = preferCloudBase ? localCat : c;
+      const catMaxScore = (isStrictNum(primaryCat.maxScore) && Number(primaryCat.maxScore) > 0)
+        ? Number(primaryCat.maxScore)
+        : ((isStrictNum(secondaryCat.maxScore) && Number(secondaryCat.maxScore) > 0) ? Number(secondaryCat.maxScore) : fallbackMax);
+      const catMinScore = isStrictNum(primaryCat.minScore)
+        ? Number(primaryCat.minScore)
+        : (isStrictNum(secondaryCat.minScore) ? Number(secondaryCat.minScore) : fallbackMin);
       const historyMap = new Map();
       const getStableHistoryKey = (h) =>
         h.id || `${h.date}-${h.taskId || 'geral'}-${h.score}-${h.correct ?? ''}-${h.total ?? ''}`;
@@ -658,22 +676,32 @@ export const mergeContestCategoriesPure = (
       const safeCloudHistory = Array.isArray(c.simuladoStats?.history)
         ? c.simuladoStats.history
         : Object.values(c.simuladoStats?.history || {});
-      safeLocalHistory.forEach((h) => {
+      const firstHistory = preferCloudBase ? safeLocalHistory : safeCloudHistory;
+      const secondHistory = preferCloudBase ? safeCloudHistory : safeLocalHistory;
+      firstHistory.forEach((h) => {
         if (h?.date) historyMap.set(getStableHistoryKey(h), h);
       });
-      safeCloudHistory.forEach((h) => {
+      secondHistory.forEach((h) => {
         if (h?.date) historyMap.set(getStableHistoryKey(h), h);
       });
-      const normalizedHistory = Array.from(historyMap.values()).map((h) => ({
-        ...h,
-        score: getSafeScore(h, catMaxScore, catMinScore)
-      }));
+      const normalizedHistory = Array.from(historyMap.values()).map((h) => {
+        const resolvedScore = getSafeScore(h, catMaxScore, catMinScore);
+        const cleaned = {
+          ...h,
+          score: resolvedScore,
+          ...(h?.isPercentage ? { isPercentage: false } : {}),
+          ...(h?.unit === 'pct' || h?.unit === 'percentage' ? { unit: 'points' } : {}),
+          ...(h?.scoreUnit === 'pct' ? { scoreUnit: 'points' } : {}),
+        };
+        delete cleaned.sourceMinScore;
+        delete cleaned.sourceMaxScore;
+        return cleaned;
+      });
       const baseForStats = {
         ...baseCat,
-        simuladoStats: {
-          ...(localCat.simuladoStats || c.simuladoStats || {}),
-          ...(c.simuladoStats || {})
-        }
+        simuladoStats: preferCloudBase
+          ? { ...(localCat.simuladoStats || {}), ...(c.simuladoStats || {}) }
+          : { ...(c.simuladoStats || {}), ...(localCat.simuladoStats || {}) }
       };
       const mergedSimuladoStats = computeCategorySimuladoStats(
         baseForStats,
@@ -812,13 +840,15 @@ export const mergeContestPayloadPure = (localContest, cloudContest, preferCloudB
       preferCloudBase,
       localTrash,
       localContestTime,
-      contestId
+      contestId,
+      base.maxScore ?? 100,
+      base.minScore ?? 0
     ),
     studyLogs: mergeArraysPure(localContest.studyLogs, cloudContest.studyLogs, arrayOptions),
     studySessions: mergeArraysPure(localContest.studySessions, cloudContest.studySessions, arrayOptions),
     simuladoRows: mergeArraysPure(localContest.simuladoRows, cloudContest.simuladoRows, arrayOptions),
     simulados: mergeArraysPure(localContest.simulados, cloudContest.simulados, arrayOptions),
-    monteCarloHistory: mergeMonteCarloHistoryPure(localContest.monteCarloHistory, cloudContest.monteCarloHistory),
+    monteCarloHistory: mergeMonteCarloHistoryPure(localContest.monteCarloHistory, cloudContest.monteCarloHistory, preferCloudBase),
     coachPlan: mergeArraysPure(localContest.coachPlan, cloudContest.coachPlan, arrayOptions),
     coachPlanner: mergeCoachPlannerPure(localContest.coachPlanner, cloudContest.coachPlanner, arrayOptions),
     flashcardDecks: mergeFlashcardDecksPure(localContest.flashcardDecks, cloudContest.flashcardDecks, mergedDeletedDecks, arrayOptions),

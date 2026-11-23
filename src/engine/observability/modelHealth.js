@@ -183,12 +183,18 @@ export function evaluateModelHealth(input = {}, options = {}) {
       ? Number(diagnostics.ece.toFixed(6))
       : null;
 
+    const usesPercentScale = probabilityPairs.some((pair) => {
+      const rp = Number(pair?.probability);
+      return pair?.probability !== null && pair?.probability !== undefined && Number.isFinite(rp) && rp > 1 && rp <= 100;
+    });
     const validPairBriers = probabilityPairs
       .map((pair) => {
         if (pair?.probability === null || pair?.probability === undefined || pair?.observed === null || pair?.observed === undefined) return NaN;
-        const p = Number(pair.probability);
-        const y = Number(pair.observed);
-        return Number.isFinite(p) && Number.isFinite(y) ? Math.pow(p - y, 2) : NaN;
+        if (typeof pair.probability === 'boolean' || String(pair.probability).trim() === '' || String(pair.observed).trim() === '') return NaN;
+        const rawP = Number(pair.probability);
+        const p = usesPercentScale ? rawP / 100 : rawP;
+        const y = typeof pair.observed === 'boolean' ? (pair.observed ? 1 : 0) : Number(pair.observed);
+        return Number.isFinite(p) && Number.isFinite(y) ? Math.pow(Math.max(0, Math.min(1, p)) - y, 2) : NaN;
       })
       .filter(Number.isFinite);
     const currentAvgBrier = validPairBriers.length > 0

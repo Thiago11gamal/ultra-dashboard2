@@ -141,7 +141,20 @@ export const createTrashSlice = (set) => ({
                 .forEach(item => {
                     const catData = item.data?.category || item.data;
                     if (catData && (catData.id || catData.name)) {
-                        addCategoryTombstones({ id: catData.id, name: catData.name }, item.contestId || null);
+                        const targetContestId = item.contestId || state.appState?.activeId || null;
+                        const targetContest = targetContestId ? state.appState?.contests?.[targetContestId] : null;
+                        const activeCats = Array.isArray(targetContest?.categories)
+                            ? targetContest.categories
+                            : Object.values(targetContest?.categories || {});
+                        const normTrashedName = String(catData.name || '').trim().toLowerCase();
+                        const hasLiveSameName = Boolean(
+                            normTrashedName &&
+                            activeCats.some(c => c && String(c.name || '').trim().toLowerCase() === normTrashedName)
+                        );
+                        addCategoryTombstones(
+                            { id: catData.id, name: hasLiveSameName ? null : catData.name },
+                            item.contestId || null
+                        );
                     }
                 });
             const contestDeletions = state.appState.trash

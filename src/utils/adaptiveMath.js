@@ -383,7 +383,7 @@ export function computeAdaptiveSignal(historyOrScores = []) {
         const momentumCI = bootstrapCI(recentDeltas, (arr) => arr.reduce((a, b) => a + b, 0) / arr.length, { iterations: 500 });
         const amplitudeCI = momentumCI.high - momentumCI.low;
         
-        if (momentumCI.low <= 0 && momentumCI.high >= 0 && amplitudeCI > 1e-6) {
+        if (recentDeltas.length > 0 && Number.isFinite(momentumCI.low) && Number.isFinite(momentumCI.high) && momentumCI.low <= 0 && momentumCI.high >= 0 && amplitudeCI >= 0) {
             isPlateau = true;
             trueTrendStrength = 0;
         } else {

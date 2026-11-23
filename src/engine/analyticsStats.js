@@ -280,6 +280,8 @@ export function generateAnalyticsStats({
             const history = [...historyArray]
                 .filter(h => {
                     if (!h || h.valid === false || h.validated === false) return false;
+                    const currentScore = getSafeScore(h, catMaxScore, catMinScore);
+                    if (Number.isFinite(currentScore) && isPhantomZeroTimeAttempt(h, currentScore)) return false;
                     if (!cutoffDate) return true;
                     const dateString = getDateKey(getHistoryDate(h));
                     if (!dateString) return false;
@@ -328,12 +330,16 @@ export function generateAnalyticsStats({
                         const existing = scoresByDate[dk][weightKey];
 
                         let rawTotal = Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions) || 0;
-                        let rawCorrectVal = Number(h.correct ?? h.acertos ?? h.correctCount);
+                        const rawCorrectProp = h.correct ?? h.acertos ?? h.correctCount;
+                        let rawCorrectVal = isStrictNum(rawCorrectProp) ? Number(rawCorrectProp) : NaN;
                         if (rawTotal <= 0 && h.topics) {
                             const safeTopics = Array.isArray(h.topics) ? h.topics : Object.values(h.topics || {});
                             rawTotal = safeTopics.reduce((sum, t) => sum + (Number(t?.total ?? t?.questoes ?? t?.totalQuestoes ?? t?.questions) || 0), 0);
-                            if (!Number.isFinite(rawCorrectVal)) {
-                                rawCorrectVal = safeTopics.reduce((sum, t) => sum + (Number(t?.correct ?? t?.acertos ?? t?.correctCount) || 0), 0);
+                            if (!Number.isFinite(rawCorrectVal) || rawCorrectVal <= 0) {
+                                const topicsCorrect = safeTopics.reduce((sum, t) => sum + (Number(t?.correct ?? t?.acertos ?? t?.correctCount) || 0), 0);
+                                if (topicsCorrect > 0 || !Number.isFinite(rawCorrectVal)) {
+                                    rawCorrectVal = topicsCorrect;
+                                }
                             }
                         }
 
@@ -508,7 +514,7 @@ export function generateAnalyticsStats({
     }).filter(item => item.score !== null && Number.isFinite(item.score) && item.score >= safeMinScore);
 
     const adaptiveSignal = computeAdaptiveSignal(rawGlobalHistory);
-    const confidenceMultiplier = getConfidenceMultiplier(adaptiveSignal.effectiveN) * adaptiveSignal.ciInflation;
+    const confidenceMultiplier = getConfidenceMultiplier(adaptiveSignal.effectiveN, { allowFractional: true }) * adaptiveSignal.ciInflation;
 
     const weightedLow = Math.max(safeMinScore, bayesianMean - confidenceMultiplier * pooledBayesianSD);
     const weightedHigh = Math.min(safeMaxScore, bayesianMean + confidenceMultiplier * pooledBayesianSD);
@@ -542,7 +548,9 @@ export function generateAnalyticsStats({
         .join(';');
     const scoreFingerprint = `${hLen}-${seriesSig}`;
 
-    const cutoffs = categoryStats.map(c => c.minCutoff || 0).join('-');
+    const cutoffs = categoryStats
+        .map(c => `${c.minCutoff !== null && c.minCutoff !== undefined && Number.isFinite(Number(c.minCutoff)) ? Number(c.minCutoff) : 'none'}:${c.examGroup || ''}`)
+        .join('-');
 
     // T-016 FIX: incluir pesos no hash.
     // Sem isso, mudar pesos podia não disparar nova simulação se a média global

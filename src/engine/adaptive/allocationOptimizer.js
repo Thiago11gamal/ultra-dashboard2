@@ -223,7 +223,7 @@ export function computeEfficientAllocation(categories = [], studyLogs = [], opti
     const initH = canSeedHalfHour ? STEP_H : 0;
     const hoursMap = new Map(subjects.map((s) => [s.id, s.weight > 0 ? initH : 0]));
     const remainingBudget = Math.max(0, weeklyBudgetHours - activeSubjects.length * initH);
-    const steps = Math.round(remainingBudget / STEP_H);
+    const steps = Math.floor((remainingBudget + 1e-9) / STEP_H);
 
     const marginalValue = (s, h) => {
       const dGain = subjectGain(s, h + STEP_H) - subjectGain(s, h);
@@ -425,7 +425,8 @@ export function generateOptimalWeeklySchedule(
       const blk = blockPool[pickIdx];
       prevSubjectId = blk.subjectId;
 
-      const hourNum = Math.min(22, baseStartHour + slot);
+      const effectiveStart = Math.max(6, Math.min(baseStartHour, 23 - hoursToday));
+      const hourNum = Math.min(22, effectiveStart + slot);
       const timeStr = `${String(hourNum).padStart(2, '0')}:00`;
 
       events.push({
@@ -503,8 +504,10 @@ export function rebalanceRemainingWeekSchedule(
   let carry = missedBlocks;
   for (let offset = 0; offset < daysRemaining; offset++) {
     const wd = (weekdayToday + offset) % 7;
-    const baseH = Math.max(1, Math.round(Number(dailyHours[wd]) || 2));
-    const extra = carry > 0 ? Math.min(1, carry) : 0;
+    const rawDaily = dailyHours[wd];
+    const hasExplicitDaily = rawDaily !== null && rawDaily !== undefined && typeof rawDaily !== 'boolean' && String(rawDaily).trim() !== '' && Number.isFinite(Number(rawDaily));
+    const baseH = hasExplicitDaily ? Math.max(0, Math.round(Number(rawDaily))) : 2;
+    const extra = (baseH > 0 && carry > 0) ? Math.min(1, carry) : 0;
     carry = Math.max(0, carry - extra);
     remainingDaily[wd] = Math.min(6, baseH + extra);
   }
