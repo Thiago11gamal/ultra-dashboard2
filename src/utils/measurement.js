@@ -460,9 +460,13 @@ export function getSafeScore(row, maxScore, minScore = 0) {
         const clean = trimmed.replace(/\./g, '').replace(',', '.');
         return Number(clean);
       }
-      // Apenas trata ponto como milhar se houver múltiplos pontos (1.234.567)
-      if (/^[1-9]\d{0,2}(\.\d{3}){2,}$/.test(trimmed)) {
-        return Number(trimmed.replace(/\./g, ''));
+      // Trata ponto como milhar se houver múltiplos pontos (1.234.567) ou se o valor inteiro couber na escala (ex.: "1.000" em 0..1000)
+      if (/^[1-9]\d{0,2}(\.\d{3})+$/.test(trimmed)) {
+        const asThousands = Number(trimmed.replace(/\./g, ''));
+        const dotCount = (trimmed.match(/\./g) || []).length;
+        if (dotCount >= 2 || asThousands <= safeMax) {
+          return asThousands;
+        }
       }
       return Number(trimmed);
     }

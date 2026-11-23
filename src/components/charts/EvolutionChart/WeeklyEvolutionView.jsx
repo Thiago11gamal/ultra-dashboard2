@@ -726,7 +726,15 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
             )}
 
             <div className="h-[380px] sm:h-[400px] w-full mt-2 relative">
-                {viewMode === 'performance' ? (
+                {!hasWeeklyChartData && (!Array.isArray(studyLogs) || studyLogs.length === 0) ? (
+                    <div className="h-full flex flex-col items-center justify-center bg-slate-950/55 rounded-2xl border border-white/[0.08] p-6 text-center">
+                        <HelpCircle size={36} className="text-indigo-400/50 mb-3" />
+                        <p className="text-sm font-semibold text-slate-300">Dados insuficientes</p>
+                        <p className="text-slate-400 text-xs mt-1.5 text-center max-w-[280px]">
+                            Cadastre pelo menos uma semana de simulados no período selecionado para visualizar a curva de evolução e a variação semanal.
+                        </p>
+                    </div>
+                ) : viewMode === 'performance' ? (
                     <WeeklyPerformanceChart
                         categories={categories}
                         studyLogs={studyLogs}

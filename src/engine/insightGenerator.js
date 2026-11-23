@@ -64,7 +64,7 @@ export function generateEvolutionInsights({
     unit = '%',
     maxScore = 100,
     minScore = 0,
-    showOnlyFocus = false,
+    showOnlyFocus,
     simuladoRows = [],
     targetScore = null,
     projectDays = 30,
@@ -592,7 +592,7 @@ export function generateEvolutionInsights({
     // Lógica Cone Futuro (Projection Fan)
     if (activeEngine === "projection_fan") {
         const examHorizon = Math.max(1, Math.min(365, Math.round(safeFinite(projectDays, 60))));
-        const fanCategory = showOnlyFocus ? focusCategory : null;
+        const fanCategory = showOnlyFocus !== false ? (focusCategory || null) : null;
         const fanMin = fanCategory ? safeMinScore : globalMinScore;
         const fanMax = fanCategory ? safeMaxScore : globalMaxScore;
         const fanTarget = fanCategory ? focusEffTarget : globalEffTarget;

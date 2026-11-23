@@ -690,7 +690,7 @@ export function simulateNormalDistribution(
     if (!Number.isFinite(truncNormFactor) || truncNormFactor <= 0) truncNormFactor = 1e-6;
 
     let analyticalProbability;
-    const hasSubjOrGroupCutoffs = activeGroupEntries.length > 0 ||
+    const hasSubjOrGroupCutoffs = Boolean(groupCutoffs && Object.keys(groupCutoffs).length > 0) ||
         subjectParams.some(s => s.hasMinCutoff && Number.isFinite(s.minCutoff) && s.minCutoff > s.minScore);
 
     if (effectiveTarget >= maxScore && !hasCutoffs) {

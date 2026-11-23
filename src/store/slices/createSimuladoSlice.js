@@ -5,7 +5,7 @@ import {
   getSimuladoRowTotal,
   resolveCategoryScoreDomain
 } from '../../utils/simuladoReconciler.js';
-import { getSafeScore } from '../../utils/scoreHelper.js';
+import { getSafeScore, computeEffectiveScoreRatio } from '../../utils/scoreHelper.js';
 import { markStorageDirty } from '../../utils/storageSafe.js';
 import { getDateKey, normalizeDate } from '../../utils/dateHelper.js';
 import { isSubjectMatch, normalize } from '../../utils/normalization.js';
