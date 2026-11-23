@@ -34,7 +34,7 @@ export const PerformanceBarChart = React.memo(function PerformanceBarChart({
 
     const chartData = useMemo(() => {
         return filteredAggData.map((d) => {
-            const hasReal = d.realQuestoes !== undefined && d.realQuestoes !== null && Number(d.realQuestoes) > 0;
+            const hasReal = d.realQuestoes !== undefined && d.realQuestoes !== null;
             const questoes = sanitizeCount(hasReal ? d.realQuestoes : d.questoes);
             const acertosBrutos = sanitizeCount(hasReal ? d.realAcertos : d.acertos);
             const acertos = Math.min(questoes, acertosBrutos);
