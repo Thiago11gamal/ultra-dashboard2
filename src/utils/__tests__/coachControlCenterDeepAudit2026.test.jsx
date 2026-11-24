@@ -66,8 +66,8 @@ describe('Coach Control Center — Deep Audit & Enhancements 2026', () => {
     });
 
     fireEvent.click(screen.getByRole('button', { name: /Saúde & Drift/i }));
-    expect(screen.getByText(/Drift de Calibração/i)).toBeTruthy();
-    expect(screen.getByText(/Calibração Atual/i)).toBeTruthy();
+    expect(screen.getByRole('heading', { name: /Drift de Calibração/i })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: /Calibração Atual/i })).toBeTruthy();
     // Brier, ECE and MCE are populated from calibrationAuditLog (not '—')
     expect(document.body.textContent).toContain('0.1800');
 
