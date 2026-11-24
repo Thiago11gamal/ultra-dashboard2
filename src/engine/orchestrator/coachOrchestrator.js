@@ -288,6 +288,8 @@ export async function runCoachOrchestrator(input = {}, optionsArg) {
               volatilities: series.volatilities || [],
               sampleSize: series.sampleSize ?? 0,
               features,
+              calibrationAuditLog: options.calibrationAuditLog,
+              calibrationHistoryByCategory: options.calibrationHistoryByCategory,
               saveSnapshot: options.saveHealthSnapshots === true,
             });
           } catch (err) {
@@ -574,13 +576,15 @@ export async function runCoachOrchestrator(input = {}, optionsArg) {
         health: health || null,
         tuner: tuner || null,
         causal: {
-          available: Boolean(causalModel),
+          available: Boolean(causalModel && Number(causalModel.sampleSize ?? causalModel.global?.sampleSize ?? 0) > 0),
           model: causalModel
             ? {
               generatedAt: causalModel.generatedAt ?? null,
-              sampleSize: causalModel.sampleSize ?? null,
+              sampleSize: causalModel.sampleSize ?? causalModel.global?.sampleSize ?? null,
+              treatedCount: causalModel.global?.treatedCount ?? null,
               method: causalModel.global?.method ?? causalModel.method ?? null,
               globalUplift: causalModel.global?.uplift ?? null,
+              ci: causalModel.global?.ci ?? null,
               actionCount: causalModel.actions
                 ? Object.keys(causalModel.actions).length
                 : 0,

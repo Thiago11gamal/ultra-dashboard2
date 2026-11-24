@@ -1533,16 +1533,37 @@ export function buildKnowledgeGraphLayout(category, options = {}) {
     });
   });
 
-  safeArr(category?.simuladoStats?.history).forEach((h) => {
+  const seenGraphEntryIds = new Set();
+  const seenGraphDayTopics = new Set();
+  const ingestGraphSimulado = (h) => {
     if (!h || h.valid === false || h.validated === false) return;
-    safeArr(h.topics).forEach((tp) => {
-      const label = String(tp.name || tp.topic || '').trim();
+    const hId = h.id && !String(h.id).startsWith('legacy-') ? String(h.id) : null;
+    if (hId && seenGraphEntryIds.has(hId)) return;
+    if (hId) seenGraphEntryIds.add(hId);
+    const dKey = getDateKey(h.date || h.createdAt) || '';
+
+    const rawTopics = Array.isArray(h.topics) && h.topics.length > 0
+      ? h.topics
+      : (h.topic || h.assunto || h.topicName)
+        ? [{
+            name: h.topic || h.assunto || h.topicName,
+            total: h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions,
+            correct: h.correct ?? h.acertos ?? h.correctCount,
+            score: h.score,
+          }]
+        : [];
+
+    safeArr(rawTopics).forEach((tp) => {
+      const label = String(tp.name || tp.topic || tp.assunto || tp.topicName || '').trim();
       const key = normalizeGraphName(label);
       if (!key) return;
+      const dayTopicSig = dKey ? `${dKey}|${key}` : null;
+      if (dayTopicSig && seenGraphDayTopics.has(dayTopicSig)) return;
       const tot = toFinite(tp.total ?? tp.questoes ?? tp.totalQuestoes ?? tp.questions, 0);
       const rawCorr = toFinite(tp.correct ?? tp.acertos ?? tp.correctCount, null);
       const sc = getSafeScore(tp, maxScore, minScore);
       if (tot <= 0 && !Number.isFinite(sc)) return;
+      if (dayTopicSig) seenGraphDayTopics.add(dayTopicSig);
       if (!topicMap.has(key)) {
         topicMap.set(key, {
           name: label,
@@ -1572,7 +1593,17 @@ export function buildKnowledgeGraphLayout(category, options = {}) {
         }
       }
     });
-  });
+  };
+
+  safeArr(category?.simuladoStats?.history).forEach(ingestGraphSimulado);
+
+  const matchesGraphCat = (s) => {
+    if (!s) return false;
+    if (category?.id != null && s.categoryId != null && String(s.categoryId) === String(category.id)) return true;
+    return matchesCategorySubject(category, s.subject || s.categoryName || s.materia || s.disciplina || '');
+  };
+  safeArr(options.simulados).filter(matchesGraphCat).forEach(ingestGraphSimulado);
+  safeArr(options.simuladoRows).filter(matchesGraphCat).forEach(ingestGraphSimulado);
 
   const allTopics = Array.from(topicMap.values());
   let topicList;

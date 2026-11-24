@@ -489,7 +489,7 @@ export function runCoachStrategyBacktest(config = {}) {
       resolvedHorizon = splits[0].horizon;
     }
 
-    splits.forEach((split) => {
+    splits.forEach((split, splitIdx) => {
       const logsBefore = filterLogsBefore(studyLogs, split.trainLastDate);
       const splitMaxScore = split.maxScore ?? maxScore;
       const splitMinScore = split.minScore ?? minScore;
@@ -640,11 +640,13 @@ export function runCoachStrategyBacktest(config = {}) {
             : splitTargetScore;
           const observedSuccess = split.observedScore >= evalTargetScore;
 
+          const snapshotTs = toTime(split.trainLastDate);
           const snapshot = {
+            id: `bt_${strategy.id}_${split.categoryId}_${Number.isFinite(snapshotTs) ? snapshotTs : splitIdx}`,
             strategyId: strategy.id,
             categoryId: split.categoryId,
             categoryName: split.categoryName,
-            timestamp: toTime(split.trainLastDate) || Date.now(),
+            timestamp: snapshotTs || Date.now(),
             normalizedScore: urgency?.normalizedScore ?? null,
             probability:
               urgency?.details?.monteCarlo?.probability ??
@@ -725,6 +727,20 @@ export function runCoachStrategyBacktest(config = {}) {
           const futureEndMs = Array.isArray(split.future) && split.future.length > 0
             ? Math.max(...split.future.map((f) => toTime(f?.date ?? f?.createdAt)).filter(Number.isFinite))
             : NaN;
+          const coachCompletedTasks = [
+            ...safeArray(config.coachPlan),
+            ...(config.coachPlanner && typeof config.coachPlanner === 'object'
+              ? Object.values(config.coachPlanner).flatMap((dayTasks) => safeArray(dayTasks))
+              : []),
+          ];
+          const matchesCatTask = (task) => {
+            if (!task?.completed) return false;
+            const ct = toTime(task.completedAt || task.lastStudiedAt || task.updatedAt);
+            if (!Number.isFinite(ct) || ct <= cutoffMs || ct > futureEndMs) return false;
+            if (category?.id != null && task.categoryId != null && String(task.categoryId) === String(category.id)) return true;
+            const tSubj = task.category || task.catName || task.subjectName || task.subject || '';
+            return Boolean(category?.name && tSubj && isSubjectMatch(tSubj, category.name));
+          };
           const hadStudyInHorizon = Number.isFinite(cutoffMs) && Number.isFinite(futureEndMs)
             ? safeArray(studyLogs).some((log) => {
                 const lt = toTime(log?.date ?? log?.createdAt);
@@ -738,7 +754,7 @@ export function runCoachStrategyBacktest(config = {}) {
                 if (!task?.completed) return false;
                 const ct = toTime(task.completedAt || task.lastStudiedAt);
                 return Number.isFinite(ct) && ct > cutoffMs && ct <= futureEndMs;
-              })
+              }) || coachCompletedTasks.some(matchesCatTask)
             : false;
 
           const rawObservedDelta =

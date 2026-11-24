@@ -202,12 +202,92 @@ export function observeCoachUrgencyResult(result = {}, options = {}) {
 }
 
 /**
+ * Combina e deduplica fontes de telemetria de calibração:
+ * - localStorage (`coach_calibration_telemetry_v1`)
+ * - `calibrationAuditLog` do concurso
+ * - `calibrationHistoryByCategory` do concurso
+ */
+export function mergeCalibrationTelemetrySources(contestId = null, options = {}) {
+  const localEvents = loadCalibrationTelemetryEvents(contestId);
+  const auditLogs = safeArray(options.calibrationAuditLog);
+  const historyMap =
+    options.calibrationHistoryByCategory && typeof options.calibrationHistoryByCategory === 'object'
+      ? options.calibrationHistoryByCategory
+      : {};
+  const historyEvents = [];
+  Object.entries(historyMap).forEach(([catKey, list]) => {
+    safeArray(list).forEach((entry) => {
+      if (!entry || typeof entry !== 'object') return;
+      historyEvents.push({
+        ...entry,
+        categoryId: entry.categoryId ?? catKey,
+        categoryName: entry.categoryName ?? catKey,
+      });
+    });
+  });
+
+  const combined = [...localEvents, ...auditLogs, ...historyEvents]
+    .filter((ev) => ev && typeof ev === 'object')
+    .map((ev, idx) => {
+      const rawTs = ev.timestamp ?? ev.ts ?? ev.createdAt ?? ev.date;
+      const numTs = Number(rawTs);
+      const ts = Number.isFinite(numTs) && numTs > 0 ? numTs : toTime(rawTs);
+      const avgBrier = Number.isFinite(Number(ev.avgBrier ?? ev.brier))
+        ? Number(ev.avgBrier ?? ev.brier)
+        : null;
+      const ece = Number.isFinite(Number(ev.ece)) ? Number(ev.ece) : null;
+      const calibrationPenalty = Number.isFinite(Number(ev.calibrationPenalty))
+        ? Number(ev.calibrationPenalty)
+        : null;
+      return {
+        ...ev,
+        timestamp: Number.isFinite(ts) && ts > 0 ? ts : 0,
+        ...(avgBrier !== null ? { avgBrier } : {}),
+        ...(ece !== null ? { ece } : {}),
+        ...(calibrationPenalty !== null ? { calibrationPenalty } : {}),
+        _idx: idx,
+      };
+    })
+    .sort((a, b) => {
+      if (a.timestamp !== b.timestamp) return a.timestamp - b.timestamp;
+      return a._idx - b._idx;
+    });
+
+  const lastByCat = new Map();
+  const deduped = [];
+  combined.forEach(({ _idx, ...ev }) => {
+    const catSig = String(ev.categoryId || ev.categoryName || 'global')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+      .toLowerCase();
+    const prev = lastByCat.get(catSig);
+    if (
+      prev &&
+      ev.timestamp > 0 &&
+      Math.abs(ev.timestamp - prev.timestamp) < 1000 &&
+      Math.abs((ev.avgBrier ?? -1) - (prev.avgBrier ?? -1)) < 1e-6 &&
+      Math.abs((ev.ece ?? -1) - (prev.ece ?? -1)) < 1e-6
+    ) {
+      return;
+    }
+    lastByCat.set(catSig, ev);
+    deduped.push(ev);
+  });
+
+  return deduped;
+}
+
+/**
  * Executa o Drift Guard completo.
  */
 export function runCoachDriftGuard(options = {}) {
   const calibrationEvents = Array.isArray(options.calibrationEvents)
     ? options.calibrationEvents
-    : loadCalibrationTelemetryEvents(options.contestId);
+    : mergeCalibrationTelemetrySources(options.contestId, {
+        calibrationAuditLog: options.calibrationAuditLog,
+        calibrationHistoryByCategory: options.calibrationHistoryByCategory,
+      });
   const scores = Array.isArray(options.scores) ? options.scores : [];
   const volatilities = Array.isArray(options.volatilities)
     ? options.volatilities

@@ -59,6 +59,12 @@ export function bootstrapCoachFlags(contestId, options = {}) {
   }
   const baseline = {
     ...DEFAULT_COACH_FEATURES,
+    useControlCenterFlagsPanel: true,
+    useControlCenterHealthPanel: true,
+    useControlCenterBacktestPanel: true,
+    useControlCenterAutoTunerPanel: true,
+    useControlCenterCausalPanel: true,
+    useControlCenterLLMPanel: true,
     ...getSafeBaselineFeatures(),
   };
   const persisted = loadPersistedCoachFlags(resolvedContestId, { applyToStore: false });

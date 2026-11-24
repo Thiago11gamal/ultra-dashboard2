@@ -594,10 +594,27 @@ function resolveHealthStorageKey(contestId) {
  */
 export function saveModelHealthSnapshot(snapshot, contestId) {
   if (!snapshot || typeof snapshot !== 'object') return false;
-  const current = loadModelHealthSnapshots(contestId);
-  const next = [...current, snapshot]
-    .filter(Boolean)
-    .slice(-HEALTH_STORAGE_MAX);
+  const current = loadModelHealthSnapshots(contestId).filter(Boolean);
+  const prev = current.length > 0 ? current[current.length - 1] : null;
+  const snapTs = Number(snapshot.generatedAt) || 0;
+  const prevTs = Number(prev?.generatedAt) || 0;
+  const sameAlerts =
+    prev &&
+    Array.isArray(prev.alerts) &&
+    Array.isArray(snapshot.alerts) &&
+    prev.alerts.map((a) => a?.id).join('|') === snapshot.alerts.map((a) => a?.id).join('|');
+  const isDuplicateBurst =
+    prev &&
+    snapTs > 0 &&
+    prevTs > 0 &&
+    Math.abs(snapTs - prevTs) < 60_000 &&
+    prev.healthScore === snapshot.healthScore &&
+    prev.status === snapshot.status &&
+    sameAlerts;
+
+  const next = isDuplicateBurst
+    ? [...current.slice(0, -1), snapshot].slice(-HEALTH_STORAGE_MAX)
+    : [...current, snapshot].slice(-HEALTH_STORAGE_MAX);
 
   return safeSetItem(resolveHealthStorageKey(contestId), next);
 }

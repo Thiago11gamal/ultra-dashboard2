@@ -302,7 +302,7 @@ export function runAutoTunerCycle(options = {}) {
   let promotionGate = null;
   if (
     recommendation.action === 'promote' &&
-    options.forceApply !== true &&
+    options.bypassBootstrapGate !== true &&
     backtestReport?.raw &&
     typeof backtestReport.raw === 'object'
   ) {

@@ -19,6 +19,8 @@ function getCategorySelectKey(cat) {
 
 export const KnowledgeGraphChart = React.memo(function KnowledgeGraphChart({
   categories = [],
+  simulados = [],
+  simuladoRows = [],
   minScore = 0,
   maxScore = 100,
 }) {
@@ -37,8 +39,8 @@ export const KnowledgeGraphChart = React.memo(function KnowledgeGraphChart({
   }, [safeCategories, selectedCatId]);
 
   const layout = useMemo(
-    () => buildKnowledgeGraphLayout(activeCategory, { minScore, maxScore }),
-    [activeCategory, minScore, maxScore]
+    () => buildKnowledgeGraphLayout(activeCategory, { minScore, maxScore, simulados, simuladoRows }),
+    [activeCategory, minScore, maxScore, simulados, simuladoRows]
   );
 
   // Deriva selectedNode a partir do layout atual: nunca exibe nó obsoleto ao trocar de disciplina/concurso
