@@ -84,10 +84,13 @@ export const CorrelationRegimeChart = React.memo(function CorrelationRegimeChart
   );
 
   const yExtent = useMemo(() => {
-    if (!regimes.length) return 5;
-    const maxAbs = Math.max(1, ...regimes.map((r) => Math.abs(Number(r.velocity) || 0)));
-    return Math.ceil(maxAbs * 1.35);
-  }, [regimes]);
+    const span = Math.max(1e-6, (Number(maxScore) || 100) - (Number(minScore) || 0));
+    const minFloor = Math.max(0.2, span * 0.02);
+    if (!regimes.length) return span >= 20 ? 5 : Number((minFloor * 2).toFixed(1));
+    const maxAbs = Math.max(minFloor, ...regimes.map((r) => Math.abs(Number(r.velocity) || 0)));
+    const raw = maxAbs * 1.35;
+    return raw >= 5 ? Math.ceil(raw) : Number(raw.toFixed(1));
+  }, [regimes, maxScore, minScore]);
 
   const hasCalibratingHurst = useMemo(
     () => regimes.some((r) => Number(r.sampleSize) < 10),
@@ -96,7 +99,7 @@ export const CorrelationRegimeChart = React.memo(function CorrelationRegimeChart
 
   const crowdingPairs = corr.pairs.filter((p) => p.type === 'crowding_out');
   const synergyPairs = corr.pairs.filter((p) => p.type === 'synergy');
-  const consolidatedCount = regimes.filter((r) => Number(r.hurstH) >= 0.58 && Number(r.velocity) > 0).length;
+  const consolidatedCount = regimes.filter((r) => r.regime === 'momentum').length;
   const positiveVelCount = regimes.filter((r) => Number(r.velocity) > 0).length;
   const allCalibratingHurst = regimes.length > 0 && regimes.every((r) => Number(r.sampleSize) < 10);
 
@@ -133,7 +136,7 @@ export const CorrelationRegimeChart = React.memo(function CorrelationRegimeChart
             currentLabel="Na zona consolidada"
             currentValue={`${consolidatedCount}/${regimes.length} matérias`}
             targetLabel="Zona alvo"
-            targetValue="H ≥ 0.58 · vel. > 0"
+            targetValue="H > 0.58 · vel. > 0"
             gapLabel={crowdingPairs.length > 0
               ? `${crowdingPairs.length} ${crowdingPairs.length === 1 ? 'par em gangorra' : 'pares em gangorra'}`
               : (consolidatedCount === regimes.length ? 'Todas consolidadas ✓' : `${positiveVelCount}/${regimes.length} em evolução`)}
@@ -210,6 +213,12 @@ export const CorrelationRegimeChart = React.memo(function CorrelationRegimeChart
               </tbody>
             </table>
           </div>
+        )}
+
+        {corr.categories.length >= 2 && corr.matrix.length > 0 && corr.pairs.length === 0 && (
+          <p className="text-[11px] text-slate-400 bg-slate-900/65 border border-white/[0.06] rounded-xl px-3 py-2">
+            Ainda não há pares com ≥ 3 semanas em comum neste filtro — células marcadas com <code className="text-slate-300">·</code> aguardam semanas simultâneas para calcular correlação (r).
+          </p>
         )}
 
         {crowdingPairs.length > 0 && (

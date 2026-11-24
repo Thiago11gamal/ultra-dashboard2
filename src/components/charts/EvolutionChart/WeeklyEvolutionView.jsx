@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import {
     LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
-    Tooltip, ResponsiveContainer, ReferenceLine, ReferenceArea, Legend, Cell, Brush
+    Tooltip, ResponsiveContainer, ReferenceLine, ReferenceArea, Legend, Brush
 } from 'recharts';
 import { TrendingUp, BarChart3, HelpCircle, Zap, Info, CheckCircle2 } from 'lucide-react';
 import { getSafeScore, formatValue, getSyntheticTotal, extractTopicsTotals, resolveEffectiveCorrect } from "../../../utils/scoreHelper";
@@ -16,7 +16,33 @@ import { ratioToPoints } from '../../../utils/scoreHelper.conversions';
 const hasValidNumber = (v) =>
     v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
 
-const WeeklyTooltip = React.memo(({ active, payload, label, hiddenKeys = {}, unit, stableThreshold = 2, targetScore = null }) => {
+const isSameId = (a, b) =>
+    a !== null && a !== undefined && b !== null && b !== undefined && String(a) === String(b);
+
+const createDeltaBarShape = (seriesKey, isOtherHovered) => function DeltaBarShape(props) {
+    const { x, y, width, height, payload } = props;
+    if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(width) || !Number.isFinite(height)) {
+        return null;
+    }
+    const absH = Math.abs(height);
+    if (absH < 0.5 || width <= 0) return null;
+    const rectY = height < 0 ? y + height : y;
+    const fill = payload?.[`deltaColor_${seriesKey}`] || '#94a3b8';
+    return (
+        <rect
+            x={x}
+            y={rectY}
+            width={width}
+            height={absH}
+            rx={4}
+            ry={4}
+            fill={fill}
+            fillOpacity={isOtherHovered ? 0.4 : 0.85}
+        />
+    );
+};
+
+const WeeklyTooltip = React.memo(({ active, payload, label, hiddenKeys = {}, unit, stableThreshold = 2, targetScore = null, isDeltaMode = false }) => {
     if (!active || !payload || !payload.length) return null;
 
     const hasValidData = payload.some(entry =>
@@ -26,8 +52,8 @@ const WeeklyTooltip = React.memo(({ active, payload, label, hiddenKeys = {}, uni
 
     const visibleEntries = payload.filter((entry) => {
         const dataKey = String(entry.dataKey || '');
-        const isDelta = dataKey.startsWith('delta_');
-        const baseKey = isDelta ? dataKey.replace('delta_', '') : dataKey;
+        const isDelta = isDeltaMode && dataKey.startsWith('delta_');
+        const baseKey = isDelta ? dataKey.slice(6) : dataKey;
         return !hiddenKeys[baseKey] && hasValidNumber(entry.value);
     });
 
@@ -41,8 +67,8 @@ const WeeklyTooltip = React.memo(({ active, payload, label, hiddenKeys = {}, uni
             <div className="space-y-2.5">
                 {visibleEntries.map((entry, idx) => {
                     const dataKey = String(entry.dataKey || '');
-                    const isDelta = dataKey.startsWith('delta_');
-                    const baseKey = isDelta ? dataKey.replace('delta_', '') : dataKey;
+                    const isDelta = isDeltaMode && dataKey.startsWith('delta_');
+                    const baseKey = isDelta ? dataKey.slice(6) : dataKey;
 
                     if (hiddenKeys[baseKey]) return null;
 
@@ -81,6 +107,7 @@ const WeeklyTooltip = React.memo(({ active, payload, label, hiddenKeys = {}, uni
                     } else {
                         const diffTarget = hasValidNumber(targetScore) ? (Number(val) - Number(targetScore)) : null;
                         const gapUnit = unit === '%' ? 'pp' : ` ${unit}`;
+                        const realVol = meta && meta.realTot !== undefined ? meta.realTot : (meta?.currTot || 0);
                         return (
                             <div key={idx} className="flex flex-col gap-0.5">
                                 <div className="flex justify-between items-center text-[11px] gap-2">
@@ -99,9 +126,9 @@ const WeeklyTooltip = React.memo(({ active, payload, label, hiddenKeys = {}, uni
                                         )}
                                     </div>
                                 </div>
-                                {meta && meta.currTot > 0 && (
+                                {meta && realVol > 0 && (
                                     <span className="text-[10px] text-slate-400 pl-3.5">
-                                        Volume: {meta.currTot} questões
+                                        Volume: {Math.round(realVol)} questões
                                     </span>
                                 )}
                             </div>
@@ -164,6 +191,8 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
         [categories]
     );
 
+    const hasFocusId = focusSubjectId !== null && focusSubjectId !== undefined && String(focusSubjectId).trim() !== '';
+
     const { chartData, activeKeys, rankedKeys } = useMemo(() => {
         let itemsMap = {};
         const toSafeKey = (name) => {
@@ -177,7 +206,7 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
         };
 
         const resolveTaskTopicName = (tasks, taskId) => {
-            const foundTask = toArray(tasks).find(task => task && task.id === taskId);
+            const foundTask = toArray(tasks).find(task => task && isSameId(task.id, taskId));
             const rawTaskText = foundTask?.text || foundTask?.title || 'Assunto';
             return String(rawTaskText).replace(/^\[(.*?)\]\s*/i, '').trim() || 'Assunto';
         };
@@ -192,16 +221,16 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
             return '';
         };
 
-        if (!showOnlyFocus || !focusSubjectId) {
+        if (!showOnlyFocus || !hasFocusId) {
             safeCategories.forEach(cat => {
-                if (!cat?.id) return;
+                if (cat?.id === null || cat?.id === undefined || String(cat.id).trim() === '') return;
                 const fullName = String(cat.name || 'Matéria').replace(/Direito /gi, 'D. ');
                 const safeName = shortenLabel(fullName, 18);
                 const safeColor = typeof cat.color === 'string' ? cat.color : '#3b82f6';
-                itemsMap[cat.id] = { name: safeName, fullName: fullName, color: safeColor };
+                itemsMap[String(cat.id)] = { name: safeName, fullName: fullName, color: safeColor };
             });
         } else {
-            const cat = safeCategories.find(c => c.id === focusSubjectId);
+            const cat = safeCategories.find(c => isSameId(c?.id, focusSubjectId));
             if (cat) {
                 const SUBTOPIC_PALETTE = [
                     '#38bdf8', '#a855f7', '#34d399', '#fb923c', '#f472b6',
@@ -222,7 +251,7 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
 
                 const hArray = filterHistoryByTimeWindow(cat.simuladoStats?.history || [], timeWindow);
                 hArray.forEach(h => {
-                    const topics = toArray(h.topics);
+                    const topics = toArray(h.topics).filter(t => t && typeof t === 'object' && t.valid !== false && t.validated !== false);
 
                     if (topics.length > 0) {
                         topics.forEach(t => {
@@ -233,7 +262,7 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
                                 itemsMap[key] = { name: shortenLabel(tName, 18), color: nextColor(), fullName: tName };
                             }
                         });
-                    } else if (h.taskId) {
+                    } else if (h.taskId != null && String(h.taskId).trim() !== '') {
                         const tName = resolveTaskTopicName(cat.tasks, h.taskId);
                         const key = toSafeKey(tName);
                         if (!itemsMap[key]) {
@@ -258,21 +287,36 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
         const validIds = Object.keys(itemsMap);
         if (validIds.length === 0) return { chartData: [], activeKeys: {}, rankedKeys: [] };
 
-        const focusedCat = (showOnlyFocus && focusSubjectId)
-            ? safeCategories.find(c => c.id === focusSubjectId)
+        const focusedCat = (showOnlyFocus && hasFocusId)
+            ? safeCategories.find(c => isSameId(c?.id, focusSubjectId))
+            : null;
+        const globalMin = hasValidNumber(minScore) ? Number(minScore) : 0;
+        const globalMax = hasValidNumber(maxScore) && Number(maxScore) > globalMin ? Number(maxScore) : Math.max(100, globalMin + 1);
+        const focusedCatMax = (focusedCat && hasValidNumber(focusedCat?.maxScore) && Number(focusedCat.maxScore) > 0)
+            ? Number(focusedCat.maxScore)
             : null;
         const safeMinScore = (focusedCat && hasValidNumber(focusedCat?.minScore))
             ? Number(focusedCat.minScore)
-            : (hasValidNumber(minScore) ? Number(minScore) : 0);
-        const safeMaxScore = (focusedCat && hasValidNumber(focusedCat?.maxScore) && Number(focusedCat.maxScore) > 0)
-            ? Number(focusedCat.maxScore)
-            : (hasValidNumber(maxScore) ? Number(maxScore) : 100);
+            : (focusedCatMax != null && focusedCatMax <= globalMin ? 0 : globalMin);
+        const safeMaxScore = (focusedCatMax != null && focusedCatMax > safeMinScore)
+            ? focusedCatMax
+            : (globalMax > safeMinScore ? globalMax : safeMinScore + 1);
         const lowerBound = Math.min(safeMinScore, safeMaxScore);
         const upperBound = Math.max(safeMinScore, safeMaxScore);
         const scoreRange = Math.max(1e-9, upperBound - lowerBound);
         const stableThreshold = Math.max(0.5, scoreRange * 0.02);
         const fromRatio = (ratio) => ratioToPoints(ratio, upperBound, lowerBound);
         const weeksTemp = {};
+
+        const pushWeekEntry = (weekStr, itemId, totalQ, corr, isReal) => {
+            if (!(totalQ > 0) || !Number.isFinite(corr)) return;
+            const safeCorr = Math.max(0, Math.min(totalQ, corr));
+            if (!weeksTemp[weekStr]) weeksTemp[weekStr] = { week: weekStr };
+            if (!weeksTemp[weekStr][itemId]) weeksTemp[weekStr][itemId] = { correct: 0, total: 0, realTotal: 0 };
+            weeksTemp[weekStr][itemId].total += totalQ;
+            weeksTemp[weekStr][itemId].correct += safeCorr;
+            if (isReal) weeksTemp[weekStr][itemId].realTotal += totalQ;
+        };
 
         const processHistory = (historyArray, itemId, cMax = upperBound, cMin = lowerBound) => {
             if (!Array.isArray(historyArray) || !itemId) return;
@@ -282,133 +326,100 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
                 const weekStr = getMondayStr(getHistoryDate(h));
                 if (!weekStr) return;
 
-                if (!weeksTemp[weekStr]) weeksTemp[weekStr] = { week: weekStr };
-                if (!weeksTemp[weekStr][itemId]) weeksTemp[weekStr][itemId] = { correct: 0, total: 0 };
-
                 const isSynthEntry = Boolean(h.syntheticVolume || h.isSynthetic || h.type === 'percent-only');
                 let totalQ = isSynthEntry ? 0 : Math.max(0, Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions) || 0);
-                let corr = 0;
+                let corr = NaN;
+                let isReal = !isSynthEntry && totalQ > 0;
                 const rawCorrVal = h.correct ?? h.acertos ?? h.correctCount;
-                const hasValidC = !isSynthEntry && rawCorrVal !== undefined && rawCorrVal !== null && String(rawCorrVal).trim() !== '';
+                const hasValidC = !isSynthEntry && !h.isPercentage && hasValidNumber(rawCorrVal);
                 if (totalQ === 0 && !isSynthEntry && h?.topics != null) {
                     const tf = extractTopicsTotals(h, cMax, cMin);
                     if (tf.total > 0) {
-                        totalQ = tf.total;
-                        corr = tf.correct;
-                        weeksTemp[weekStr][itemId].total += totalQ;
-                        weeksTemp[weekStr][itemId].correct += corr;
+                        pushWeekEntry(weekStr, itemId, tf.total, tf.correct, true);
                         return;
                     }
                     if (tf.hasTopicsScore && Number.isFinite(tf.score)) {
-                        totalQ = getSyntheticTotal(cMax);
-                        corr = Math.max(0, Math.min(1, (tf.score - cMin) / cRange)) * totalQ;
-                        weeksTemp[weekStr][itemId].total += totalQ;
-                        weeksTemp[weekStr][itemId].correct += corr;
+                        const synthTot = getSyntheticTotal(cMax);
+                        const synthCorr = Math.max(0, Math.min(1, (tf.score - cMin) / cRange)) * synthTot;
+                        pushWeekEntry(weekStr, itemId, synthTot, synthCorr, false);
                         return;
                     }
                 }
                 const score = getSafeScore(h, cMax, cMin);
-                if (totalQ > 0 && hasValidC && !h.isPercentage) {
-                    const rawC = Math.max(0, Number(rawCorrVal) || 0);
-                    corr = resolveEffectiveCorrect(h, score, totalQ, true, rawC, cMax, cMin);
+                if (totalQ > 0) {
+                    if (!hasValidC && !Number.isFinite(score)) return;
+                    const rawC = hasValidC ? Math.max(0, Number(rawCorrVal)) : 0;
+                    corr = resolveEffectiveCorrect(h, score, totalQ, hasValidC, rawC, cMax, cMin);
+                    isReal = true;
                 } else {
-                    if (totalQ === 0 && hasValidC && !h.isPercentage) {
-                        const rawC = Math.max(0, Number(rawCorrVal) || 0);
-                        const hasExplicitScore = hasValidNumber(h.score) || hasValidNumber(h.scorePoints) || hasValidNumber(h.scorePct);
-                        if (rawC > 0 && !hasExplicitScore) {
-                            totalQ = rawC;
-                            corr = rawC;
-                        }
-                    }
-                    if (totalQ === 0 || !hasValidC || h.isPercentage) {
-                        if (totalQ > 0 && corr > 0) {
-                            // já resolvido acima
-                        } else {
-                            if (!Number.isFinite(score)) return;
-                            if (totalQ === 0 && (hasValidNumber(h.score) || hasValidNumber(h.scorePoints) || hasValidNumber(h.scorePct) || h.isPercentage)) {
-                                totalQ = getSyntheticTotal(cMax);
-                            }
-                            if (totalQ === 0) return;
-                            corr = Math.max(0, Math.min(1, (score - cMin) / cRange)) * totalQ;
-                        }
-                    }
+                    if (!Number.isFinite(score)) return;
+                    totalQ = getSyntheticTotal(cMax);
+                    corr = Math.max(0, Math.min(1, (score - cMin) / cRange)) * totalQ;
+                    isReal = false;
                 }
-                if (totalQ === 0) return;
-
-                weeksTemp[weekStr][itemId].total += totalQ;
-                weeksTemp[weekStr][itemId].correct += corr;
+                pushWeekEntry(weekStr, itemId, totalQ, corr, isReal);
             });
         };
 
-        if (!showOnlyFocus || !focusSubjectId) {
+        if (!showOnlyFocus || !hasFocusId) {
             safeCategories.forEach(cat => {
+                if (cat?.id === null || cat?.id === undefined || String(cat.id).trim() === '') return;
                 const hArray = filterHistoryByTimeWindow(cat.simuladoStats?.history || [], timeWindow);
                 const cMax = hasValidNumber(cat?.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : upperBound;
-                const cMin = hasValidNumber(cat?.minScore) ? Math.min(Number(cat.minScore), cMax) : lowerBound;
-                processHistory(hArray, cat.id, cMax, cMin);
+                const cMin = hasValidNumber(cat?.minScore)
+                    ? Math.min(Number(cat.minScore), cMax)
+                    : (lowerBound < cMax ? lowerBound : 0);
+                processHistory(hArray, String(cat.id), cMax, cMin);
             });
         } else {
-            const cat = safeCategories.find(c => c.id === focusSubjectId);
+            const cat = safeCategories.find(c => isSameId(c?.id, focusSubjectId));
             if (cat) {
                 const cMax = hasValidNumber(cat?.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : upperBound;
-                const cMin = hasValidNumber(cat?.minScore) ? Math.min(Number(cat.minScore), cMax) : lowerBound;
+                const cMin = hasValidNumber(cat?.minScore)
+                    ? Math.min(Number(cat.minScore), cMax)
+                    : (lowerBound < cMax ? lowerBound : 0);
                 const cRange = Math.max(1e-9, cMax - cMin);
                 const hArray2 = filterHistoryByTimeWindow(cat.simuladoStats?.history || [], timeWindow);
                 hArray2.forEach(h => {
                     if (!h || h.valid === false || h.validated === false) return;
-                    const topics = toArray(h.topics);
+                    const topics = toArray(h.topics).filter(t => t && typeof t === 'object' && t.valid !== false && t.validated !== false);
 
                     const parentPenalty = Number(h.penaltyPerWrong) || 0;
                     if (topics.length > 0) {
+                        const shouldCopyBlanks = topics.length === 1 && h.blanks != null;
                         topics.forEach(rawTopic => {
-                            if (!rawTopic || rawTopic.valid === false || rawTopic.validated === false) return;
-                            const t = (parentPenalty > 0 && rawTopic.penaltyPerWrong == null)
-                                ? { ...rawTopic, penaltyPerWrong: parentPenalty }
-                                : rawTopic;
+                            const t = {
+                                ...rawTopic,
+                                ...(parentPenalty > 0 && rawTopic.penaltyPerWrong == null ? { penaltyPerWrong: parentPenalty } : {}),
+                                ...(shouldCopyBlanks && rawTopic.blanks == null ? { blanks: h.blanks } : {}),
+                            };
                             const tName = resolveTopicEntryName(cat.tasks, t);
                             if (!tName) return;
                             const tId = toSafeKey(tName);
                             const weekStr = getMondayStr(getHistoryDate(h));
                             if (!weekStr) return;
-                            if (!weeksTemp[weekStr]) weeksTemp[weekStr] = { week: weekStr };
-                            if (!weeksTemp[weekStr][tId]) weeksTemp[weekStr][tId] = { correct: 0, total: 0 };
 
                             const isSynthTopic = Boolean(t.syntheticVolume || t.isSynthetic || t.type === 'percent-only');
                             let totalQ = isSynthTopic ? 0 : Math.max(0, Number(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions) || 0);
-                            let corr = 0;
+                            let corr = NaN;
+                            let isReal = !isSynthTopic && totalQ > 0;
                             const rawCorrVal = t.correct ?? t.acertos ?? t.correctCount;
-                            const hasValidC = !isSynthTopic && rawCorrVal !== undefined && rawCorrVal !== null && String(rawCorrVal).trim() !== '';
+                            const hasValidC = !isSynthTopic && !t.isPercentage && hasValidNumber(rawCorrVal);
                             const topicScore = getSafeScore(t, cMax, cMin);
-                            if (totalQ > 0 && hasValidC && !t.isPercentage) {
-                                const rawC = Math.max(0, Number(rawCorrVal) || 0);
-                                corr = resolveEffectiveCorrect(t, topicScore, totalQ, true, rawC, cMax, cMin);
+                            if (totalQ > 0) {
+                                if (!hasValidC && !Number.isFinite(topicScore)) return;
+                                const rawC = hasValidC ? Math.max(0, Number(rawCorrVal)) : 0;
+                                corr = resolveEffectiveCorrect(t, topicScore, totalQ, hasValidC, rawC, cMax, cMin);
+                                isReal = true;
                             } else {
-                                if (totalQ === 0 && hasValidC && !t.isPercentage) {
-                                    const rawC = Math.max(0, Number(rawCorrVal) || 0);
-                                    const hasExplicitScore = hasValidNumber(t.score) || hasValidNumber(t.scorePoints) || hasValidNumber(t.scorePct);
-                                    if (rawC > 0 && !hasExplicitScore) {
-                                        totalQ = rawC;
-                                        corr = rawC;
-                                    }
-                                }
-                                if (totalQ === 0 || !hasValidC || t.isPercentage) {
-                                    if (totalQ > 0 && corr > 0) {
-                                        // já resolvido acima
-                                    } else {
-                                        if (!Number.isFinite(topicScore)) return;
-                                        if (totalQ === 0 && (hasValidNumber(t.score) || hasValidNumber(t.scorePoints) || hasValidNumber(t.scorePct) || t.isPercentage)) {
-                                            totalQ = getSyntheticTotal(cMax);
-                                        }
-                                        if (totalQ === 0) return;
-                                        corr = Math.max(0, Math.min(1, (topicScore - cMin) / cRange)) * totalQ;
-                                    }
-                                }
+                                if (!Number.isFinite(topicScore)) return;
+                                totalQ = getSyntheticTotal(cMax);
+                                corr = Math.max(0, Math.min(1, (topicScore - cMin) / cRange)) * totalQ;
+                                isReal = false;
                             }
-                            if (totalQ === 0) return;
-                            weeksTemp[weekStr][tId].total += totalQ;
-                            weeksTemp[weekStr][tId].correct += corr;
+                            pushWeekEntry(weekStr, tId, totalQ, corr, isReal);
                         });
-                    } else if (h.taskId) {
+                    } else if (h.taskId != null && String(h.taskId).trim() !== '') {
                         const tName = resolveTaskTopicName(cat.tasks, h.taskId);
                         const tId = toSafeKey(tName);
                         processHistory([h], tId, cMax, cMin);
@@ -476,6 +487,7 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
 
                         dataPoint[`meta_${id}`] = {
                             currTot: currentData.total,
+                            realTot: currentData.realTotal || 0,
                             currPct: currentPct,
                             prevPct,
                             prevTot: last.total
@@ -486,6 +498,7 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
 
                         dataPoint[`meta_${id}`] = {
                             currTot: currentData.total,
+                            realTot: currentData.realTotal || 0,
                             currPct: currentPct,
                             prevPct: null,
                             prevTot: 0
@@ -522,9 +535,9 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
         const rankedKeys = [...effectiveIds].sort((a, b) => volumeTracker[b] - volumeTracker[a]);
 
         return { chartData: finalData, activeKeys: filteredActiveKeys, rankedKeys };
-    }, [safeCategories, showOnlyFocus, focusSubjectId, timeWindow, maxScore, minScore]);
+    }, [safeCategories, showOnlyFocus, hasFocusId, focusSubjectId, timeWindow, maxScore, minScore]);
 
-    const keys = Object.keys(activeKeys);
+    const keys = useMemo(() => Object.keys(activeKeys), [activeKeys]);
 
     const hiddenKeys = useMemo(() => {
         const result = {};
@@ -542,26 +555,31 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
     const topRegressions = useMemo(() => computeTopRegressions({ viewMode, chartData, keys, activeKeys, hiddenKeys }), [viewMode, chartData, keys, activeKeys, hiddenKeys]);
     const trendKpi = useMemo(() => computeTrendKpi({ chartData, keys, hiddenKeys }), [chartData, keys, hiddenKeys]);
 
+    const stripSeriesKey = useCallback((rawKey) => {
+        const s = String(rawKey || '');
+        return (viewMode === 'variation' && s.startsWith('delta_')) ? s.slice(6) : s;
+    }, [viewMode]);
+
     const handleLegendClick = useCallback((e) => {
         const dataKey = e?.dataKey;
         if (!dataKey) return;
-        const keyID = String(dataKey).replace('delta_', '');
+        const keyID = stripSeriesKey(dataKey);
         setUserToggles(prev => ({
             ...prev,
             [keyID]: !hiddenKeys[keyID]
         }));
-    }, [hiddenKeys]);
+    }, [hiddenKeys, stripSeriesKey]);
 
     const handleLegendHover = useCallback((e) => {
-        if (e && e.dataKey) setHoveredLine(String(e.dataKey).replace('delta_', ''));
-    }, []);
+        if (e && e.dataKey) setHoveredLine(stripSeriesKey(e.dataKey));
+    }, [stripSeriesKey]);
 
     const handleLegendLeave = useCallback(() => {
         setHoveredLine(null);
     }, []);
 
     const renderLegendText = useCallback((value, entry) => {
-        const keyID = String(entry.dataKey || '').replace('delta_', '');
+        const keyID = stripSeriesKey(entry.dataKey);
         const isHidden = hiddenKeys[keyID];
         const fullName = activeKeys[keyID]?.fullName || String(value || '');
         return (
@@ -572,25 +590,27 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
                 {String(value || '').replace(' (Var.)', '')}
             </span>
         );
-    }, [hiddenKeys, activeKeys]);
+    }, [hiddenKeys, activeKeys, stripSeriesKey]);
 
     const focusedCategoryObj = useMemo(() => {
-        if (!showOnlyFocus || !focusSubjectId) return null;
-        return safeCategories.find(c => c.id === focusSubjectId) || null;
-    }, [safeCategories, showOnlyFocus, focusSubjectId]);
+        if (!showOnlyFocus || !hasFocusId) return null;
+        return safeCategories.find(c => isSameId(c?.id, focusSubjectId)) || null;
+    }, [safeCategories, showOnlyFocus, hasFocusId, focusSubjectId]);
 
     const effectiveMaxScore = useMemo(() => {
+        const gMin = hasValidNumber(minScore) ? Number(minScore) : 0;
         if (focusedCategoryObj && hasValidNumber(focusedCategoryObj?.maxScore) && Number(focusedCategoryObj.maxScore) > 0) {
             return Number(focusedCategoryObj.maxScore);
         }
-        return hasValidNumber(maxScore) ? Number(maxScore) : 100;
-    }, [focusedCategoryObj, maxScore]);
+        return hasValidNumber(maxScore) && Number(maxScore) > gMin ? Number(maxScore) : Math.max(100, gMin + 1);
+    }, [focusedCategoryObj, maxScore, minScore]);
 
     const effectiveMinScore = useMemo(() => {
         if (focusedCategoryObj && hasValidNumber(focusedCategoryObj?.minScore)) {
             return Math.min(Number(focusedCategoryObj.minScore), effectiveMaxScore);
         }
-        return hasValidNumber(minScore) ? Number(minScore) : 0;
+        const gMin = hasValidNumber(minScore) ? Number(minScore) : 0;
+        return gMin < effectiveMaxScore ? gMin : 0;
     }, [focusedCategoryObj, minScore, effectiveMaxScore]);
 
     const stableThreshold = useMemo(() => {
@@ -598,10 +618,21 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
         return Math.max(0.5, scoreRange * 0.02);
     }, [effectiveMinScore, effectiveMaxScore]);
 
-    const hasConsecutiveDelta = useMemo(() => {
+    const hasAnyConsecutiveDelta = useMemo(() => {
         if (!Array.isArray(chartData) || chartData.length < 2) return false;
+        return chartData.some(pt => keys.some(k => hasValidNumber(pt?.[`delta_${k}`])));
+    }, [chartData, keys]);
+
+    const hasVisibleConsecutiveDelta = useMemo(() => {
+        if (!hasAnyConsecutiveDelta) return false;
         return chartData.some(pt => keys.some(k => !hiddenKeys[k] && hasValidNumber(pt?.[`delta_${k}`])));
-    }, [chartData, keys, hiddenKeys]);
+    }, [hasAnyConsecutiveDelta, chartData, keys, hiddenKeys]);
+
+    const handleShowAllSeries = useCallback(() => {
+        const next = {};
+        keys.forEach((k) => { next[k] = false; });
+        setUserToggles(next);
+    }, [keys]);
 
     const effectiveTargetScore = useMemo(() => {
         const range = Math.max(1e-9, effectiveMaxScore - effectiveMinScore);
@@ -643,8 +674,8 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
     }, [chartData, keys, hiddenKeys, effectiveTargetScore, effectiveMinScore, effectiveMaxScore, unit]);
 
     const renderWeeklyTooltip = useCallback(
-        (props) => <WeeklyTooltip {...props} hiddenKeys={hiddenKeys} unit={unit} stableThreshold={stableThreshold} targetScore={effectiveTargetScore} />,
-        [hiddenKeys, unit, stableThreshold, effectiveTargetScore]
+        (props) => <WeeklyTooltip {...props} hiddenKeys={hiddenKeys} unit={unit} stableThreshold={stableThreshold} targetScore={effectiveTargetScore} isDeltaMode={viewMode === 'variation'} />,
+        [hiddenKeys, unit, stableThreshold, effectiveTargetScore, viewMode]
     );
 
     const hasWeeklyChartData = chartData.length >= 1;
@@ -657,7 +688,7 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
                         Raio-X Temporal Avançado
                     </span>
                     <h3 className="text-base sm:text-lg font-black text-white tracking-tight">
-                        {showOnlyFocus && focusSubjectId ? 'Semanas por Assunto' : 'Semanas por Matéria'}
+                        {showOnlyFocus && hasFocusId ? 'Semanas por Assunto' : 'Semanas por Matéria'}
                     </h3>
                     {trendKpi && (
                         <div className="inline-flex items-center gap-2 mt-1.5 px-2.5 py-1 rounded-lg bg-slate-950/75 border border-white/[0.08] text-[11px] text-slate-400 font-mono tabular-nums">
@@ -725,9 +756,9 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
                 />
             )}
 
-            <div className="h-[380px] sm:h-[400px] w-full mt-2 relative">
+            <div className={`${viewMode === 'performance' ? 'min-h-[380px]' : 'h-[380px] sm:h-[400px]'} w-full mt-2 relative`}>
                 {!hasWeeklyChartData && (!Array.isArray(studyLogs) || studyLogs.length === 0) ? (
-                    <div className="h-full flex flex-col items-center justify-center bg-slate-950/55 rounded-2xl border border-white/[0.08] p-6 text-center">
+                    <div className="h-full min-h-[340px] flex flex-col items-center justify-center bg-slate-950/55 rounded-2xl border border-white/[0.08] p-6 text-center">
                         <HelpCircle size={36} className="text-indigo-400/50 mb-3" />
                         <p className="text-sm font-semibold text-slate-300">Dados insuficientes</p>
                         <p className="text-slate-400 text-xs mt-1.5 text-center max-w-[280px]">
@@ -753,11 +784,24 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
                             Cadastre pelo menos uma semana de simulados no período selecionado para visualizar a curva de evolução e a variação semanal.
                         </p>
                     </div>
-                ) : viewMode === 'variation' && !hasConsecutiveDelta ? (
+                ) : viewMode === 'variation' && !hasAnyConsecutiveDelta ? (
                     <div className="h-full flex flex-col items-center justify-center bg-slate-950/55 rounded-2xl border border-white/[0.08] p-6 text-center">
                         <BarChart3 size={34} className="text-indigo-400/50 mb-2.5" />
                         <p className="text-sm font-bold text-slate-300">Semanas consecutivas necessárias</p>
                         <p className="text-xs text-slate-400 mt-1 max-w-xs">Registre simulados em pelo menos 2 semanas seguidas para calcular o acelerômetro de variação (Delta).</p>
+                    </div>
+                ) : viewMode === 'variation' && !hasVisibleConsecutiveDelta ? (
+                    <div className="h-full flex flex-col items-center justify-center bg-slate-950/55 rounded-2xl border border-white/[0.08] p-6 text-center gap-2.5">
+                        <BarChart3 size={34} className="text-indigo-400/50" />
+                        <p className="text-sm font-bold text-slate-300">Nenhuma série visível tem semanas consecutivas</p>
+                        <p className="text-xs text-slate-400 max-w-xs">As séries com variação semanal estão ocultas no filtro da legenda.</p>
+                        <button
+                            type="button"
+                            onClick={handleShowAllSeries}
+                            className="mt-1 px-3.5 py-1.5 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-400/40 text-indigo-200 text-xs font-bold transition-colors"
+                        >
+                            Mostrar todas as séries
+                        </button>
                     </div>
                 ) : (
                     <ResponsiveContainer width="100%" height="100%" minHeight={320} minWidth={1}>
@@ -868,14 +912,9 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
                                             fill={activeKeys[key].color}
                                             radius={[4, 4, 4, 4]}
                                             hide={hiddenKeys[key]}
-                                            fillOpacity={isOtherHovered ? 0.4 : 1}
+                                            shape={createDeltaBarShape(key, isOtherHovered)}
                                             style={{ transition: 'all 0.3s ease' }}
-                                        >
-                                            {chartData.map((entry, index) => {
-                                                const barColor = entry[`deltaColor_${key}`] || '#94a3b8';
-                                                return <Cell key={`cell-${index}`} fill={barColor} fillOpacity={isOtherHovered ? 0.4 : 0.85} />;
-                                            })}
-                                        </Bar>
+                                        />
                                     );
                                 })}
                             </BarChart>

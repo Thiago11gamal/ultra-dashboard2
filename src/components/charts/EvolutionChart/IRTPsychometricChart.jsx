@@ -145,11 +145,13 @@ export const IRTPsychometricChart = React.memo(function IRTPsychometricChart({
     return cutoffKey ? toDateMs(cutoffKey) : null;
   }, [timeWindow]);
 
+  const todayKey = getDateKey(new Date());
+
   const filterByWindow = (list) => {
-    if (!cutoffMs) return list;
     return list.filter((item) => {
       const dk = getDateKey(item?.date || item?.createdAt);
-      if (!dk) return true;
+      if (todayKey && dk && dk > todayKey) return false;
+      if (!cutoffMs || !dk) return true;
       const ms = toDateMs(dk);
       return !Number.isFinite(ms) || ms >= cutoffMs;
     });
@@ -172,12 +174,18 @@ export const IRTPsychometricChart = React.memo(function IRTPsychometricChart({
     };
 
     const withCatScale = (entry, cat) => {
-      const cMin = isStrictNum(cat?.minScore) ? Number(cat.minScore) : gMin;
-      const cMax = isStrictNum(cat?.maxScore) && Number(cat.maxScore) > cMin ? Number(cat.maxScore) : gMax;
+      const cMax = isStrictNum(cat?.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : gMax;
+      const cMin = isStrictNum(cat?.minScore)
+        ? Math.min(Number(cat.minScore), cMax)
+        : (gMin < cMax ? gMin : 0);
+      const resolvedMin = isStrictNum(entry?.minScore) ? Number(entry.minScore) : cMin;
+      const resolvedMax = isStrictNum(entry?.maxScore) && Number(entry.maxScore) > resolvedMin
+        ? Number(entry.maxScore)
+        : (cMax > resolvedMin ? cMax : Math.max(resolvedMin + 1, gMax));
       return {
         ...entry,
-        minScore: isStrictNum(entry?.minScore) ? Number(entry.minScore) : cMin,
-        maxScore: isStrictNum(entry?.maxScore) && Number(entry.maxScore) > cMin ? Number(entry.maxScore) : cMax,
+        minScore: resolvedMin,
+        maxScore: resolvedMax,
       };
     };
 
@@ -234,9 +242,6 @@ export const IRTPsychometricChart = React.memo(function IRTPsychometricChart({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categories, simuladoRows, focusCategory, showOnlyFocus, cutoffMs, minScore, maxScore]);
 
-  const irt = useMemo(() => estimateIRTAbility(irtEntries, { minScore, maxScore }), [irtEntries, minScore, maxScore]);
-  const thetaBand = getThetaBand(irt.theta);
-
   // Calcula θ alvo correspondente à meta no modelo 2PL para item médio (b = 0, a = 1.35)
   const { thetaTarget, targetPctNum, targetPctLabel } = useMemo(() => {
     const gMin = isStrictNum(minScore) ? Number(minScore) : 0;
@@ -254,6 +259,12 @@ export const IRTPsychometricChart = React.memo(function IRTPsychometricChart({
       targetPctLabel: `${pctNum}%`,
     };
   }, [targetScore, minScore, maxScore]);
+
+  const irt = useMemo(
+    () => estimateIRTAbility(irtEntries, { minScore, maxScore, targetTheta: thetaTarget }),
+    [irtEntries, minScore, maxScore, thetaTarget]
+  );
+  const thetaBand = getThetaBand(irt.theta);
 
   const iccDomain = useMemo(() => {
     const xMin = Math.min(-2.2, Math.floor((Math.min(irt.theta, thetaTarget) - 0.4) * 5) / 5);
@@ -337,8 +348,8 @@ export const IRTPsychometricChart = React.memo(function IRTPsychometricChart({
               currentValue={`${irt.theta >= 0 ? '+' : ''}${irt.theta}`}
               targetLabel={`θ para Meta (${targetPctLabel})`}
               targetValue={`${thetaTarget >= 0 ? '+' : ''}${thetaTarget}`}
-              gapLabel={thetaDiff >= 0 ? `+${thetaDiff}θ acima` : `Faltam ${Math.abs(thetaDiff)}θ`}
-              status={thetaDiff >= 0 ? 'success' : thetaDiff >= -0.45 ? 'warning' : 'danger'}
+              gapLabel={Math.abs(thetaDiff) < 0.005 ? 'Na meta ✓' : (thetaDiff > 0 ? `+${thetaDiff}θ acima` : `Faltam ${Math.abs(thetaDiff)}θ`)}
+              status={thetaDiff >= -0.005 ? 'success' : thetaDiff >= -0.45 ? 'warning' : 'danger'}
               progressPct={progressPct}
               extra={`Nível: ${thetaBand.label}`}
               compact
@@ -386,14 +397,25 @@ export const IRTPsychometricChart = React.memo(function IRTPsychometricChart({
                       x={irt.theta}
                       stroke="#a78bfa"
                       strokeDasharray="4 4"
-                      label={{ value: `θ=${irt.theta >= 0 ? '+' : ''}${irt.theta}`, position: 'top', fill: '#c4b5fd', fontSize: 10 }}
+                      label={{
+                        value: `θ=${irt.theta >= 0 ? '+' : ''}${irt.theta}`,
+                        position: Math.abs(irt.theta - thetaTarget) < 0.5 ? 'insideBottomLeft' : 'top',
+                        fill: '#c4b5fd',
+                        fontSize: 10
+                      }}
                     />
                     <ReferenceLine
                       x={thetaTarget}
                       stroke="#10b981"
                       strokeDasharray="5 3"
                       strokeWidth={1.6}
-                      label={{ value: `Meta θ=${thetaTarget >= 0 ? '+' : ''}${thetaTarget}`, position: 'insideTopRight', fill: '#34d399', fontSize: 10, fontWeight: 700 }}
+                      label={{
+                        value: `Meta θ=${thetaTarget >= 0 ? '+' : ''}${thetaTarget}`,
+                        position: (Math.abs(irt.theta - thetaTarget) < 0.5 && irt.theta > thetaTarget) ? 'insideTopLeft' : 'insideTopRight',
+                        fill: '#34d399',
+                        fontSize: 10,
+                        fontWeight: 700
+                      }}
                     />
                     <Line type="monotone" dataKey="predictedPct" name="P(Acerto) TRI" stroke="#a78bfa" strokeWidth={2.5} dot={false} />
                   </ComposedChart>

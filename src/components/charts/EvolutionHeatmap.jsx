@@ -53,6 +53,12 @@ const formatPct = (value) => {
     return `${Number.isInteger(rounded) ? rounded : rounded.toFixed(2)}%`;
 };
 
+const isStrictNum = (v) =>
+    v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
+
+const isSameId = (a, b) =>
+    a !== null && a !== undefined && b !== null && b !== undefined && String(a) === String(b);
+
 const HeatmapGrid = React.memo(function HeatmapGrid({
     filteredDates,
     filteredRows,
@@ -115,7 +121,9 @@ const HeatmapGrid = React.memo(function HeatmapGrid({
                                     return (
                                         <div
                                             key={dateObj?.key || dateObj?.label || ci}
-                                            className={`relative rounded-lg flex flex-col items-center justify-center py-2.5 px-1 transition-all duration-200 ${hasData ? 'hover:scale-[1.03] hover:z-20 cursor-default shadow-[0_6px_16px_rgba(2,6,23,0.22)] hover:shadow-[0_10px_24px_rgba(2,6,23,0.4)]' : 'opacity-60 cursor-default'}`}
+                                            tabIndex={hasData ? 0 : undefined}
+                                            aria-label={hasData ? `${cat?.name || 'Disciplina'}, ${dateObj?.label || ''}: ${formatPct(cell.pct)}` : undefined}
+                                            className={`relative rounded-lg flex flex-col items-center justify-center py-2.5 px-1 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/70 ${hasData ? 'hover:scale-[1.03] hover:z-20 cursor-default shadow-[0_6px_16px_rgba(2,6,23,0.22)] hover:shadow-[0_10px_24px_rgba(2,6,23,0.4)]' : 'opacity-60 cursor-default'}`}
                                             style={{
                                                 background: col.bg,
                                                 opacity: hasData ? (0.85 + (col.density * 0.15)) : 0.6,
@@ -124,9 +132,14 @@ const HeatmapGrid = React.memo(function HeatmapGrid({
                                             }}
                                             onMouseEnter={(e) => {
                                                 if (!hasData) return;
-                                                onCellHover(e, cell, col, dateObj, rowTargetPct);
+                                                onCellHover(e, cell, col, dateObj, rowTargetPct, cat);
                                             }}
                                             onMouseLeave={onCellLeave}
+                                            onFocus={(e) => {
+                                                if (!hasData) return;
+                                                onCellHover(e, cell, col, dateObj, rowTargetPct, cat);
+                                            }}
+                                            onBlur={onCellLeave}
                                         >
                                             {hasData ? (
                                                 <>
@@ -165,22 +178,24 @@ export const EvolutionHeatmap = React.memo(({
 }) => {
     const { dates = [], rows = [] } = heatmapData || {};
 
-    const safeMax = Math.max(1, Number(maxScore) || 100);
-    const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+    const safeMin = isStrictNum(minScore) ? Number(minScore) : 0;
+    const safeMax = isStrictNum(maxScore) && Number(maxScore) > safeMin ? Number(maxScore) : Math.max(100, safeMin + 1);
     const range = Math.max(1e-9, safeMax - safeMin);
 
-    const safeTarget = Number.isFinite(Number(targetScore)) ? Number(targetScore) : safeMin;
+    const safeTarget = isStrictNum(targetScore) ? Number(targetScore) : safeMin;
 
     const targetScorePct = Math.max(
         0,
         Math.min(100, ((safeTarget - safeMin) / range) * 100)
     );
 
+    const hasFocusId = focusSubjectId !== null && focusSubjectId !== undefined && String(focusSubjectId).trim() !== '';
+
     // Filtro de foco: "Todas as Matérias" vs "Apenas Foco"
     const filteredRowsByFocus = useMemo(() => {
-        if (!showOnlyFocus || !focusSubjectId) return rows;
-        return rows.filter(row => row.cat?.id === focusSubjectId);
-    }, [rows, showOnlyFocus, focusSubjectId]);
+        if (!showOnlyFocus || !hasFocusId) return rows;
+        return rows.filter(row => isSameId(row?.cat?.id, focusSubjectId));
+    }, [rows, showOnlyFocus, hasFocusId, focusSubjectId]);
 
     const [windowSize, setWindowSize] = useState('all');
     const [granularity, setGranularity] = useState('daily');
@@ -211,7 +226,7 @@ export const EvolutionHeatmap = React.memo(({
 
         // When "Apenas Foco" is active, only keep dates where the focused row actually has activity
         let activeIndices = dates.map((_, idx) => idx);
-        if (showOnlyFocus && focusSubjectId) {
+        if (showOnlyFocus && hasFocusId) {
             activeIndices = filteredRowsByFocus.length > 0
                 ? activeIndices.filter((idx) =>
                     filteredRowsByFocus.some((row) => {
@@ -245,14 +260,14 @@ export const EvolutionHeatmap = React.memo(({
             if (Number.isFinite(days) && days > 0 && activeIndices.length > 0) {
                 const lastDateEntry = dates[activeIndices[activeIndices.length - 1]];
                 const lastKey = typeof lastDateEntry === 'string' ? lastDateEntry : lastDateEntry?.key;
-                const lastMs = lastKey && /^\d{4}-\d{2}-\d{2}$/.test(lastKey) ? (parseNoonLocal(lastKey)?.getTime() ?? NaN) : NaN;
-                if (Number.isFinite(lastMs)) {
-                    const cutoffMs = lastMs - (days - 1) * 86400000;
+                const lastNoon = lastKey && /^\d{4}-\d{2}-\d{2}$/.test(lastKey) ? parseNoonLocal(lastKey) : null;
+                const cutoffNoon = lastNoon ? addDaysNoon(lastNoon, -(days - 1)) : null;
+                const cutoffKey = cutoffNoon ? getDateKey(cutoffNoon) : null;
+                if (cutoffKey) {
                     activeIndices = activeIndices.filter((idx) => {
                         const dEntry = dates[idx];
                         const dKey = typeof dEntry === 'string' ? dEntry : dEntry?.key;
-                        const ms = dKey && /^\d{4}-\d{2}-\d{2}$/.test(dKey) ? (parseNoonLocal(dKey)?.getTime() ?? NaN) : NaN;
-                        return Number.isFinite(ms) ? ms >= cutoffMs : true;
+                        return dKey && /^\d{4}-\d{2}-\d{2}$/.test(dKey) ? dKey >= cutoffKey : true;
                     });
                 } else {
                     const safeSize = Math.max(1, days);
@@ -268,11 +283,13 @@ export const EvolutionHeatmap = React.memo(({
                 cells: Array.isArray(row.cells) ? activeIndices.map((idx) => row.cells[idx]) : []
             }))
         };
-    }, [dates, filteredRowsByFocus, timeWindow, windowSize, showOnlyFocus, focusSubjectId]);
+    }, [dates, filteredRowsByFocus, timeWindow, windowSize, showOnlyFocus, hasFocusId]);
 
-    const [aggregated, setAggregated] = useState(() => {
-        return granularity === 'daily' ? null : aggregateHeatmap(filtered, granularity, safeMax, safeMin);
-    });
+    const [aggregatedState, setAggregatedState] = useState(() => (
+        granularity === 'daily'
+            ? null
+            : { sourceFiltered: filtered, granularity, data: aggregateHeatmap(filtered, granularity, safeMax, safeMin) }
+    ));
     const [isAggregating, setIsAggregating] = useState(false);
     const workerRef = useRef(null);
     const workerHolderTokenRef = useRef(null);
@@ -299,7 +316,11 @@ export const EvolutionHeatmap = React.memo(({
 
         const worker = workerRef.current;
         if (!worker) {
-            setAggregated(aggregateHeatmap(filtered, granularity, safeMax, safeMin));
+            setAggregatedState({
+                sourceFiltered: filtered,
+                granularity,
+                data: aggregateHeatmap(filtered, granularity, safeMax, safeMin)
+            });
             setIsAggregating(false);
             return;
         }
@@ -313,11 +334,10 @@ export const EvolutionHeatmap = React.memo(({
             worker.removeEventListener('message', handleMessage);
             worker.removeEventListener('error', handleError);
 
-            if (e.data.type === 'success') {
-                setAggregated(e.data.result);
-            } else {
-                setAggregated(aggregateHeatmap(filtered, granularity, safeMax, safeMin));
-            }
+            const nextData = e.data.type === 'success'
+                ? e.data.result
+                : aggregateHeatmap(filtered, granularity, safeMax, safeMin);
+            setAggregatedState({ sourceFiltered: filtered, granularity, data: nextData });
             setIsAggregating(false);
         };
 
@@ -327,7 +347,11 @@ export const EvolutionHeatmap = React.memo(({
             invalidateSharedWorker(worker, workerHolderTokenRef.current);
             workerRef.current = null;
             console.warn('[EvolutionHeatmap] Worker error, falling back:', err);
-            setAggregated(aggregateHeatmap(filtered, granularity, safeMax, safeMin));
+            setAggregatedState({
+                sourceFiltered: filtered,
+                granularity,
+                data: aggregateHeatmap(filtered, granularity, safeMax, safeMin)
+            });
             setIsAggregating(false);
         };
 
@@ -340,8 +364,6 @@ export const EvolutionHeatmap = React.memo(({
                 payload: {
                     filtered,
                     granularity,
-                    targetScore: safeTarget,
-                    targetScorePct,
                     minScore: safeMin,
                     maxScore: safeMax
                 }
@@ -355,11 +377,19 @@ export const EvolutionHeatmap = React.memo(({
             worker.removeEventListener('error', handleError);
             setIsAggregating(false);
         };
-    }, [filtered, granularity, safeMin, safeMax, safeTarget, targetScorePct]);
+    }, [filtered, granularity, safeMin, safeMax]);
 
     const activeData = useMemo(() => {
-        return (granularity === 'daily' || !aggregated) ? filtered : aggregated;
-    }, [granularity, filtered, aggregated]);
+        if (granularity === 'daily') return filtered;
+        if (aggregatedState && aggregatedState.sourceFiltered === filtered && aggregatedState.granularity === granularity) {
+            return aggregatedState.data;
+        }
+        return aggregateHeatmap(filtered, granularity, safeMax, safeMin);
+    }, [granularity, filtered, aggregatedState, safeMax, safeMin]);
+
+    useEffect(() => {
+        setHoveredCell(null);
+    }, [activeData]);
 
     const filteredDates = useMemo(() => activeData.dates || [], [activeData.dates]);
     const filteredRows = useMemo(() => activeData.rows || [], [activeData.rows]);
@@ -372,9 +402,11 @@ export const EvolutionHeatmap = React.memo(({
     }, [filteredRows]);
 
     const getRowTargetPct = useCallback((cat) => {
-        if (cat?.minCutoff !== null && cat?.minCutoff !== undefined && String(cat.minCutoff).trim() !== '' && Number.isFinite(Number(cat.minCutoff))) {
-            const catMin = Number.isFinite(Number(cat?.minScore)) ? Number(cat.minScore) : safeMin;
-            const catMax = Number(cat?.maxScore) > catMin ? Number(cat.maxScore) : safeMax;
+        if (isStrictNum(cat?.minCutoff)) {
+            const catMax = (isStrictNum(cat?.maxScore) && Number(cat.maxScore) > 0) ? Number(cat.maxScore) : safeMax;
+            const catMin = isStrictNum(cat?.minScore)
+                ? Math.min(Number(cat.minScore), catMax)
+                : (safeMin < catMax ? safeMin : 0);
             const cutoffNum = Number(cat.minCutoff);
             if (cutoffNum > catMin) {
                 const catRange = Math.max(1e-9, catMax - catMin);
@@ -434,7 +466,7 @@ export const EvolutionHeatmap = React.memo(({
         };
     }, [maxCellTotal, targetScorePct]);
 
-    const handleCellHover = useCallback((e, cell, col, date, rowTargetPct = null) => {
+    const handleCellHover = useCallback((e, cell, col, date, rowTargetPct = null, cat = null) => {
         const rect = e.currentTarget.getBoundingClientRect();
         const isAbove = rect.top > 160;
         const centerX = rect.left + rect.width / 2;
@@ -447,6 +479,7 @@ export const EvolutionHeatmap = React.memo(({
             col,
             date,
             rowTargetPct,
+            cat,
         });
     }, []);
 
@@ -556,12 +589,12 @@ export const EvolutionHeatmap = React.memo(({
 
                 <div className="flex flex-wrap items-center gap-2.5 text-[11px] font-semibold">
                     {[
-                        { bg: 'rgba(239,68,68,0.3)', border: 'rgba(239,68,68,0.5)', label: `< ${t60Fmt}` },
-                        { bg: 'rgba(251,146,60,0.3)', border: 'rgba(251,146,60,0.5)', label: `${t60Fmt}–${t80Fmt}` },
-                        { bg: 'rgba(251,191,36,0.3)', border: 'rgba(251,191,36,0.5)', label: `${t80Fmt}–${targetFmt}` },
-                        { bg: 'rgba(34,197,94,0.3)', border: 'rgba(34,197,94,0.5)', label: `≥ ${targetFmt} ✓ meta` },
+                        { id: 'lt60', bg: 'rgba(239,68,68,0.3)', border: 'rgba(239,68,68,0.5)', label: `< ${t60Fmt}` },
+                        { id: '60_80', bg: 'rgba(251,146,60,0.3)', border: 'rgba(251,146,60,0.5)', label: `${t60Fmt}–${t80Fmt}` },
+                        { id: '80_target', bg: 'rgba(251,191,36,0.3)', border: 'rgba(251,191,36,0.5)', label: `${t80Fmt}–${targetFmt}` },
+                        { id: 'gte_target', bg: 'rgba(34,197,94,0.3)', border: 'rgba(34,197,94,0.5)', label: `≥ ${targetFmt} ✓ meta` },
                     ].map(item => (
-                        <span key={item.label} className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-slate-900/70 border border-white/[0.05]">
+                        <span key={item.id} className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-slate-900/70 border border-white/[0.05]">
                             <span className="w-2.5 h-2.5 rounded-sm inline-block shrink-0" style={{ background: item.bg, border: `1px solid ${item.border}` }} />
                             {item.label}
                         </span>
@@ -612,6 +645,11 @@ export const EvolutionHeatmap = React.memo(({
                         borderLeftColor: hoveredCell.col?.text || '#818cf8',
                     }}
                 >
+                    {hoveredCell.cat?.name && (
+                        <span className="text-[10px] font-extrabold text-white max-w-[180px] truncate mb-0.5">
+                            {hoveredCell.cat.name}
+                        </span>
+                    )}
                     <span className="text-[10px] text-slate-200 font-black uppercase tracking-[0.15em] mb-1.5 pb-1.5 border-b border-slate-800 w-full">
                         {hoveredCell.date ? `${hoveredCell.date.dayName ? `${hoveredCell.date.dayName} • ` : ''}${hoveredCell.date.label || ''}` : ''}
                     </span>

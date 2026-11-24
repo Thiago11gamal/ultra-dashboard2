@@ -94,6 +94,7 @@ export function estimateIRTAbility(entries = [], options = {}) {
         let physCorrect = 0;
         let hasPhysCorrect = false;
         safeTopics.forEach((t) => {
+          if (!t || t.valid === false || t.validated === false) return;
           const tTot = Number(t?.total ?? t?.questoes ?? t?.totalQuestoes ?? t?.questions) || 0;
           const tCorrField = t?.correct ?? t?.acertos ?? t?.correctCount;
           if (tTot > 0) {
@@ -183,9 +184,10 @@ export function estimateIRTAbility(entries = [], options = {}) {
 
   const thetaSe = Number(clamp(1 / Math.sqrt(fisherInfo), 0.12, 1.2).toFixed(2));
 
-  // Build smooth ICC curve covering [-2.2, +2.4] and always spanning current theta
-  const curveMinB = Math.min(-2.2, Math.floor((theta - 0.4) * 5) / 5);
-  const curveMaxB = Math.max(2.4, Math.ceil((theta + 0.4) * 5) / 5);
+  // Build smooth ICC curve covering [-2.2, +2.4] and always spanning current theta & optional targetTheta
+  const targetThetaOpt = isStrictNum(options.targetTheta) ? Number(options.targetTheta) : theta;
+  const curveMinB = Math.min(-2.2, Math.floor((Math.min(theta, targetThetaOpt) - 0.4) * 5) / 5);
+  const curveMaxB = Math.max(2.4, Math.ceil((Math.max(theta, targetThetaOpt) + 0.4) * 5) / 5);
   const iccCurve = [];
   const maxFisherInfo = 1.35 * 1.35 * 0.25;
   for (let b = curveMinB; b <= curveMaxB + 0.01; b += 0.2) {
@@ -281,9 +283,15 @@ export function computeGuessingStrategy(questionTelemetry = [], options = {}) {
 
   safeArr(questionTelemetry).forEach((q) => {
     // Questões deixadas em branco (wasAnswered === false) não sofrem penalidade nem entram como erro de chute
-    if (!q || q.wasAnswered === false || !q.confidence || !buckets[q.confidence]) return;
-    buckets[q.confidence].total += 1;
-    if (q.correct ?? q.wasCorrect) buckets[q.confidence].correct += 1;
+    if (!q || q.wasAnswered === false || !q.confidence) return;
+    const confKey = String(q.confidence)
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+    if (!buckets[confKey]) return;
+    buckets[confKey].total += 1;
+    if (q.correct ?? q.wasCorrect) buckets[confKey].correct += 1;
   });
 
   const totalTagged = buckets.certeza.total + buckets.duvida.total + buckets.chute.total;

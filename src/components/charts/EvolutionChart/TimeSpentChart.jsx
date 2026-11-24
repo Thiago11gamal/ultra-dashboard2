@@ -55,21 +55,24 @@ const HalfMoonGauge = React.memo(function HalfMoonGauge({ data, referenceMaxSeco
     const displayColor = '#0ea5e9';
     const hasLatest = data.latestSeconds != null;
     const hasAbsolute = data.absoluteLatestSeconds != null;
-    const margin = Math.max(1, Math.round((data.displaySeconds || 0) * 0.05));
+    const colorBaseline = (data.hasRecentData && hasLatest && data.displaySeconds === data.latestSeconds && Number(data.avgSeconds) > 0)
+        ? Number(data.avgSeconds)
+        : (Number(data.displaySeconds) || 0);
+    const margin = Math.max(1, Math.round(colorBaseline * 0.05));
 
     let latestColor = null;
     if (hasLatest) {
         if (data.latestSeconds === 0) latestColor = '#94a3b8';
-        else if (data.latestSeconds > data.displaySeconds + margin) latestColor = '#f43f5e';
-        else if (data.latestSeconds < data.displaySeconds - margin) latestColor = '#10b981';
+        else if (data.latestSeconds > colorBaseline + margin) latestColor = '#f43f5e';
+        else if (data.latestSeconds < colorBaseline - margin) latestColor = '#10b981';
         else latestColor = '#f59e0b';
     }
 
     let absoluteColor = null;
     if (hasAbsolute) {
         if (data.absoluteLatestSeconds === 0) absoluteColor = '#94a3b8';
-        else if (data.absoluteLatestSeconds > data.displaySeconds + margin) absoluteColor = '#f43f5e';
-        else if (data.absoluteLatestSeconds < data.displaySeconds - margin) absoluteColor = '#10b981';
+        else if (data.absoluteLatestSeconds > colorBaseline + margin) absoluteColor = '#f43f5e';
+        else if (data.absoluteLatestSeconds < colorBaseline - margin) absoluteColor = '#10b981';
         else absoluteColor = '#f59e0b';
     }
 
@@ -359,46 +362,69 @@ export const TimeSpentChart = React.memo(function TimeSpentChart({
 }) {
     const [sortOrder, setSortOrder] = useState('slower'); // 'slower' | 'faster'
 
+    const examTargetSeconds = useMemo(() => {
+        const dur = Number(examDurationMinutes);
+        const totQ = Number(examTotalQuestions);
+        if (Number.isFinite(dur) && dur > 0 && Number.isFinite(totQ) && totQ > 0) {
+            return Math.round((dur * 60) / totQ);
+        }
+        return null;
+    }, [examDurationMinutes, examTotalQuestions]);
+
+    const parsePosFinite = (v) => {
+        if (v === null || v === undefined || typeof v === 'boolean' || String(v).trim() === '') return null;
+        const n = Number(v);
+        return Number.isFinite(n) && n > 0 ? n : null;
+    };
+
     const extractEntryTiming = (entry, catMax) => {
-        const rootTs = typeof entry?.timeSpent === 'number' ? entry.timeSpent : null;
+        const rootTs = parsePosFinite(entry?.timeSpent ?? entry?.durationSeconds);
+        const explicitRootTimedQ = parsePosFinite(entry?.timedQuestoes) || 0;
         let topicsTs = 0;
         let topicsTimedQ = 0;
         let hasTopicWithTime = false;
+        let allTopicsHaveExplicitTimedQ = true;
         const safeTopics = Array.isArray(entry?.topics) ? entry.topics : Object.values(entry?.topics || {});
         for (const t of safeTopics) {
-            if (!t || typeof t !== 'object') continue;
-            const tTs = typeof t.timeSpent === 'number' ? t.timeSpent : null;
-            const tTot = typeof t.timedQuestoes === 'number' && t.timedQuestoes > 0
-                ? t.timedQuestoes
-                : (Number(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions) || 0);
-            if (tTs !== null && tTs > 0 && tTot > 0) {
+            if (!t || typeof t !== 'object' || t.valid === false || t.validated === false) continue;
+            const tTs = parsePosFinite(t.timeSpent ?? t.durationSeconds);
+            const tExplicitTimedQ = parsePosFinite(t.timedQuestoes);
+            const tTot = tExplicitTimedQ ?? (parsePosFinite(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions) || 0);
+            if (tTs !== null && tTot > 0) {
                 topicsTs += tTs;
                 topicsTimedQ += tTot;
                 hasTopicWithTime = true;
+                if (tExplicitTimedQ === null) allTopicsHaveExplicitTimedQ = false;
             }
         }
-        if (hasTopicWithTime && topicsTimedQ > 0) return { ts: topicsTs, tq: topicsTimedQ };
-        const explicitRootTimedQ = typeof entry?.timedQuestoes === 'number' && entry.timedQuestoes > 0
-            ? entry.timedQuestoes
-            : (Number.isFinite(Number(entry?.timedQuestoes)) && Number(entry?.timedQuestoes) > 0 ? Number(entry?.timedQuestoes) : 0);
+        const preferRoot = explicitRootTimedQ > 0 && rootTs !== null && (!allTopicsHaveExplicitTimedQ || rootTs > topicsTs + 0.5);
+        if (hasTopicWithTime && topicsTimedQ > 0 && !preferRoot) return { ts: topicsTs, tq: topicsTimedQ };
         let tot = explicitRootTimedQ > 0
             ? explicitRootTimedQ
-            : (Number(entry?.total ?? entry?.questoes ?? entry?.totalQuestoes ?? entry?.questions) || 0);
+            : (parsePosFinite(entry?.total ?? entry?.questoes ?? entry?.totalQuestoes ?? entry?.questions) || 0);
         if (tot === 0 && safeTopics.length > 0) {
-            tot = safeTopics.reduce((s, t) => s + (Number(t?.total ?? t?.questoes ?? t?.totalQuestoes ?? t?.questions) || 0), 0);
+            tot = safeTopics.reduce((s, t) => {
+                if (!t || typeof t !== 'object' || t.valid === false || t.validated === false) return s;
+                return s + (parsePosFinite(t?.total ?? t?.questoes ?? t?.totalQuestoes ?? t?.questions) || 0);
+            }, 0);
         }
         if (tot === 0 && (entry?.score != null || entry?.scorePoints != null || entry?.scorePct != null)) {
             tot = getSyntheticTotal(catMax);
         }
-        if (tot > 0 && rootTs !== null && rootTs > 0) return { ts: rootTs, tq: tot };
+        if (tot > 0 && rootTs !== null) return { ts: rootTs, tq: tot };
         return null;
     };
 
     const chartData = useMemo(() => {
+        const isSameId = (a, b) => a !== null && a !== undefined && b !== null && b !== undefined && String(a) === String(b);
+        const hasFocusId = focusCategory?.id !== null && focusCategory?.id !== undefined && String(focusCategory.id).trim() !== '';
+        const safeActiveCats = Array.isArray(activeCategories) ? activeCategories : [];
+        const safeCats = Array.isArray(categories) ? categories : [];
+
         const relevantSubjectAggData = (() => {
             const safe = Array.isArray(subjectAggData) ? subjectAggData : [];
-            if (!showOnlyFocus || !focusCategory?.id) return safe;
-            return safe.filter((d) => d.id === focusCategory.id);
+            if (!showOnlyFocus || !hasFocusId) return safe;
+            return safe.filter((d) => isSameId(d?.id, focusCategory.id));
         })();
 
         return relevantSubjectAggData
@@ -409,19 +435,17 @@ export const TimeSpentChart = React.memo(function TimeSpentChart({
 
                 // Média Recente (Últimos 7 dias)
                 let recentAvgSeconds = null;
-                const cat = activeCategories.find((c) => c.id === d.id)
-                    || (Array.isArray(categories) ? categories.find((c) => c.id === d.id) : null)
-                    || (focusCategory?.id === d.id ? focusCategory : null);
+                const cat = safeActiveCats.find((c) => isSameId(c?.id, d.id))
+                    || safeCats.find((c) => isSameId(c?.id, d.id))
+                    || (isSameId(focusCategory?.id, d.id) ? focusCategory : null);
                 const catMax = Number(cat?.maxScore) > 0 ? Number(cat.maxScore) : maxScore;
                 if (cat) {
                     const nowMs = new Date().getTime();
                     const todayKey = getDateKey(new Date());
                     const todayNoonMs = toDateMs(todayKey) || nowMs;
                     const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
-                    const history = (timeWindow !== 'all'
-                        ? filterHistoryByTimeWindow(cat.simuladoStats?.history || [], timeWindow)
-                        : Object.values(cat.simuladoStats?.history || {}).filter((h) => h && h.valid !== false && h.validated !== false)
-                    ).filter((h) => h && h.materia !== 'Simulado Personalizado');
+                    const history = filterHistoryByTimeWindow(cat.simuladoStats?.history || [], timeWindow)
+                        .filter((h) => h && h.materia !== 'Simulado Personalizado');
 
                     const recentStats = history.reduce((acc, h) => {
                         const hKey = getDateKey(h.date || h.createdAt);
@@ -447,13 +471,11 @@ export const TimeSpentChart = React.memo(function TimeSpentChart({
 
                 if (cat) {
                     const todayKey = getDateKey(new Date());
-                    const baseHistory = (timeWindow !== 'all'
-                        ? filterHistoryByTimeWindow(cat.simuladoStats?.history || [], timeWindow)
-                        : Object.values(cat.simuladoStats?.history || {}).filter((h) => h && h.valid !== false && h.validated !== false)
-                    ).filter((h) => h && h.materia !== 'Simulado Personalizado');
+                    const baseHistory = filterHistoryByTimeWindow(cat.simuladoStats?.history || [], timeWindow)
+                        .filter((h) => h && h.materia !== 'Simulado Personalizado');
 
                     const allValidTimed = baseHistory
-                        .filter((h) => toDateMs(h.date || h.createdAt) != null && extractEntryTiming(h, catMax) !== null);
+                        .filter((h) => Number.isFinite(toDateMs(h.date || h.createdAt)) && extractEntryTiming(h, catMax) !== null);
                     const nonFutureTimed = todayKey
                         ? allValidTimed.filter((h) => {
                             const hk = getDateKey(h.date || h.createdAt);
@@ -487,9 +509,11 @@ export const TimeSpentChart = React.memo(function TimeSpentChart({
                             latestSeconds = Math.round(dayTotals.ts / dayTotals.tq);
                         }
 
-                        if (latestEntry.lastSessionTimeSpent != null && latestEntry.lastSessionTotal > 0) {
-                            absoluteLatestSeconds = Math.round(latestEntry.lastSessionTimeSpent / latestEntry.lastSessionTotal);
-                            absoluteTotalTime = latestEntry.lastSessionTimeSpent;
+                        const lsTime = parsePosFinite(latestEntry.lastSessionTimeSpent);
+                        const lsTotal = parsePosFinite(latestEntry.lastSessionTotal);
+                        if (lsTime !== null && lsTotal !== null) {
+                            absoluteLatestSeconds = Math.round(lsTime / lsTotal);
+                            absoluteTotalTime = lsTime;
                         } else {
                             const lastTiming = extractEntryTiming(latestEntry, catMax);
                             if (lastTiming && lastTiming.tq > 0) {
@@ -520,15 +544,16 @@ export const TimeSpentChart = React.memo(function TimeSpentChart({
                 const latestStr = latestSeconds !== null ? `Média Dia: ${formatTime(latestSeconds)}` : '';
                 const parts = [latestStr, deltaStr, qstStr].filter(Boolean);
 
+                const visualFloor = Math.max(120, examTargetSeconds || 0, avgSeconds || 0);
                 const latestSecs = latestSeconds || 0;
                 const visualLatestSeconds = displaySeconds > 0
-                    ? Math.min(latestSecs, Math.max(displaySeconds * 2.5, 120))
-                    : Math.min(latestSecs, 180);
+                    ? Math.min(latestSecs, Math.max(displaySeconds * 2.5, visualFloor))
+                    : Math.min(latestSecs, Math.max(180, visualFloor));
 
                 const absoluteSecs = absoluteLatestSeconds || 0;
                 const visualAbsoluteSeconds = displaySeconds > 0
-                    ? Math.min(absoluteSecs, Math.max(displaySeconds * 2.5, 120))
-                    : Math.min(absoluteSecs, 180);
+                    ? Math.min(absoluteSecs, Math.max(displaySeconds * 2.5, visualFloor))
+                    : Math.min(absoluteSecs, Math.max(180, visualFloor));
 
                 return {
                     ...d,
@@ -548,7 +573,7 @@ export const TimeSpentChart = React.memo(function TimeSpentChart({
                 };
             })
             .sort((a, b) => sortOrder === 'slower' ? b.displaySeconds - a.displaySeconds : a.displaySeconds - b.displaySeconds);
-    }, [subjectAggData, activeCategories, categories, sortOrder, maxScore, showOnlyFocus, focusCategory, timeWindow]);
+    }, [subjectAggData, activeCategories, categories, sortOrder, maxScore, showOnlyFocus, focusCategory, timeWindow, examTargetSeconds]);
 
     const legendStats = useMemo(() => {
         return chartData.reduce((acc, item) => {
@@ -570,7 +595,9 @@ export const TimeSpentChart = React.memo(function TimeSpentChart({
                 acc.latest += lastSessionSec;
                 acc.latestCount += 1;
 
-                const refBaseline = Number(item.displaySeconds ?? item.avgSeconds) || 0;
+                const refBaseline = (item.hasRecentData && item.latestSeconds != null && item.displaySeconds === item.latestSeconds && Number(item.avgSeconds) > 0)
+                    ? Number(item.avgSeconds)
+                    : (Number(item.displaySeconds ?? item.avgSeconds) || 0);
                 const margin = Math.max(1, Math.round(refBaseline * 0.05));
                 if (lastSessionSec > refBaseline + margin) acc.above += 1;
                 else if (lastSessionSec < refBaseline - margin) acc.below += 1;
@@ -592,15 +619,6 @@ export const TimeSpentChart = React.memo(function TimeSpentChart({
         ? Math.round(legendStats.latest / legendStats.latestCount)
         : null;
 
-    const examTargetSeconds = useMemo(() => {
-        const dur = Number(examDurationMinutes);
-        const totQ = Number(examTotalQuestions);
-        if (Number.isFinite(dur) && dur > 0 && Number.isFinite(totQ) && totQ > 0) {
-            return Math.round((dur * 60) / totQ);
-        }
-        return null;
-    }, [examDurationMinutes, examTotalQuestions]);
-
     const subjectsWithinExamTarget = useMemo(() => {
         if (!examTargetSeconds) return 0;
         return chartData.filter((d) => Number(d.displaySeconds) <= examTargetSeconds).length;
@@ -616,9 +634,16 @@ export const TimeSpentChart = React.memo(function TimeSpentChart({
     }, [chartData, examTargetSeconds]);
 
     const totalPaceMeasured = legendStats.latestCount;
-    const fastSharePct = totalPaceMeasured > 0 ? Math.round((legendStats.below / totalPaceMeasured) * 100) : 0;
-    const slowSharePct = totalPaceMeasured > 0 ? Math.round((legendStats.above / totalPaceMeasured) * 100) : 0;
-    const stableSharePct = totalPaceMeasured > 0 ? Math.max(0, 100 - fastSharePct - slowSharePct) : 0;
+    let fastSharePct = totalPaceMeasured > 0 ? Math.round((legendStats.below / totalPaceMeasured) * 100) : 0;
+    let slowSharePct = totalPaceMeasured > 0 ? Math.round((legendStats.above / totalPaceMeasured) * 100) : 0;
+    let stableSharePct = totalPaceMeasured > 0 ? Math.round((legendStats.stable / totalPaceMeasured) * 100) : 0;
+    const shareSum = fastSharePct + slowSharePct + stableSharePct;
+    if (totalPaceMeasured > 0 && shareSum !== 100) {
+        const adjust = 100 - shareSum;
+        if (legendStats.stable > 0) stableSharePct = Math.max(0, stableSharePct + adjust);
+        else if (fastSharePct >= slowSharePct) fastSharePct = Math.max(0, fastSharePct + adjust);
+        else slowSharePct = Math.max(0, slowSharePct + adjust);
+    }
 
     if (chartData.length === 0) {
         return (
@@ -849,7 +874,7 @@ export const TimeSpentChart = React.memo(function TimeSpentChart({
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 items-stretch">
                     {chartData.map((data, index) => (
                         <HalfMoonGauge
-                            key={`gauge-${data.id}-${index}`}
+                            key={`gauge-${data.id ?? data.fullName ?? index}`}
                             data={data}
                             referenceMaxSeconds={referenceMaxSeconds}
                             globalAvgSeconds={legendAvgSeconds}

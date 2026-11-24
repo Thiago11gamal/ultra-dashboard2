@@ -77,7 +77,11 @@ function SpeedAccuracyTooltip({ active, payload }) {
         </div>
       </div>
       <div className="flex items-center justify-between gap-2 text-[10px]">
-        <span className="text-slate-400 font-mono">{pt.totalQuestions} questões</span>
+        <span className="text-slate-400 font-mono">
+          {pt.timedQuestions && pt.timedQuestions !== pt.totalQuestions
+            ? `${pt.timedQuestions}/${pt.totalQuestions}q cron.`
+            : `${pt.totalQuestions} ${pt.totalQuestions === 1 ? 'questão' : 'questões'}`}
+        </span>
         <span className={`px-2 py-0.5 rounded-full border font-bold ${qStyle.bg} ${qStyle.color}`}>
           {qStyle.label}
         </span>
@@ -97,6 +101,7 @@ export const SpeedAccuracyChart = React.memo(function SpeedAccuracyChart({
   maxScore = 100,
   examDurationMinutes = null,
   examTotalQuestions = null,
+  penaltyPerWrong = 0,
 }) {
   const [mode, setMode] = useState('subject');
 
@@ -119,8 +124,9 @@ export const SpeedAccuracyChart = React.memo(function SpeedAccuracyChart({
         minScore,
         maxScore,
         idealSecondsPerQuestion: idealSec,
+        penaltyPerWrong,
       }),
-    [categories, simuladoRows, mode, showOnlyFocus, focusSubjectId, timeWindow, targetScore, minScore, maxScore, idealSec]
+    [categories, simuladoRows, mode, showOnlyFocus, focusSubjectId, timeWindow, targetScore, minScore, maxScore, idealSec, penaltyPerWrong]
   );
 
   const maxX = useMemo(() => {
@@ -131,16 +137,18 @@ export const SpeedAccuracyChart = React.memo(function SpeedAccuracyChart({
 
   const speedBenchmark = useMemo(() => {
     if (!data.points.length) return null;
-    const totalQ = data.points.reduce((acc, p) => acc + Math.max(1, Number(p.totalQuestions) || 1), 0);
-    const avgSec = data.points.reduce((acc, p) => acc + p.avgSeconds * Math.max(1, Number(p.totalQuestions) || 1), 0) / totalQ;
-    const avgAcc = data.points.reduce((acc, p) => acc + p.accuracyPct * Math.max(1, Number(p.totalQuestions) || 1), 0) / totalQ;
+    const totalAccQ = data.points.reduce((acc, p) => acc + Math.max(1, Number(p.totalQuestions) || 1), 0);
+    const totalTimedQ = data.points.reduce((acc, p) => acc + Math.max(1, Number(p.timedQuestions || p.totalQuestions) || 1), 0);
+    const avgSec = data.points.reduce((acc, p) => acc + p.avgSeconds * Math.max(1, Number(p.timedQuestions || p.totalQuestions) || 1), 0) / totalTimedQ;
+    const avgAcc = data.points.reduce((acc, p) => acc + p.accuracyPct * Math.max(1, Number(p.totalQuestions) || 1), 0) / totalAccQ;
     const fastAcc = data.quadrants.fastAccurate || 0;
-    const secDiff = Math.round(avgSec - data.benchmarkSeconds);
+    const rawSecDiff = avgSec - data.benchmarkSeconds;
+    const secDiff = Math.round(rawSecDiff);
     const accDiff = avgAcc - data.targetPct;
-    const isOptimal = secDiff <= 0 && accDiff >= 0;
-    const status = isOptimal ? 'success' : (accDiff >= -8 && secDiff <= 25 ? 'warning' : 'danger');
+    const isOptimal = rawSecDiff <= 0 && accDiff >= 0;
+    const status = isOptimal ? 'success' : (accDiff >= -8 && rawSecDiff <= 25 ? 'warning' : 'danger');
     const gapParts = [];
-    if (secDiff > 0) gapParts.push(`+${secDiff}s/q lento`);
+    if (rawSecDiff > 0) gapParts.push(`+${Math.max(1, secDiff)}s/q lento`);
     else gapParts.push('Ritmo ok');
     gapParts.push(accDiff >= 0 ? `+${accDiff.toFixed(1)}pp meta` : `${accDiff.toFixed(1)}pp meta`);
     return {
@@ -149,9 +157,9 @@ export const SpeedAccuracyChart = React.memo(function SpeedAccuracyChart({
       gapLabel: isOptimal ? 'Na zona ideal ✓' : gapParts.join(' · '),
       status,
       progressPct: (fastAcc / Math.max(1, data.points.length)) * 100,
-      extra: `${fastAcc}/${data.points.length} em Domínio Rápido`,
+      extra: `${fastAcc}/${data.points.length} em Domínio Rápido${idealSec == null ? ' · Alvo auto (mediana)' : ''}`,
     };
-  }, [data]);
+  }, [data, idealSec]);
 
   return (
     <div className="w-full space-y-4">
@@ -175,11 +183,10 @@ export const SpeedAccuracyChart = React.memo(function SpeedAccuracyChart({
             type="button"
             onClick={() => setMode('subject')}
             aria-pressed={mode === 'subject'}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all ${
-              mode === 'subject'
-                ? 'bg-cyan-500/20 text-cyan-200 border-cyan-400/45 shadow-sm'
-                : 'text-slate-400 hover:text-white border-transparent hover:bg-white/[0.04]'
-            }`}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all ${mode === 'subject'
+              ? 'bg-cyan-500/20 text-cyan-200 border-cyan-400/45 shadow-sm'
+              : 'text-slate-400 hover:text-white border-transparent hover:bg-white/[0.04]'
+              }`}
           >
             <BookOpen size={13} />
             Por Disciplina
@@ -188,11 +195,10 @@ export const SpeedAccuracyChart = React.memo(function SpeedAccuracyChart({
             type="button"
             onClick={() => setMode('topic')}
             aria-pressed={mode === 'topic'}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all ${
-              mode === 'topic'
-                ? 'bg-cyan-500/20 text-cyan-200 border-cyan-400/45 shadow-sm'
-                : 'text-slate-400 hover:text-white border-transparent hover:bg-white/[0.04]'
-            }`}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all ${mode === 'topic'
+              ? 'bg-cyan-500/20 text-cyan-200 border-cyan-400/45 shadow-sm'
+              : 'text-slate-400 hover:text-white border-transparent hover:bg-white/[0.04]'
+              }`}
           >
             <Layers size={13} />
             Por Assunto
@@ -269,7 +275,7 @@ export const SpeedAccuracyChart = React.memo(function SpeedAccuracyChart({
 
                 <Tooltip content={<SpeedAccuracyTooltip />} cursor={{ strokeDasharray: '3 3', stroke: '#94a3b8' }} />
 
-                <Scatter data={data.points} name="Disciplinas">
+                <Scatter data={data.points} name={mode === 'topic' ? 'Assuntos' : 'Disciplinas'}>
                   {data.points.map((pt) => (
                     <Cell
                       key={pt.id}

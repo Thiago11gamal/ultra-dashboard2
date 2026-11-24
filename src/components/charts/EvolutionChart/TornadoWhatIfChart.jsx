@@ -9,12 +9,12 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from 'recharts';
-import { Sliders, RotateCcw, ShieldAlert, TrendingUp } from 'lucide-react';
+import { Sliders, RotateCcw, ShieldAlert, TrendingUp, Globe } from 'lucide-react';
 import { ChartFrame } from '../ChartFrame';
 import { BenchmarkStrip } from '../../ui/BenchmarkStrip';
 import { runTornadoSensitivity } from '../../../engine/monteCarlo';
-import { getSafeScore, formatValue } from '../../../utils/scoreHelper';
-import { toDateMs } from '../../../utils/dateHelper';
+import { getSafeScore, formatValue, extractTopicsTotals } from '../../../utils/scoreHelper';
+import { toDateMs, getDateKey } from '../../../utils/dateHelper';
 
 const safeArr = (v) => (Array.isArray(v) ? v : (v && typeof v === 'object' ? Object.values(v) : [])).filter(Boolean);
 
@@ -54,6 +54,9 @@ export const TornadoWhatIfChart = React.memo(function TornadoWhatIfChart({
   historicalCutoffs = [],
   examGroupCutoffs = null,
   onSaveGroupCutoffs = null,
+  showOnlyFocus = false,
+  focusCategory = null,
+  timeWindow = 'all',
 }) {
   const [deltaPct, setDeltaPct] = useState(10);
   const [overrides, setOverrides] = useState({});
@@ -113,18 +116,34 @@ export const TornadoWhatIfChart = React.memo(function TornadoWhatIfChart({
     const isStrictNum = (v) =>
       v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
     const gRange = Math.max(1e-6, maxScore - minScore);
+    const todayKey = getDateKey(new Date());
     return safeArr(categories)
       .map((cat) => {
-        const cMin = isStrictNum(cat.minScore) ? Number(cat.minScore) : minScore;
-        const cMax = isStrictNum(cat.maxScore) && Number(cat.maxScore) > cMin ? Number(cat.maxScore) : maxScore;
+        const cMax = isStrictNum(cat.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : maxScore;
+        const cMin = isStrictNum(cat.minScore)
+          ? Math.min(Number(cat.minScore), cMax)
+          : (minScore < cMax ? minScore : 0);
         const cRange = Math.max(1e-6, cMax - cMin);
         const hist = safeArr(cat?.simuladoStats?.history)
-          .filter((h) => h && h.valid !== false && h.validated !== false)
-          .map((h, idx) => ({
-            score: getSafeScore(h, cMax, cMin),
-            ms: toDateMs(h.date || h.createdAt),
-            idx,
-          }))
+          .filter((h) => {
+            if (!h || h.valid === false || h.validated === false) return false;
+            const dk = getDateKey(h.date || h.createdAt);
+            if (todayKey && dk && dk > todayKey) return false;
+            return true;
+          })
+          .map((h, idx) => {
+            let sc = getSafeScore(h, cMax, cMin);
+            if (!Number.isFinite(sc) && h.topics != null) {
+              const tf = extractTopicsTotals(h, cMax, cMin);
+              if (tf.total > 0) sc = cMin + (tf.correct / tf.total) * cRange;
+              else if (tf.hasTopicsScore && Number.isFinite(tf.score)) sc = tf.score;
+            }
+            return {
+              score: sc,
+              ms: toDateMs(h.date || h.createdAt),
+              idx,
+            };
+          })
           .filter((entry) => Number.isFinite(entry.score))
           .sort((a, b) => {
             const ta = Number.isFinite(a.ms) ? a.ms : a.idx;
@@ -151,21 +170,25 @@ export const TornadoWhatIfChart = React.memo(function TornadoWhatIfChart({
           ? rawOverrideWeight
           : (isStrictNum(cat.weight) ? Number(cat.weight) : 10);
         if (resolvedWeight <= 0) return null;
+        const subjUnit = (typeof cat.unit === 'string' && cat.unit.trim())
+          ? cat.unit.trim()
+          : (cMin === 0 && cMax === 100 ? '%' : (unit === '%' ? 'pts' : unit));
         return {
-          id: cat.id || cat.name,
+          id: cat.id ?? cat.name,
           name: cat.name,
-          weight: Math.max(0.5, resolvedWeight),
+          weight: Math.max(0.01, resolvedWeight),
           mean,
           sd,
           minScore: cMin,
           maxScore: cMax,
           minCutoff: hasCutoff ? Number(cat.minCutoff) : null,
           examGroup: cat.examGroup || null,
+          unit: subjUnit,
         };
       })
       .filter(Boolean)
       .filter((s) => Number.isFinite(s.mean) && gRange > 0);
-  }, [categories, mcWeights, minScore, maxScore]);
+  }, [categories, mcWeights, minScore, maxScore, unit]);
 
   const hasOverrides = Object.values(overrides).some((v) => Number(v) !== 0);
 
@@ -215,11 +238,13 @@ export const TornadoWhatIfChart = React.memo(function TornadoWhatIfChart({
   const handleSaveCutoffsClick = () => {
     if (typeof onSaveGroupCutoffs === 'function') {
       const nextCutoffs = effectiveGroupCutoffs || {};
-      const nextKey = JSON.stringify({
+      const syncedDraft = {
         basicos: nextCutoffs?.basicos ?? '',
         especificos: nextCutoffs?.especificos ?? '',
         discursiva: nextCutoffs?.discursiva ?? '',
-      });
+      };
+      setDraftGroupCutoffs(syncedDraft);
+      const nextKey = JSON.stringify(syncedDraft);
       setLastSavedCutoffsKey(nextKey);
       onSaveGroupCutoffs(nextCutoffs);
       setSavedCutoffs(true);
@@ -251,6 +276,7 @@ export const TornadoWhatIfChart = React.memo(function TornadoWhatIfChart({
   );
   const toRiskWidth = (pct) => `${((Number(pct) || 0) / riskSum) * 100}%`;
   const unitSuffix = unit === '%' ? '%' : ` ${unit}`;
+  const subjectUnitMap = new Map(subjects.map((s) => [String(s.id), s.unit === '%' ? '%' : ` ${s.unit}`]));
   const probDeltaVsBase = hasOverrides && baselineResult
     ? Number((result.baseProbability - baselineResult.baseProbability).toFixed(1))
     : 0;
@@ -261,6 +287,14 @@ export const TornadoWhatIfChart = React.memo(function TornadoWhatIfChart({
 
   return (
     <div className="w-full space-y-5">
+      {(showOnlyFocus || (timeWindow && timeWindow !== 'all')) && (
+        <div className="flex items-center gap-2 rounded-xl border border-indigo-400/25 bg-indigo-500/10 px-3 py-2 text-[11px] text-indigo-200">
+          <Globe size={13} className="shrink-0 text-indigo-300" />
+          <span>
+            Simulação sempre considera o concurso completo ({subjects.length} disciplinas) usando os últimos 6 simulados de cada matéria{showOnlyFocus && focusCategory ? ` · Foco atual: ${focusCategory.name}` : ''}.
+          </span>
+        </div>
+      )}
       <BenchmarkStrip
         currentLabel={hasOverrides ? 'Chance simulada' : 'Chance de aprovação'}
         currentValue={`${result.baseProbability}%`}
@@ -331,11 +365,14 @@ export const TornadoWhatIfChart = React.memo(function TornadoWhatIfChart({
 
         {risk.subjectEliminationRates?.length > 0 && (
           <div className="flex flex-wrap gap-2 pt-1">
-            {risk.subjectEliminationRates.slice(0, 4).map((item) => (
-              <span key={item.id} className="text-[10px] font-mono px-2.5 py-1 rounded-lg bg-rose-500/10 border border-rose-500/25 text-rose-200">
-                {item.name}: <strong>{item.eliminationPct}%</strong> abaixo do corte ({item.minCutoff}{unitSuffix})
-              </span>
-            ))}
+            {risk.subjectEliminationRates.slice(0, 4).map((item) => {
+              const itemSuffix = subjectUnitMap.get(String(item.id)) ?? unitSuffix;
+              return (
+                <span key={item.id} className="text-[10px] font-mono px-2.5 py-1 rounded-lg bg-rose-500/10 border border-rose-500/25 text-rose-200">
+                  {item.name}: <strong>{item.eliminationPct}%</strong> abaixo do corte ({item.minCutoff}{itemSuffix})
+                </span>
+              );
+            })}
           </div>
         )}
 

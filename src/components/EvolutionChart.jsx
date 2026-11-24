@@ -481,8 +481,13 @@ function buildPredictiveCompareData(
         };
 
         // Parse a data base UMA VEZ antes do loop em APP_TIMEZONE
-        const baseKey = getDateKey(pts[lastIdx]?.date) || getDateKey(new Date());
+        const todayKey = getDateKey(new Date());
+        const lastKey = getDateKey(pts[lastIdx]?.date);
+        const baseKey = (lastKey && todayKey && todayKey > lastKey) ? todayKey : (lastKey || todayKey);
         const baseNoon = (baseKey ? parseNoonLocal(baseKey) : null) || normalizeDate(pts[lastIdx]?.date) || new Date();
+
+        const downSpread = Math.max(0, p50 - bandMin);
+        const upSpread = Math.max(0, bandMax - p50);
 
         const futurePoints = [];
         const totalDays = Math.max(1, projectDays || 30);
@@ -495,8 +500,8 @@ function buildPredictiveCompareData(
             const weight = Math.sqrt(t);
 
             const val = bounded(currentLevel + (p50 - currentLevel) * t);
-            const bandLow = bounded(currentLevel + (bandMin - currentLevel) * weight);
-            const bandHigh = bounded(currentLevel + (bandMax - currentLevel) * weight);
+            const bandLow = bounded(val - downSpread * weight);
+            const bandHigh = bounded(val + upSpread * weight);
 
             const dt = addDaysNoon(baseNoon, forwardDays);
             const iso = dt ? getDateKey(dt) : null;
@@ -855,14 +860,27 @@ export default React.memo(function EvolutionChart({
     const [selectedSubjectId, setFocusSubjectId] = useState(null);
     const { timeline, heatmapData, globalMetrics, activeCategories } = useChartData(categories, mcWeights, maxScore, minScore);
 
+    const isSameId = useCallback(
+        (a, b) => a !== null && a !== undefined && b !== null && b !== undefined && String(a) === String(b),
+        []
+    );
+
     // Prioriza activeCategories no default, mas respeita seleção explícita de qualquer categoria
     const focusSubjectId = useMemo(() => {
-        if (selectedSubjectId && categories && categories.some(c => c.id === selectedSubjectId)) {
-            return selectedSubjectId;
+        const hasSelected = selectedSubjectId !== null && selectedSubjectId !== undefined && String(selectedSubjectId).trim() !== '';
+        if (hasSelected && categories) {
+            const matched = categories.find(c => isSameId(c?.id, selectedSubjectId));
+            if (matched) return matched.id;
         }
         const pool = (Array.isArray(activeCategories) && activeCategories.length > 0) ? activeCategories : categories;
         return pool?.[0]?.id ?? categories?.[0]?.id;
-    }, [activeCategories, categories, selectedSubjectId]);
+    }, [activeCategories, categories, selectedSubjectId, isSameId]);
+
+    const handleSelectFocusValue = useCallback((rawVal) => {
+        if (rawVal === null || rawVal === undefined || String(rawVal).trim() === '') return;
+        const matched = categories.find(c => isSameId(c?.id, rawVal));
+        setFocusSubjectId(matched ? matched.id : rawVal);
+    }, [categories, isSameId]);
 
     const monteCarloHistoryArray = useMemo(
         () => (Array.isArray(monteCarloHistory) ? monteCarloHistory : Object.values(monteCarloHistory || {})),
@@ -972,7 +990,7 @@ export default React.memo(function EvolutionChart({
     }, []);
 
     const handleSelectCategory = useCallback((catId) => {
-        if (!hasDraggedRef.current && catId) {
+        if (!hasDraggedRef.current && catId !== null && catId !== undefined && String(catId).trim() !== '') {
             setFocusSubjectId(catId);
         }
     }, []);
@@ -1088,9 +1106,9 @@ export default React.memo(function EvolutionChart({
     const focusCategory = useMemo(() => {
         if (!categories || categories.length === 0) return null;
         const pool = (Array.isArray(activeCategories) && activeCategories.length > 0) ? activeCategories : categories;
-        const found = pool.find(c => c.id === focusSubjectId) || categories.find(c => c.id === focusSubjectId);
+        const found = pool.find(c => isSameId(c?.id, focusSubjectId)) || categories.find(c => isSameId(c?.id, focusSubjectId));
         return found || pool[0] || categories[0];
-    }, [activeCategories, categories, focusSubjectId]);
+    }, [activeCategories, categories, focusSubjectId, isSameId]);
 
     const focusMax = useMemo(() => {
         return hasValidNumber(focusCategory?.maxScore) && Number(focusCategory.maxScore) > 0
@@ -1099,9 +1117,11 @@ export default React.memo(function EvolutionChart({
     }, [focusCategory?.maxScore, maxScore]);
 
     const focusMin = useMemo(() => {
-        return hasValidNumber(focusCategory?.minScore)
-            ? Math.min(Number(focusCategory.minScore), focusMax)
-            : minScore;
+        if (hasValidNumber(focusCategory?.minScore)) {
+            return Math.min(Number(focusCategory.minScore), focusMax);
+        }
+        const gMin = hasValidNumber(minScore) ? Number(minScore) : 0;
+        return gMin < focusMax ? gMin : 0;
     }, [focusCategory?.minScore, focusMax, minScore]);
 
     const resolvedFocusUnit = resolveUnitForScale(unit, focusMin, focusMax);
@@ -1165,8 +1185,8 @@ export default React.memo(function EvolutionChart({
         const prevStartMs = prevStartNoon ? toDateMs(getDateKey(prevStartNoon)) : NaN;
         if (!Number.isFinite(currStartMs) || !Number.isFinite(prevStartMs)) return null;
 
-        const targetCats = (showOnlyFocus && focusCategory?.id)
-            ? categories.filter((c) => c && c.id === focusCategory.id)
+        const targetCats = (showOnlyFocus && focusCategory?.id != null)
+            ? categories.filter((c) => c && isSameId(c.id, focusCategory.id))
             : categories;
 
         let realQ = 0;
@@ -1281,10 +1301,14 @@ export default React.memo(function EvolutionChart({
             candidates.push("Nível Bayesiano");
         }
 
-        if (focusCategory?.id) {
-            candidates.push(`bay_${focusCategory.id}`);
-            candidates.push(`raw_${focusCategory.id}`);
-            candidates.push(`stats_${focusCategory.id}`);
+        if (focusCategory?.id != null) {
+            if (activeEngine === "raw") {
+                candidates.push(`raw_${focusCategory.id}`, `bay_${focusCategory.id}`, `stats_${focusCategory.id}`);
+            } else if (activeEngine === "stats") {
+                candidates.push(`stats_${focusCategory.id}`, `bay_${focusCategory.id}`, `raw_${focusCategory.id}`);
+            } else {
+                candidates.push(`bay_${focusCategory.id}`, `raw_${focusCategory.id}`, `stats_${focusCategory.id}`);
+            }
         }
 
         const points = Array.isArray(historicalData.result) ? historicalData.result : [];
@@ -1309,8 +1333,10 @@ export default React.memo(function EvolutionChart({
     }, [activeEngine, sampledHistorical, historicalData.future]);
 
     const effectiveMcHistoryData = useMemo(() => {
-        const rawList = Array.isArray(monteCarloHistoryArray) ? monteCarloHistoryArray : [];
+        const rawList = (Array.isArray(monteCarloHistoryArray) ? monteCarloHistoryArray : [])
+            .filter((item) => item && (hasValidNumber(item.mean) || hasValidNumber(item.projectedMean)));
         const fId = focusCategory?.id;
+        const hasFocusId = fId !== null && fId !== undefined && String(fId).trim() !== '';
 
         const applyWindow = (list) => {
             if (timeWindow === "all" || !list.length) return list;
@@ -1329,14 +1355,14 @@ export default React.memo(function EvolutionChart({
 
         const countUniqueDays = (list) => new Set(list.map((item) => getDateKey(item?.date)).filter(Boolean)).size;
 
-        const focusList = fId
+        const focusList = hasFocusId
             ? applyWindow(
                 rawList
-                    .filter((item) => item?.categoryId && String(item.categoryId) === String(fId))
+                    .filter((item) => item?.categoryId != null && String(item.categoryId) === String(fId))
                     .map((item) => ({ ...item, __fromFocus: true }))
             )
             : [];
-        const globalList = applyWindow(rawList.filter((item) => !item?.categoryId));
+        const globalList = applyWindow(rawList.filter((item) => item?.categoryId == null || String(item.categoryId).trim() === ''));
 
         const focusDays = countUniqueDays(focusList);
         const globalDays = countUniqueDays(globalList);
@@ -1349,15 +1375,15 @@ export default React.memo(function EvolutionChart({
         }
 
         const fallbackList = showOnlyFocus
-            ? (focusList.length > 0 ? focusList : globalList)
+            ? focusList
             : (globalList.length > 0 ? globalList : focusList);
 
         // Synthesize trajectory from Bayesian timeline when monteCarloHistory has <= 1 distinct day
         const pts = Array.isArray(filteredHistoricalData) ? filteredHistoricalData : [];
-        if (pts.length < 2) {
+        if (pts.length === 0) {
             return (!showOnlyFocus && globalDays >= 2) ? globalList : fallbackList;
         }
-        const useFocusDomain = Boolean(showOnlyFocus && fId);
+        const useFocusDomain = Boolean(showOnlyFocus && hasFocusId);
         const effMin = useFocusDomain ? focusMin : minScore;
         const effMax = useFocusDomain ? focusMax : maxScore;
         const effTarget = useFocusDomain ? focusTarget : targetScore;
@@ -1368,17 +1394,27 @@ export default React.memo(function EvolutionChart({
 
         const readMean = (pt) => (useFocusDomain
             ? (pt[`bay_${fId}`] ?? pt[`stats_${fId}`] ?? pt[`raw_${fId}`])
-            : (pt.global_bayesian ?? pt.global_ema ?? pt.global_raw ?? (fId ? (pt[`bay_${fId}`] ?? pt[`stats_${fId}`] ?? pt[`raw_${fId}`]) : null)));
+            : (pt.global_bayesian ?? pt.global_ema ?? pt.global_raw ?? (hasFocusId ? (pt[`bay_${fId}`] ?? pt[`stats_${fId}`] ?? pt[`raw_${fId}`]) : null)));
 
-        const validPts = pts.filter((pt) => hasValidNumber(readMean(pt)));
+        const hasFocusActivity = (pt) => hasValidNumber(pt[`raw_${fId}`]);
+        const activeFocusPts = useFocusDomain ? pts.filter((pt) => hasFocusActivity(pt) && hasValidNumber(readMean(pt))) : [];
+        const validPts = useFocusDomain
+            ? (activeFocusPts.length > 0 ? activeFocusPts : pts.filter((pt) => hasValidNumber(readMean(pt))))
+            : pts.filter((pt) => hasValidNumber(readMean(pt)));
 
         const synth = validPts
             .map((pt, idx) => {
                 const meanVal = readMean(pt);
                 const m = Number(meanVal);
-                const low = useFocusDomain && hasValidNumber(pt[`bay_ci_low_${fId}`]) ? Number(pt[`bay_ci_low_${fId}`]) : Math.max(safeMin, m - safeRange * 0.06);
-                const high = useFocusDomain && hasValidNumber(pt[`bay_ci_high_${fId}`]) ? Number(pt[`bay_ci_high_${fId}`]) : Math.min(safeMax, m + safeRange * 0.06);
                 const isLast = idx === validPts.length - 1;
+                const mcLow = useFocusDomain && isLast && hasValidNumber(activeMcResult?.ci95Low) ? Number(activeMcResult.ci95Low) : null;
+                const mcHigh = useFocusDomain && isLast && hasValidNumber(activeMcResult?.ci95High) ? Number(activeMcResult.ci95High) : null;
+                const low = mcLow != null
+                    ? mcLow
+                    : (useFocusDomain && hasValidNumber(pt[`bay_ci_low_${fId}`]) ? Number(pt[`bay_ci_low_${fId}`]) : Math.max(safeMin, m - safeRange * 0.06));
+                const high = mcHigh != null
+                    ? mcHigh
+                    : (useFocusDomain && hasValidNumber(pt[`bay_ci_high_${fId}`]) ? Number(pt[`bay_ci_high_${fId}`]) : Math.min(safeMax, m + safeRange * 0.06));
                 const proj = useFocusDomain && isLast && hasValidNumber(activeMcResult?.projectedMean)
                     ? Number(activeMcResult.projectedMean)
                     : m;
@@ -1402,8 +1438,9 @@ export default React.memo(function EvolutionChart({
             .filter(Boolean);
 
         if (synth.length >= 2) return synth;
-        if (globalDays >= 2) return globalList;
-        return fallbackList;
+        if (!showOnlyFocus && globalDays >= 2) return globalList;
+        if (fallbackList.length > 0) return fallbackList;
+        return synth;
     }, [monteCarloHistoryArray, timeWindow, filteredHistoricalData, focusCategory?.id, showOnlyFocus, minScore, maxScore, targetScore, focusMin, focusMax, focusTarget, activeMcResult]);
 
     const latestMetricsByCat = useMemo(() => {
@@ -1458,8 +1495,8 @@ export default React.memo(function EvolutionChart({
 
     const radarData = useMemo(() => {
         const baseCats = Array.isArray(activeCategories) ? activeCategories : [];
-        const sourceCats = (showOnlyFocus && focusCategory?.id)
-            ? baseCats.filter(c => c.id === focusCategory.id)
+        const sourceCats = (showOnlyFocus && focusCategory?.id != null)
+            ? baseCats.filter(c => isSameId(c?.id, focusCategory.id))
             : baseCats;
         if (!sourceCats || !sourceCats.length) return [];
         const globalMin = hasValidNumber(minScore) ? Number(minScore) : 0;
@@ -1521,14 +1558,17 @@ const focusHistoricalCutoffs = useMemo(() => {
 }, [historicalCutoffs, focusCategory, focusMax, focusMin, maxScore, minScore]);
 
 const insightUnit = useMemo(() => {
-    if (['raw', 'bayesian', 'stats', 'compare', 'mc_density', 'today_vs_general'].includes(activeEngine)) {
+    if (activeEngine === 'mc_density') {
+        return effectiveMcHistoryData?.[0]?.__fromFocus ? resolvedFocusUnit : resolvedGlobalUnit;
+    }
+    if (['raw', 'bayesian', 'stats', 'compare'].includes(activeEngine)) {
         return focusCategory ? resolvedFocusUnit : resolvedGlobalUnit;
     }
     if (['tornado_whatif', 'correlation_regimes'].includes(activeEngine)) {
         return resolvedGlobalUnit;
     }
     return resolvedActiveUnit;
-}, [activeEngine, focusCategory, resolvedFocusUnit, resolvedGlobalUnit, resolvedActiveUnit]);
+}, [activeEngine, effectiveMcHistoryData, focusCategory, resolvedFocusUnit, resolvedGlobalUnit, resolvedActiveUnit]);
 
 const insight = useMemo(() => {
     return generateEvolutionInsights({
@@ -1538,6 +1578,8 @@ const insight = useMemo(() => {
         activeEngine,
         categories,
         simuladoRows: simuladoRowsArray,
+        studyLogs: studyLogsArray,
+        mcHistoryData: effectiveMcHistoryData,
         unit: insightUnit,
         maxScore,
         minScore,
@@ -1559,6 +1601,8 @@ const insight = useMemo(() => {
     activeEngine,
     categories,
     simuladoRowsArray,
+    studyLogsArray,
+    effectiveMcHistoryData,
     insightUnit,
     maxScore,
     minScore,
@@ -1633,19 +1677,19 @@ const targetPctOfScale = useMemo(() => {
 const accountHasData = timeline.length >= 1;
 const filterHasData = useMemo(() => {
     if (filteredHistoricalData.length < 1) return false;
-    if (!showOnlyFocus || !focusCategory?.id) return true;
+    if (!showOnlyFocus || focusCategory?.id == null) return true;
     const fId = focusCategory.id;
     if (timeWindow !== 'all') {
         const hasRawInWindow = filteredHistoricalData.some((pt) => hasValidNumber(pt?.[`raw_${fId}`]));
         if (hasRawInWindow) return true;
         return (subjectAggData || []).some(
-            (item) => item?.id === fId && ((Number(item.realQuestoes) || 0) + (Number(item.syntheticQuestoes) || 0)) > 0
+            (item) => isSameId(item?.id, fId) && ((Number(item.realQuestoes) || 0) + (Number(item.syntheticQuestoes) || 0)) > 0
         );
     }
     return filteredHistoricalData.some(
         (pt) => hasValidNumber(pt?.[`raw_${fId}`]) || hasValidNumber(pt?.[`bay_${fId}`]) || hasValidNumber(pt?.[`stats_${fId}`])
     );
-}, [filteredHistoricalData, showOnlyFocus, focusCategory?.id, timeWindow, subjectAggData]);
+}, [filteredHistoricalData, showOnlyFocus, focusCategory?.id, timeWindow, subjectAggData, isSameId]);
 
 const accuracyDeltaVsTarget = useMemo(() => {
     if (!Number.isFinite(safeGlobalMetrics.globalAccuracy)) return null;
@@ -1773,13 +1817,13 @@ return (
                         <Target size={13} className="text-pink-400 absolute left-2.5 pointer-events-none" />
                         <select
                             aria-label="Selecionar disciplina em foco"
-                            value={focusCategory?.id || ''}
-                            onChange={(e) => setFocusSubjectId(e.target.value)}
+                            value={focusCategory?.id != null ? String(focusCategory.id) : ''}
+                            onChange={(e) => handleSelectFocusValue(e.target.value)}
                             className="appearance-none bg-transparent border-0 text-xs font-bold text-slate-200 pl-7 pr-7 h-full w-full truncate cursor-pointer focus:outline-none focus:ring-0"
                             style={{ backgroundColor: 'transparent', border: 'none' }}
                         >
                             {(activeCategories.length > 0 ? activeCategories : categories).map((c) => (
-                                <option key={c.id} value={c.id} className="bg-slate-900 text-slate-200">
+                                <option key={c.id} value={String(c.id)} className="bg-slate-900 text-slate-200">
                                     {c.name}
                                 </option>
                             ))}
@@ -2437,6 +2481,7 @@ return (
                                         maxScore={showOnlyFocus ? focusMax : maxScore}
                                         examDurationMinutes={examDurationMinutes}
                                         examTotalQuestions={examTotalQuestions}
+                                        penaltyPerWrong={penaltyPerWrong}
                                     />
                                 </React.Suspense>
                             ) : activeEngine === "exam_pacing" ? (
@@ -2447,6 +2492,8 @@ return (
                                         timeWindow={timeWindow}
                                         examDurationMinutes={examDurationMinutes}
                                         examTotalQuestions={examTotalQuestions}
+                                        showOnlyFocus={showOnlyFocus}
+                                        focusCategory={focusCategory}
                                     />
                                 </React.Suspense>
                             ) : activeEngine === "consistency_boxplot" ? (
@@ -2501,6 +2548,9 @@ return (
                                         unit={resolvedGlobalUnit}
                                         historicalCutoffs={historicalCutoffs}
                                         examGroupCutoffs={examGroupCutoffs}
+                                        showOnlyFocus={showOnlyFocus}
+                                        focusCategory={focusCategory}
+                                        timeWindow={timeWindow}
                                         onSaveGroupCutoffs={(nextCutoffs) => {
                                             const patchData = useAppStore.getState?.()?.patchData;
                                             if (typeof patchData === 'function') {
@@ -2557,7 +2607,7 @@ return (
                                     unit={effectiveMcHistoryData?.[0]?.__fromFocus ? resolvedFocusUnit : resolvedGlobalUnit}
                                     minScore={effectiveMcHistoryData?.[0]?.__fromFocus ? focusMin : minScore}
                                     maxScore={effectiveMcHistoryData?.[0]?.__fromFocus ? focusMax : maxScore}
-                                    loading={mcLoading}
+                                    loading={Boolean((showOnlyFocus || effectiveMcHistoryData?.[0]?.__fromFocus) && mcLoading)}
                                 />
                             ) : activeEngine === "weekly_diff" ? (
                                 <WeeklyEvolutionView
@@ -2576,10 +2626,10 @@ return (
                                     activeCategories={activeCategories}
                                     focusCategory={showOnlyFocus ? focusCategory : null}
                                     globalMetrics={safeGlobalMetrics}
-                                    targetScore={targetScore}
+                                    targetScore={showOnlyFocus ? focusTarget : targetScore}
                                     timeWindow={timeWindow}
-                                    maxScore={maxScore}
-                                    minScore={minScore}   // ✅ LOTE-01
+                                    maxScore={showOnlyFocus ? focusMax : maxScore}
+                                    minScore={showOnlyFocus ? focusMin : minScore}
                                     unit={resolvedActiveUnit}
                                     simuladoRows={simuladoRowsArray}
                                 />
@@ -2652,7 +2702,7 @@ return (
                 </div>
             </div>
 
-            {isMcEngine && focusCategory && (
+            {isMcEngine && focusCategory && (activeEngine !== "compare" || (accountHasData && filterHasData)) && (
                 <div className="mt-5 animate-fade-in-up">
                     <div className="rounded-2xl border border-white/[0.08] bg-slate-900/65 backdrop-blur-xl p-4 sm:p-5 shadow-[0_12px_36px_-18px_rgba(0,0,0,0.65)] relative group">
                         <div className="absolute inset-0 overflow-hidden pointer-events-none rounded-2xl">
@@ -2667,20 +2717,20 @@ return (
                                 <div className="relative z-20 inline-flex items-center mb-3.5 max-w-full self-start rounded-xl bg-slate-950/75 border border-indigo-400/30 hover:border-indigo-400/50 transition-colors">
                                     <Zap size={13} className="text-indigo-400 absolute left-2.5 pointer-events-none" />
                                     <select
-                                        value={focusCategory?.id || ''}
-                                        onChange={(e) => setFocusSubjectId(e.target.value)}
+                                        value={focusCategory?.id != null ? String(focusCategory.id) : ''}
+                                        onChange={(e) => handleSelectFocusValue(e.target.value)}
                                         className="appearance-none bg-transparent border-0 text-xs font-bold text-indigo-200 pl-7 pr-7 py-1.5 cursor-pointer hover:text-white transition-colors truncate max-w-[260px] focus:outline-none focus:ring-0"
                                         style={{ backgroundColor: 'transparent', border: 'none' }}
                                     >
                                         {(activeCategories.length > 0 ? activeCategories : categories).map(c => (
-                                            <option key={c.id} value={c.id} className="bg-slate-900 text-slate-200">
+                                            <option key={c.id} value={String(c.id)} className="bg-slate-900 text-slate-200">
                                                 Foco: {c.name}
                                             </option>
                                         ))}
                                     </select>
                                     <ChevronDown size={13} className="text-indigo-300 absolute right-2.5 pointer-events-none" />
                                 </div>
-                                <div className="h-[280px] w-full mb-1">
+                                <div className="min-h-[280px] w-full mb-1">
                                     <GaussianPlot
                                         mean={activeMcResult?.projectedMean ?? activeMcResult?.mean ?? focusMin}
                                         projectedMean={activeMcResult?.projectedMean ?? activeMcResult?.mean ?? focusMin}

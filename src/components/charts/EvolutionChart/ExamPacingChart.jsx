@@ -8,11 +8,12 @@ import {
   Tooltip,
   ResponsiveContainer,
   Legend,
+  Cell,
 } from 'recharts';
-import { Clock, AlertTriangle, CheckCircle2, Save } from 'lucide-react';
+import { Clock, AlertTriangle, CheckCircle2, Save, Globe } from 'lucide-react';
 import { ChartFrame } from '../ChartFrame';
 import { BenchmarkStrip } from '../../ui/BenchmarkStrip';
-import { buildExamPacingData } from '../../../utils/advancedChartHelpers';
+import { buildExamPacingData, normalizeExamPacingConfig } from '../../../utils/advancedChartHelpers';
 import { useAppStore } from '../../../store/useAppStore';
 
 const fmtMinutes = (mins) => {
@@ -68,11 +69,14 @@ export const ExamPacingChart = React.memo(function ExamPacingChart({
   timeWindow = 'all',
   examDurationMinutes: propDuration = null,
   examTotalQuestions: propQuestions = null,
+  showOnlyFocus = false,
+  focusCategory = null,
 }) {
   const patchData = useAppStore((s) => s.patchData);
   const setData = useAppStore((s) => s.setData);
-  const normalizedPropDur = Number(propDuration) > 0 ? Number(propDuration) : 240;
-  const normalizedPropQ = Number(propQuestions) > 0 ? Number(propQuestions) : 100;
+  const normalizedProps = normalizeExamPacingConfig(propDuration, propQuestions);
+  const normalizedPropDur = normalizedProps.examDurationMinutes;
+  const normalizedPropQ = normalizedProps.examTotalQuestions;
   const [prevPropDur, setPrevPropDur] = useState(normalizedPropDur);
   const [prevPropQ, setPrevPropQ] = useState(normalizedPropQ);
   const [durationInput, setDurationInput] = useState(String(normalizedPropDur));
@@ -98,8 +102,14 @@ export const ExamPacingChart = React.memo(function ExamPacingChart({
     if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
   }, []);
 
-  const safeDurationNum = Math.max(15, Math.min(720, Math.round(Number(durationInput) || normalizedPropDur)));
-  const safeQuestionsNum = Math.max(5, Math.min(500, Math.round(Number(questionsInput) || normalizedPropQ)));
+  const parsedInputDur = Number(durationInput);
+  const parsedInputQ = Number(questionsInput);
+  const normalizedLive = normalizeExamPacingConfig(
+    Number.isFinite(parsedInputDur) && parsedInputDur > 0 ? parsedInputDur : normalizedPropDur,
+    Number.isFinite(parsedInputQ) && parsedInputQ > 0 ? parsedInputQ : normalizedPropQ
+  );
+  const safeDurationNum = normalizedLive.examDurationMinutes;
+  const safeQuestionsNum = normalizedLive.examTotalQuestions;
 
   const data = useMemo(
     () =>
@@ -113,8 +123,10 @@ export const ExamPacingChart = React.memo(function ExamPacingChart({
   );
 
   const handleSaveExamConfig = () => {
-    const safeDur = Math.max(15, Math.min(720, Math.round(Number(durationInput) || 240)));
-    const safeQ = Math.max(5, Math.min(500, Math.round(Number(questionsInput) || 100)));
+    const { examDurationMinutes: safeDur, examTotalQuestions: safeQ } = normalizeExamPacingConfig(
+      Number(durationInput) > 0 ? Number(durationInput) : 240,
+      Number(questionsInput) > 0 ? Number(questionsInput) : 100
+    );
     setDurationInput(String(safeDur));
     setQuestionsInput(String(safeQ));
     setLastSavedKey(`${safeDur}|${safeQ}`);
@@ -138,11 +150,23 @@ export const ExamPacingChart = React.memo(function ExamPacingChart({
     }, 2000);
   };
 
-  const isOverTime = data.deltaMinutes > 0;
+  const roundedDelta = Math.round(data.deltaMinutes);
+  const isOverTime = roundedDelta > 0;
+  const isExactTime = roundedDelta === 0;
+  const untimedCount = data.subjects.filter((s) => !s.hasTimedData).length;
   const barScaleMax = Math.max(data.examDurationMinutes, data.totalProjectedMinutes, 1);
+  const chartMinWidth = Math.max(480, data.subjects.length * 64);
 
   return (
     <div className="w-full space-y-5">
+      {showOnlyFocus && focusCategory && (
+        <div className="flex items-center gap-2 rounded-xl border border-indigo-400/25 bg-indigo-500/10 px-3 py-2 text-[11px] text-indigo-200">
+          <Globe size={13} className="shrink-0 text-indigo-300" />
+          <span>
+            O ritmo de prova simula o edital completo ({data.subjects.length} disciplinas). <strong>{focusCategory.name}</strong> está destacada abaixo.
+          </span>
+        </div>
+      )}
       {/* Configuração rápida da prova */}
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/[0.08] bg-slate-950/55 p-3.5">
         <div className="flex flex-wrap items-center gap-3 text-xs">
@@ -200,9 +224,10 @@ export const ExamPacingChart = React.memo(function ExamPacingChart({
             currentValue={`${fmtMinutes(data.totalProjectedMinutes)} (${Math.round(data.overallAvgSec)}s/q)`}
             targetLabel="Limite edital"
             targetValue={`${fmtMinutes(data.examDurationMinutes)} (${Math.round(data.idealSecPerQuestion)}s/q)`}
-            gapLabel={Math.round(data.deltaMinutes) === 0 ? 'No limite exato ✓' : (isOverTime ? `+${fmtMinutes(data.deltaMinutes)} acima` : `${fmtMinutes(Math.abs(data.deltaMinutes))} de folga`)}
-            status={isOverTime ? (data.deltaMinutes > 15 ? 'danger' : 'warning') : 'success'}
+            gapLabel={isExactTime ? 'No limite exato ✓' : (isOverTime ? `+${fmtMinutes(roundedDelta)} acima` : `${fmtMinutes(Math.abs(roundedDelta))} de folga`)}
+            status={isOverTime ? (roundedDelta > 15 ? 'danger' : 'warning') : 'success'}
             progressPct={Math.min(100, (data.examDurationMinutes / Math.max(1, data.totalProjectedMinutes)) * 100)}
+            extra={untimedCount > 0 ? `${untimedCount} ${untimedCount === 1 ? 'matéria estimada' : 'matérias estimadas'} pela média geral` : null}
             compact
           />
 
@@ -217,8 +242,10 @@ export const ExamPacingChart = React.memo(function ExamPacingChart({
                 )}
                 <p className="text-sm font-black text-white tabular-nums">
                   {isOverTime
-                    ? `Estouro estimado de +${fmtMinutes(data.deltaMinutes)} (~${data.estimatedUnanswered} questões sem tempo)`
-                    : `Folga estimada de ${fmtMinutes(Math.abs(data.deltaMinutes))} para revisão e gabarito`}
+                    ? `Estouro estimado de +${fmtMinutes(roundedDelta)} (~${data.estimatedUnanswered} ${data.estimatedUnanswered === 1 ? 'questão' : 'questões'} sem tempo)`
+                    : isExactTime
+                      ? `Tempo projetado no limite exato da prova (${fmtMinutes(data.examDurationMinutes)})`
+                      : `Folga estimada de ${fmtMinutes(Math.abs(roundedDelta))} para revisão e gabarito`}
                 </p>
               </div>
               <span className="text-xs font-mono font-bold tabular-nums text-slate-300">
@@ -230,11 +257,12 @@ export const ExamPacingChart = React.memo(function ExamPacingChart({
             <div className="relative h-6 rounded-xl bg-slate-900/90 border border-white/10 overflow-hidden flex">
               {data.subjects.map((subj) => {
                 const widthPct = (subj.projectedMinutes / barScaleMax) * 100;
+                const isFocused = Boolean(showOnlyFocus && focusCategory?.id != null && String(subj.id) === String(focusCategory.id));
                 return (
                   <div
                     key={subj.id}
                     style={{ width: `${widthPct}%`, backgroundColor: subj.color }}
-                    className="h-full border-r border-slate-950/60 opacity-85 hover:opacity-100 transition-opacity"
+                    className={`h-full border-r border-slate-950/60 transition-opacity ${isFocused ? 'opacity-100 ring-1 ring-inset ring-white/80' : 'opacity-85 hover:opacity-100'}`}
                     title={`${subj.name}: ${subj.projectedMinutes} min (${subj.allocatedQuestions}q)`}
                   />
                 );
@@ -254,28 +282,48 @@ export const ExamPacingChart = React.memo(function ExamPacingChart({
           </div>
 
           {/* Comparativo por disciplina: Tempo Projetado vs Orçamento Ideal */}
-          <ChartFrame minHeight={300} label="Simulando orçamento por disciplina">
-            <div className="h-[300px] w-full" role="img" aria-label="Comparativo de tempo projetado versus orçamento ideal por matéria">
-              <ResponsiveContainer width="100%" height="100%" minHeight={260} minWidth={1}>
-                <BarChart data={data.subjects} margin={{ top: 12, right: 20, left: 4, bottom: 32 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
-                  <XAxis
-                    dataKey="name"
-                    stroke="#64748b"
-                    fontSize={10}
-                    interval={0}
-                    angle={-20}
-                    textAnchor="end"
-                    height={55}
-                    tickFormatter={(v) => (String(v).length > 16 ? `${String(v).slice(0, 15)}…` : v)}
-                  />
-                  <YAxis stroke="#64748b" fontSize={11} tickFormatter={(v) => `${v}m`} />
-                  <Tooltip content={<PacingTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
-                  <Legend wrapperStyle={{ fontSize: 11 }} />
-                  <Bar dataKey="budgetMinutes" name="Orçamento Ideal (min)" fill="#334155" radius={[6, 6, 0, 0]} />
-                  <Bar dataKey="projectedMinutes" name="Seu Tempo Projetado (min)" fill="#06b6d4" radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+          <ChartFrame minHeight={320} label="Simulando orçamento por disciplina">
+            <div className="w-full overflow-x-auto custom-scrollbar">
+              <div className="h-[320px]" style={{ minWidth: `${chartMinWidth}px` }} role="img" aria-label="Comparativo de tempo projetado versus orçamento ideal por matéria">
+                <ResponsiveContainer width="100%" height="100%" minHeight={280} minWidth={1}>
+                  <BarChart data={data.subjects} margin={{ top: 8, right: 20, left: 4, bottom: 32 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
+                    <XAxis
+                      dataKey="name"
+                      stroke="#64748b"
+                      fontSize={10}
+                      interval={0}
+                      angle={-20}
+                      textAnchor="end"
+                      height={58}
+                      tickFormatter={(v) => (String(v).length > 16 ? `${String(v).slice(0, 15)}…` : v)}
+                    />
+                    <YAxis stroke="#64748b" fontSize={11} tickFormatter={(v) => `${v}m`} />
+                    <Tooltip content={<PacingTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+                    <Legend verticalAlign="top" height={28} wrapperStyle={{ fontSize: 11 }} />
+                    <Bar dataKey="budgetMinutes" name="Orçamento Ideal (min)" fill="#334155" radius={[6, 6, 0, 0]} />
+                    <Bar dataKey="projectedMinutes" name="Seu Tempo Projetado (min)" fill="#06b6d4" radius={[6, 6, 0, 0]}>
+                      {data.subjects.map((subj) => {
+                        const statusFill = subj.status === 'over'
+                          ? '#f43f5e'
+                          : subj.status === 'under'
+                            ? '#10b981'
+                            : '#06b6d4';
+                        const isFocused = Boolean(showOnlyFocus && focusCategory?.id != null && String(subj.id) === String(focusCategory.id));
+                        return (
+                          <Cell
+                            key={subj.id}
+                            fill={statusFill}
+                            fillOpacity={subj.hasTimedData ? 0.9 : 0.48}
+                            stroke={isFocused ? '#fbbf24' : 'none'}
+                            strokeWidth={isFocused ? 2 : 0}
+                          />
+                        );
+                      })}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           </ChartFrame>
         </>

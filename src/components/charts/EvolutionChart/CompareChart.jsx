@@ -32,11 +32,21 @@ export const CompareChart = React.memo(function CompareChart({
 }) {
     const baseId = useId().replace(/:/g, '');
     const containerRef = React.useRef(null);
-    const [containerHeight, setContainerHeight] = React.useState(360);
+    const [containerDims, setContainerDims] = React.useState({ width: 700, height: 360 });
 
     React.useEffect(() => {
         if (!containerRef.current) return;
         const el = containerRef.current;
+        const syncInitial = () => {
+            const rect = el.getBoundingClientRect?.();
+            if (rect && (rect.height > 50 || rect.width > 100)) {
+                setContainerDims((prev) => ({
+                    width: rect.width > 100 ? rect.width : prev.width,
+                    height: rect.height > 50 ? rect.height : prev.height,
+                }));
+            }
+        };
+        syncInitial();
         let debounceTimer = null;
         let obs = null;
         try {
@@ -44,8 +54,14 @@ export const CompareChart = React.memo(function CompareChart({
                 if (debounceTimer) clearTimeout(debounceTimer);
                 debounceTimer = setTimeout(() => {
                     for (const entry of entries) {
+                        const w = entry.contentRect.width;
                         const h = entry.contentRect.height;
-                        if (h > 50) setContainerHeight(h);
+                        if (h > 50 || w > 100) {
+                            setContainerDims((prev) => ({
+                                width: w > 100 ? w : prev.width,
+                                height: h > 50 ? h : prev.height,
+                            }));
+                        }
                     }
                 }, 100);
             });
@@ -207,55 +223,71 @@ export const CompareChart = React.memo(function CompareChart({
         };
     }, [chartData, lastValidIdx, solveCollisions]);
 
+    const [brushState, setBrushState] = React.useState({ source: null, startIndex: 0 });
+    const brushStart = brushState.source === chartData ? brushState.startIndex : 0;
+
+    const formatXAxisTick = useCallback(
+        (val) => futureDisplayByDate.get(val) || formatDisplayDate(val),
+        [futureDisplayByDate]
+    );
+
+    const handleBrushChange = useCallback(
+        (range) => {
+            const nextStart = Math.max(0, Number(range?.startIndex) || 0);
+            setBrushState({ source: chartData, startIndex: nextStart });
+        },
+        [chartData]
+    );
+
     const renderLabel = useCallback((props, type, color) => {
-        const { x, index, value, viewBox } = props;
+        const { x, y, index, value } = props;
         if (!isValidValue(value) || !Number.isFinite(Number(x))) {
           return null;
         }
-        
+        const fullIndex = Number(index) + brushStart;
+
         const isMc = type === 'mc';
         const isBay = type === 'bay';
         const isRaw = type === 'raw';
         const isStats = type === 'stats';
 
         let isValid = false;
-        if (isMc) isValid = lastValidIdx.mc === index;
-        else if (isBay) isValid = lastValidIdx.bay === index;
-        else if (isRaw) isValid = lastValidIdx.raw === index;
-        else if (isStats) isValid = lastValidIdx.stats === index;
+        if (isMc) isValid = lastValidIdx.mc === fullIndex;
+        else if (isBay) isValid = lastValidIdx.bay === fullIndex;
+        else if (isRaw) isValid = lastValidIdx.raw === fullIndex;
+        else if (isStats) isValid = lastValidIdx.stats === fullIndex;
 
         if (!isValid) return null;
 
-        let ptPos = Number.isFinite(Number(value)) ? Number(value) : safeMinScore;
-        const isFuture = isFuturePoint && index === futureIdx;
-        const pts = isFuture ? lastY : (index === todayIdx ? todayY : null);
+        const numVal = Number(value);
+        let ptPos = Number.isFinite(numVal) ? numVal : safeMinScore;
+        const isFuture = isFuturePoint && fullIndex === futureIdx;
+        const pts = isFuture ? lastY : (fullIndex === todayIdx ? todayY : null);
         if (pts && pts.length) {
             const pt = pts.find(p => p.name === type);
             if (pt && pt.yPos != null && Number.isFinite(Number(pt.yPos))) ptPos = Number(pt.yPos);
         }
 
         const xOff = isMc ? 12 : 10;
-        let formatted;
-        if (unit === 'horas') {
-            formatted = formatDuration(Number.isFinite(Number(value)) ? Number(value) : 0);
-        } else {
-            const rounded = Number((Number.isFinite(Number(value)) ? Number(value) : 0).toFixed(2));
-            formatted = `${rounded}${unit}`;
-        }
-        const boxWidth = Math.max(42, formatted.length * 7 + 14);
+        const formatted = unit === 'horas'
+            ? formatDuration(Number.isFinite(numVal) ? numVal : 0)
+            : `${formatValue(Number.isFinite(numVal) ? numVal : 0)}${unit}`;
+        const boxWidth = Math.max(44, formatted.length * 6.8 + 14);
 
-        const chartHeight = viewBox?.height ?? (containerHeight > 40 ? containerHeight - 40 : 320);
-        const chartY = viewBox?.y ?? 20;
-        const range = safeMaxScore - safeMinScore;
-        const pxPerPct = chartHeight / (range || 1);
-        
-        let rawY = chartY + chartHeight - (ptPos - safeMinScore) * pxPerPct - 10;
-        if (!Number.isFinite(rawY)) rawY = chartY + chartHeight / 2;
-        const safeY = Math.max(2, Math.min(chartY + chartHeight - 22, rawY));
-        
-        const maxX = (viewBox?.width ?? 700) + (viewBox?.x ?? 0) + 82;
-        const labelX = Math.max(0, Math.min(x + xOff - 2, maxX - boxWidth));
-        
+        const plotHeight = Math.max(120, (containerDims.height || 360) - 108);
+        const range = Math.max(1e-6, safeMaxScore - safeMinScore);
+        const pxPerUnit = plotHeight / range;
+        const deltaY = Number.isFinite(numVal) && Number.isFinite(ptPos)
+            ? (numVal - ptPos) * pxPerUnit
+            : 0;
+        const baseY = Number.isFinite(Number(y))
+            ? Number(y) + deltaY - 11
+            : 20 + plotHeight - (ptPos - safeMinScore) * pxPerUnit - 11;
+        const safeY = Math.max(4, Math.min(plotHeight + 20, Number.isFinite(baseY) ? baseY : plotHeight / 2));
+
+        const maxX = Math.max(240, (containerDims.width || 700) - 8);
+        const labelX = Math.max(0, Math.min(Number(x) + xOff - 2, maxX - boxWidth));
+
         return (
             <g>
                 <rect x={labelX} y={safeY - 1} width={boxWidth} height={22} rx={8}
@@ -267,7 +299,7 @@ export const CompareChart = React.memo(function CompareChart({
                 </text>
             </g>
         );
-    }, [lastValidIdx, safeMinScore, safeMaxScore, isFuturePoint, futureIdx, lastY, todayIdx, todayY, unit, containerHeight]);
+    }, [brushStart, lastValidIdx, safeMinScore, safeMaxScore, isFuturePoint, futureIdx, lastY, todayIdx, todayY, unit, containerDims.height, containerDims.width]);
 
     const renderBayLabel = useCallback((props) => renderLabel(props, 'bay', '#34d399'), [renderLabel]);
     const renderRawLabel = useCallback((props) => renderLabel(props, 'raw', '#fb923c'), [renderLabel]);
@@ -276,14 +308,15 @@ export const CompareChart = React.memo(function CompareChart({
 
     const renderMcDot = useCallback((props) => {
         const { cx, cy, index } = props;
-        if (index !== lastValidIdx.mc || cx == null || cy == null) return null;
+        const fullIndex = Number(index) + brushStart;
+        if (fullIndex !== lastValidIdx.mc || cx == null || cy == null) return null;
         return (
-            <g key={`mc_dot_${index}`}>
+            <g key={`mc_dot_${fullIndex}`}>
                 <circle cx={cx} cy={cy} r={10} fill="#a78bfa" opacity="0.25" />
                 <circle cx={cx} cy={cy} r={5} fill="#a78bfa" stroke="#ffffff" strokeWidth={2} />
             </g>
         );
-    }, [lastValidIdx.mc]);
+    }, [brushStart, lastValidIdx.mc]);
 
     const renderCompareTooltip = useCallback(
         (props) => <ChartTooltip {...props} chartData={chartData} isCompare={true} unit={unit} maxScore={safeMaxScore} minScore={safeMinScore} targetScore={safeTargetScore} />,
@@ -360,7 +393,7 @@ export const CompareChart = React.memo(function CompareChart({
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
                     <XAxis 
                         dataKey="date" 
-                        tickFormatter={(val) => futureDisplayByDate.get(val) || formatDisplayDate(val)}
+                        tickFormatter={formatXAxisTick}
                         tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }} 
                         dy={12} 
                         axisLine={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1 }} 
@@ -471,7 +504,8 @@ export const CompareChart = React.memo(function CompareChart({
                             height={26} 
                             stroke="#6366f1" 
                             fill="rgba(15, 23, 42, 0.85)" 
-                            tickFormatter={formatDisplayDate}
+                            tickFormatter={formatXAxisTick}
+                            onChange={handleBrushChange}
                             travellerWidth={10}
                         />
                     )}

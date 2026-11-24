@@ -400,6 +400,7 @@ export function extractTopicsTotals(entry, maxScore = 100, minScore = 0) {
 
   for (const t of topicsList) {
     if (!t || typeof t !== "object") continue;
+    if (t.valid === false || t.validated === false) continue;
     const tEff = (t.penaltyPerWrong == null && parentPenalty > 0)
       ? { ...t, penaltyPerWrong: parentPenalty }
       : t;

@@ -31,19 +31,21 @@ export function applyScenarioAdjustments(data = [], scenario = 'base', maxScore 
       : mean;
     const rawCi0 = Number(d?.ciRange?.[0]);
     const rawCi1 = Number(d?.ciRange?.[1]);
-    const baseCi0 = Number.isFinite(rawCi0) ? rawCi0 : preMean;
-    const baseCi1 = Number.isFinite(rawCi1) ? rawCi1 : preMean;
-    let rawLow;
-    let rawHigh;
-    if (mean >= baseCi0 && mean <= baseCi1) {
-      rawLow = mean - ((mean - baseCi0) * cfg.ciMult);
-      rawHigh = mean + ((baseCi1 - mean) * cfg.ciMult);
-    } else {
-      const halfLow = Math.max(0, preMean - baseCi0);
-      const halfHigh = Math.max(0, baseCi1 - preMean);
-      rawLow = mean - (halfLow * cfg.ciMult);
-      rawHigh = mean + (halfHigh * cfg.ciMult);
-    }
+    const baseCi0 = Number.isFinite(rawCi0) ? Math.min(rawCi0, Number.isFinite(rawCi1) ? rawCi1 : rawCi0) : preMean;
+    const baseCi1 = Number.isFinite(rawCi1) ? Math.max(Number.isFinite(rawCi0) ? rawCi0 : rawCi1, rawCi1) : preMean;
+    const preProjMean = d?.projectedMean !== undefined && Number.isFinite(Number(d.projectedMean))
+      ? Number(d.projectedMean)
+      : preMean;
+    // Ancora o escalonamento do IC no centro efetivo do intervalo (ou projeção quando dentro do IC),
+    // garantindo identidade exata no cenário 'base' (meanBias=0, ciMult=1) e direção correta no conservador/otimista.
+    const baseCenter = (preProjMean >= baseCi0 && preProjMean <= baseCi1)
+      ? preProjMean
+      : ((baseCi0 + baseCi1) / 2);
+    const halfLow = Math.max(0, baseCenter - baseCi0);
+    const halfHigh = Math.max(0, baseCi1 - baseCenter);
+    const shiftedCenter = Math.max(lowerBound, Math.min(upperBound, baseCenter + meanBias));
+    const rawLow = shiftedCenter - (halfLow * cfg.ciMult);
+    const rawHigh = shiftedCenter + (halfHigh * cfg.ciMult);
     const low = Math.max(lowerBound, Math.min(upperBound, rawLow));
     const high = Math.max(lowerBound, Math.min(upperBound, rawHigh));
     const rawProb = Number(d?.probability);

@@ -885,7 +885,10 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
     const historyWithSynthetics = safeHistory
         .map(h => {
             const score = getSafeScore(h, safeMaxScore, safeMinScore);
-            let total = Number(h?.total ?? h?.questoes ?? h?.totalQuestoes ?? h?.questions);
+            const compTot = Number(h?.compTotal);
+            let total = (Number.isFinite(compTot) && compTot > 0)
+                ? compTot
+                : Number(h?.total ?? h?.questoes ?? h?.totalQuestoes ?? h?.questions);
             if ((!Number.isFinite(total) || total <= 0) && h && typeof h === 'object' && h.topics != null) {
                 const tf = extractTopicsTotals(h, safeMaxScore, safeMinScore);
                 if (tf.total > 0) {
@@ -918,7 +921,8 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
         .filter(Boolean);
 
     const validHistory = historyWithSynthetics.filter(h => {
-        const total = Number(h?.total);
+        const compTot = Number(h?.compTotal);
+        const total = (Number.isFinite(compTot) && compTot > 0) ? compTot : Number(h?.total);
         return Number.isFinite(total) && total > 0;
     });
 
@@ -936,7 +940,8 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
     let sumScoreMean = 0;
 
     validHistoryForMean.forEach(h => {
-        const totalWeight = Number(h?.total);
+        const compTot = Number(h?.compTotal);
+        const totalWeight = (Number.isFinite(compTot) && compTot > 0) ? compTot : Number(h?.total);
         if (!Number.isFinite(totalWeight) || totalWeight <= 0) return;
 
         const rawDiff = Number(h?.weight ?? h?.difficulty ?? 1.0);

@@ -27,7 +27,9 @@ function resolveScale(cat, globalMax = 100, globalMin = 0) {
   const cMax = toFinite(cat?.maxScore, null);
   const cMin = toFinite(cat?.minScore, null);
   const max = cMax !== null && cMax > 0 ? cMax : gMax;
-  const min = cMin !== null ? Math.min(cMin, max - 1e-6) : Math.min(gMin, max - 1e-6);
+  const min = cMin !== null
+    ? Math.min(cMin, max - 1e-6)
+    : (gMin < max ? gMin : Math.min(0, max - 1));
   return { min, max, range: Math.max(1e-9, max - min) };
 }
 
@@ -103,37 +105,196 @@ export function buildSpeedAccuracyData(categories = [], simuladoRows = [], optio
     minScore = 0,
     maxScore = 100,
     idealSecondsPerQuestion = null,
+    penaltyPerWrong = 0,
   } = options;
 
   const cutoffMs = getCutoffMs(timeWindow);
   const gMin = toFinite(minScore, 0);
   const gMax = Math.max(gMin + 1, toFinite(maxScore, 100));
-  const targetPct = clamp(((toFinite(targetScore, gMin + 0.8 * (gMax - gMin)) - gMin) / (gMax - gMin)) * 100, 10, 99);
+  const rawTargetPct = clamp(((toFinite(targetScore, gMin + 0.8 * (gMax - gMin)) - gMin) / (gMax - gMin)) * 100, 10, 99);
+  const roundedTargetPct = Number(rawTargetPct.toFixed(1));
+  const globalPenalty = Math.max(0, toFinite(penaltyPerWrong, 0));
 
-  const cats = safeArr(categories).filter((c) => !showOnlyFocus || !focusSubjectId || c.id === focusSubjectId);
+  const hasFocusId = focusSubjectId !== null && focusSubjectId !== undefined && String(focusSubjectId).trim() !== '';
+  const matchesFocusCat = (cat) => cat?.id !== null && cat?.id !== undefined && String(cat.id) === String(focusSubjectId);
+  const allCats = safeArr(categories);
+  const cats = (showOnlyFocus && hasFocusId) ? allCats.filter(matchesFocusCat) : allCats;
   const rows = safeArr(simuladoRows).filter((r) => r && r.valid !== false && r.validated !== false);
+  const windowedRows = filterDatedEntriesByWindow(rows, (r) => r.date || r.createdAt, cutoffMs);
 
+  const resolveEffectiveTiming = (h, catMax, catMin) => {
+    const rootTs = toFinite(h?.timeSpent ?? h?.durationSeconds, 0);
+    const explicitTimedQ = toFinite(h?.timedQuestoes, 0);
+    const topics = safeArr(h?.topics);
+    let topicsTs = 0;
+    let topicsTq = 0;
+    let allExplicit = true;
+    topics.forEach((t) => {
+      if (!t || t.valid === false || t.validated === false) return;
+      const tTs = toFinite(t?.timeSpent ?? t?.durationSeconds, 0);
+      const tExpQ = toFinite(t?.timedQuestoes, 0);
+      const tQ = tExpQ > 0 ? tExpQ : toFinite(t?.total ?? t?.questoes ?? t?.totalQuestoes ?? t?.questions, 0);
+      if (tTs > 0 && tQ > 0) {
+        topicsTs += tTs;
+        topicsTq += tQ;
+        if (tExpQ <= 0) allExplicit = false;
+      }
+    });
+    const rootAuthoritative = rootTs > 0 && explicitTimedQ > 0 && ((!allExplicit && topicsTq > explicitTimedQ) || topicsTs < rootTs);
+    if (topicsTs > 0 && topicsTq > 0 && !rootAuthoritative) {
+      return { ts: topicsTs, tq: topicsTq };
+    }
+    let tot = toFinite(h?.total ?? h?.questoes ?? h?.totalQuestoes ?? h?.questions, 0);
+    if (tot <= 0 && h?.topics != null) {
+      const tf = extractTopicsTotals(h, catMax, catMin);
+      if (tf.total > 0) tot = tf.total;
+    }
+    const tq = explicitTimedQ > 0 ? explicitTimedQ : (rootTs > 0 ? tot : 0);
+    return (rootTs > 0 && tq > 0) ? { ts: rootTs, tq } : { ts: 0, tq: 0 };
+  };
+
+  // Compute global pre-focus subject median for auto-benchmark so activating showOnlyFocus never inverts quadrants
+  const computeSubjectPoint = (cat) => {
+    const { min, max, range } = resolveScale(cat, gMax, gMin);
+    const validHistory = safeArr(cat?.simuladoStats?.history)
+      .filter((h) => h && h.valid !== false && h.validated !== false);
+    const history = filterDatedEntriesByWindow(validHistory, (h) => h.date || h.createdAt, cutoffMs);
+
+    let timeSpent = 0;
+    let timedQuestions = 0;
+    let totalQuestions = 0;
+    let correct = 0;
+    let weightedAccNum = 0;
+    let weightedAccDen = 0;
+    const coveredTimedDates = new Set();
+
+    history.forEach((h) => {
+      const dk = getDateKey(h.date || h.createdAt);
+      const hWithPen = (h.penaltyPerWrong == null && globalPenalty > 0) ? { ...h, penaltyPerWrong: globalPenalty } : h;
+      let tot = toFinite(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions, 0);
+      let topicCorrFallback = null;
+      if (tot <= 0 && h.topics != null) {
+        const tf = extractTopicsTotals(hWithPen, max, min);
+        if (tf.total > 0) {
+          tot = tf.total;
+          topicCorrFallback = tf.correct;
+        }
+      }
+      const timing = resolveEffectiveTiming(h, max, min);
+      if (timing.ts > 0 && timing.tq > 0) {
+        timeSpent += timing.ts;
+        timedQuestions += timing.tq;
+        if (dk) coveredTimedDates.add(dk);
+      }
+      if (tot > 0) {
+        const rawCorr = !h.isPercentage
+          ? toFinite(h.correct ?? h.acertos ?? h.correctCount, topicCorrFallback)
+          : topicCorrFallback;
+        const sc = getSafeScore(hWithPen, max, min);
+        if (rawCorr === null && !Number.isFinite(sc)) return;
+        const corr = resolveEffectiveCorrect(hWithPen, sc, tot, rawCorr !== null, rawCorr, max, min);
+        totalQuestions += tot;
+        correct += corr;
+        weightedAccNum += corr;
+        weightedAccDen += tot;
+      } else {
+        const sc = getSafeScore(hWithPen, max, min);
+        if (Number.isFinite(sc) && !isPhantomZeroTimeAttempt(h, sc)) {
+          const synTot = getSyntheticTotal(max);
+          const ratio = clamp((sc - min) / range, 0, 1);
+          weightedAccNum += ratio * synTot;
+          weightedAccDen += synTot;
+        }
+      }
+    });
+
+    // Supplement with non-overlapping timed simuladoRows for this category
+    windowedRows.forEach((r) => {
+      const idMatch = r.categoryId != null && cat?.id != null && String(r.categoryId) === String(cat.id);
+      const nameMatch = r.categoryId == null && matchesCategorySubject(cat, r.subject || r.categoryName || r.materia || '');
+      if (!idMatch && !nameMatch) return;
+      const dk = getDateKey(r.date || r.createdAt);
+      if (dk && coveredTimedDates.has(dk)) return;
+      const timing = resolveEffectiveTiming(r, max, min);
+      if (timing.ts <= 0 || timing.tq <= 0) return;
+      const rWithPen = (r.penaltyPerWrong == null && globalPenalty > 0) ? { ...r, penaltyPerWrong: globalPenalty } : r;
+      let tot = toFinite(r.total ?? r.questoes ?? r.totalQuestoes ?? r.questions, 0);
+      let topicCorrFallback = null;
+      if (tot <= 0 && r.topics != null) {
+        const tf = extractTopicsTotals(rWithPen, max, min);
+        if (tf.total > 0) {
+          tot = tf.total;
+          topicCorrFallback = tf.correct;
+        }
+      }
+      if (tot <= 0) return;
+      const rawCorr = !r.isPercentage ? toFinite(r.correct ?? r.acertos ?? r.correctCount, topicCorrFallback) : topicCorrFallback;
+      const sc = getSafeScore(rWithPen, max, min);
+      if (rawCorr === null && !Number.isFinite(sc)) return;
+      const corr = resolveEffectiveCorrect(rWithPen, sc, tot, rawCorr !== null, rawCorr, max, min);
+      timeSpent += timing.ts;
+      timedQuestions += timing.tq;
+      totalQuestions += tot;
+      correct += corr;
+      weightedAccNum += corr;
+      weightedAccDen += tot;
+    });
+
+    if (timedQuestions <= 0) return null;
+    const accuracyPct = weightedAccDen > 0
+      ? clamp((weightedAccNum / weightedAccDen) * 100, 0, 100)
+      : 0;
+
+    return {
+      id: cat.id ?? cat.name,
+      name: cat.name,
+      subtitle: `Peso ${toFinite(cat.weight, 10)}`,
+      color: cat.color || '#6366f1',
+      weight: toFinite(cat.weight, 10),
+      avgSeconds: Number((timeSpent / timedQuestions).toFixed(1)),
+      accuracyPct: Number(accuracyPct.toFixed(1)),
+      totalQuestions: Math.round(totalQuestions || timedQuestions),
+      timedQuestions: Math.round(timedQuestions),
+      correct: Math.round(correct),
+      totalTimeSeconds: Math.round(timeSpent),
+    };
+  };
+
+  const allSubjectPoints = allCats.map(computeSubjectPoint).filter(Boolean);
   const points = [];
 
   if (mode === 'topic') {
     const topicBuckets = new Map();
+    const coveredTopicKeys = new Set();
     cats.forEach((cat) => {
       const { min, max } = resolveScale(cat, gMax, gMin);
       const validHistory = safeArr(cat?.simuladoStats?.history)
         .filter((h) => h && h.valid !== false && h.validated !== false);
       const history = filterDatedEntriesByWindow(validHistory, (h) => h.date || h.createdAt, cutoffMs);
       history.forEach((h) => {
+        const dk = getDateKey(h.date || h.createdAt) || '';
+        const parentPenalty = Math.max(0, toFinite(h.penaltyPerWrong, globalPenalty));
         const topics = safeArr(h.topics);
         topics.forEach((t) => {
+          if (!t || typeof t !== 'object' || t.valid === false || t.validated === false) return;
           const ts = toFinite(t.timeSpent ?? t.durationSeconds, 0);
           const tot = toFinite(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions, 0);
-          const rawCorr = toFinite(t.correct ?? t.acertos ?? t.correctCount, null);
+          const rawCorr = !t.isPercentage ? toFinite(t.correct ?? t.acertos ?? t.correctCount, null) : null;
           if (ts <= 0 || tot <= 0) return;
-          const sc = getSafeScore(t, max, min);
-          const corr = resolveEffectiveCorrect(t, sc, tot, rawCorr !== null, rawCorr, max, min);
-          const label = String(t.name || t.topic || t.assunto || '').trim();
+          const tEff = {
+            ...t,
+            ...(t.penaltyPerWrong == null && parentPenalty > 0 ? { penaltyPerWrong: parentPenalty } : {}),
+            ...(t.score == null && t.scorePct == null && t.percentage != null ? { scorePct: t.percentage } : {}),
+          };
+          const sc = getSafeScore(tEff, max, min);
+          if (rawCorr === null && !Number.isFinite(sc)) return;
+          const corr = resolveEffectiveCorrect(tEff, sc, tot, rawCorr !== null, rawCorr, max, min);
+          const label = String(t.name || t.topic || t.assunto || t.title || '').trim();
           if (!label) return;
-          const key = `${cat.id || cat.name}::${normalize(label)}`;
+          const catKey = String(cat.id ?? cat.name);
+          const normLabel = normalize(label);
+          const key = `${catKey}::${normLabel}`;
+          if (dk) coveredTopicKeys.add(`${catKey}|${dk}|${normLabel}`);
           if (!topicBuckets.has(key)) {
             topicBuckets.set(key, {
               id: key,
@@ -155,30 +316,51 @@ export function buildSpeedAccuracyData(categories = [], simuladoRows = [], optio
       });
     });
 
-    // Complement with simuladoRows that carry topic + timeSpent if history didn't have topic timings
-    if (topicBuckets.size === 0) {
-      const windowedRows = filterDatedEntriesByWindow(rows, (r) => r.date || r.createdAt, cutoffMs);
-      windowedRows.forEach((r) => {
-        const ts = toFinite(r.timeSpent ?? r.durationSeconds, 0);
-        const tot = toFinite(r.total ?? r.questoes ?? r.totalQuestoes ?? r.questions, 0);
+    // Complement with non-overlapping timed simuladoRows (supporting both row.topics and row.topic)
+    windowedRows.forEach((r) => {
+      const matchedCat = allCats.find(
+        (c) =>
+          (r.categoryId != null && c?.id != null && String(c.id) === String(r.categoryId)) ||
+          (r.categoryId == null && matchesCategorySubject(c, r.subject || r.categoryName || r.materia || ''))
+      );
+      if (showOnlyFocus && hasFocusId && (!matchedCat || !matchesFocusCat(matchedCat))) return;
+      const { min, max } = resolveScale(matchedCat, gMax, gMin);
+      const dk = getDateKey(r.date || r.createdAt) || '';
+      const catKey = String(matchedCat?.id ?? (r.subject || r.categoryName || 'cat'));
+      const rowPenalty = Math.max(0, toFinite(r.penaltyPerWrong, globalPenalty));
+
+      const rowTopics = safeArr(r.topics).filter((t) => t && typeof t === 'object' && t.valid !== false && t.validated !== false);
+      const candidateItems = rowTopics.length > 0
+        ? rowTopics.map((t) => ({
+            ...t,
+            penaltyPerWrong: t.penaltyPerWrong ?? rowPenalty,
+            label: String(t.name || t.topic || t.assunto || t.title || '').trim(),
+          }))
+        : [{
+            ...r,
+            penaltyPerWrong: r.penaltyPerWrong ?? rowPenalty,
+            label: String(r.topic || r.assunto || '').trim(),
+          }];
+
+      candidateItems.forEach((item) => {
+        if (!item.label) return;
+        const normLabel = normalize(item.label);
+        if (dk && coveredTopicKeys.has(`${catKey}|${dk}|${normLabel}`)) return;
+        const ts = toFinite(item.timeSpent ?? item.durationSeconds, 0);
+        const tot = toFinite(item.total ?? item.questoes ?? item.totalQuestoes ?? item.questions, 0);
         if (ts <= 0 || tot <= 0) return;
-        const matchedCat = cats.find(
-          (c) =>
-            (r.categoryId != null && String(c.id) === String(r.categoryId)) ||
-            matchesCategorySubject(c, r.subject || r.categoryName || r.materia || '')
-        );
-        if (showOnlyFocus && focusSubjectId && matchedCat?.id !== focusSubjectId) return;
-        const topicLabel = String(r.topic || r.assunto || '').trim();
-        if (!topicLabel) return;
-        const { min, max } = resolveScale(matchedCat, gMax, gMin);
-        const rawCorr = toFinite(r.correct ?? r.acertos ?? r.correctCount, null);
-        const sc = getSafeScore(r, max, min);
-        const corr = resolveEffectiveCorrect(r, sc, tot, rawCorr !== null, rawCorr, max, min);
-        const key = `${matchedCat?.id || r.subject || r.categoryName || 'cat'}::${normalize(topicLabel)}`;
+        const itemEff = item.score == null && item.scorePct == null && item.percentage != null
+          ? { ...item, scorePct: item.percentage }
+          : item;
+        const rawCorr = !itemEff.isPercentage ? toFinite(itemEff.correct ?? itemEff.acertos ?? itemEff.correctCount, null) : null;
+        const sc = getSafeScore(itemEff, max, min);
+        if (rawCorr === null && !Number.isFinite(sc)) return;
+        const corr = resolveEffectiveCorrect(itemEff, sc, tot, rawCorr !== null, rawCorr, max, min);
+        const key = `${catKey}::${normLabel}`;
         if (!topicBuckets.has(key)) {
           topicBuckets.set(key, {
             id: key,
-            name: topicLabel,
+            name: item.label,
             categoryName: matchedCat?.name || r.subject || r.categoryName || 'Disciplina',
             color: matchedCat?.color || '#6366f1',
             totalQuestions: 0,
@@ -191,9 +373,9 @@ export function buildSpeedAccuracyData(categories = [], simuladoRows = [], optio
         b.totalQuestions += tot;
         b.correct += clamp(corr, 0, tot);
         b.timeSpent += ts;
-        b.timedQuestions += toFinite(r.timedQuestoes, 0) > 0 ? toFinite(r.timedQuestoes, 0) : tot;
+        b.timedQuestions += toFinite(item.timedQuestoes, 0) > 0 ? toFinite(item.timedQuestoes, 0) : tot;
       });
-    }
+    });
 
     topicBuckets.forEach((b) => {
       if (b.timedQuestions <= 0 || b.totalQuestions <= 0) return;
@@ -205,99 +387,24 @@ export function buildSpeedAccuracyData(categories = [], simuladoRows = [], optio
         avgSeconds: Number((b.timeSpent / b.timedQuestions).toFixed(1)),
         accuracyPct: Number(clamp((b.correct / b.totalQuestions) * 100, 0, 100).toFixed(1)),
         totalQuestions: Math.round(b.totalQuestions),
+        timedQuestions: Math.round(b.timedQuestions),
         correct: Math.round(b.correct),
         totalTimeSeconds: Math.round(b.timeSpent),
       });
     });
   } else {
-    cats.forEach((cat) => {
-      const { min, max, range } = resolveScale(cat, gMax, gMin);
-      const validHistory = safeArr(cat?.simuladoStats?.history)
-        .filter((h) => h && h.valid !== false && h.validated !== false);
-      const history = filterDatedEntriesByWindow(validHistory, (h) => h.date || h.createdAt, cutoffMs);
-
-      let timeSpent = 0;
-      let timedQuestions = 0;
-      let totalQuestions = 0;
-      let correct = 0;
-      let weightedAccNum = 0;
-      let weightedAccDen = 0;
-
-      history.forEach((h) => {
-        let tot = toFinite(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions, 0);
-        let topicCorrFallback = null;
-        if (tot <= 0 && h.topics != null) {
-          const tf = extractTopicsTotals(h, max, min);
-          if (tf.total > 0) {
-            tot = tf.total;
-            topicCorrFallback = tf.correct;
-          }
-        }
-        const topics = safeArr(h.topics);
-        let topicsTs = 0;
-        let topicsTq = 0;
-        topics.forEach((t) => {
-          const tTs = toFinite(t?.timeSpent ?? t?.durationSeconds, 0);
-          const tQ = toFinite(t?.timedQuestoes, 0) || toFinite(t?.total ?? t?.questoes ?? t?.totalQuestoes ?? t?.questions, 0);
-          if (tTs > 0 && tQ > 0) {
-            topicsTs += tTs;
-            topicsTq += tQ;
-          }
-        });
-        if (topicsTs > 0 && topicsTq > 0) {
-          timeSpent += topicsTs;
-          timedQuestions += topicsTq;
-        } else {
-          const ts = toFinite(h.timeSpent ?? h.durationSeconds, 0);
-          const tq = toFinite(h.timedQuestoes, 0) || (ts > 0 ? (tot > 0 ? tot : getSyntheticTotal(max)) : 0);
-          if (ts > 0 && tq > 0) {
-            timeSpent += ts;
-            timedQuestions += tq;
-          }
-        }
-        if (tot > 0) {
-          const rawCorr = !h.isPercentage
-            ? toFinite(h.correct ?? h.acertos ?? h.correctCount, topicCorrFallback)
-            : topicCorrFallback;
-          const sc = getSafeScore(h, max, min);
-          const corr = resolveEffectiveCorrect(h, sc, tot, rawCorr !== null, rawCorr, max, min);
-          totalQuestions += tot;
-          correct += corr;
-          weightedAccNum += corr;
-          weightedAccDen += tot;
-        } else {
-          const sc = getSafeScore(h, max, min);
-          if (Number.isFinite(sc)) {
-            const synTot = getSyntheticTotal(max);
-            const ratio = clamp((sc - min) / range, 0, 1);
-            weightedAccNum += ratio * synTot;
-            weightedAccDen += synTot;
-          }
-        }
-      });
-
-      if (timedQuestions <= 0) return;
-      const accuracyPct = weightedAccDen > 0
-        ? clamp((weightedAccNum / weightedAccDen) * 100, 0, 100)
-        : 0;
-
-      points.push({
-        id: cat.id || cat.name,
-        name: cat.name,
-        subtitle: `Peso ${toFinite(cat.weight, 10)}`,
-        color: cat.color || '#6366f1',
-        weight: toFinite(cat.weight, 10),
-        avgSeconds: Number((timeSpent / timedQuestions).toFixed(1)),
-        accuracyPct: Number(accuracyPct.toFixed(1)),
-        totalQuestions: Math.round(totalQuestions || timedQuestions),
-        correct: Math.round(correct),
-        totalTimeSeconds: Math.round(timeSpent),
-      });
+    const focusSet = (showOnlyFocus && hasFocusId) ? new Set(cats.map((c) => String(c.id ?? c.name))) : null;
+    allSubjectPoints.forEach((pt) => {
+      if (focusSet && !focusSet.has(String(pt.id))) return;
+      points.push(pt);
     });
   }
 
-  const sortedSecs = points.map((p) => p.avgSeconds).sort((a, b) => a - b);
-  const autoBenchmarkSec = sortedSecs.length > 0 ? Math.round(quantileSorted(sortedSecs, 0.5)) : 150;
+  // Use pre-focus subjects median (>= 2 timed subjects) so focusing 1 slow subject never inverts its quadrant
+  const benchmarkPool = (allSubjectPoints.length >= 2 ? allSubjectPoints : points)
+    .map((p) => p.avgSeconds)
+    .sort((a, b) => a - b);
+  const autoBenchmarkSec = benchmarkPool.length >= 2 ? Math.round(quantileSorted(benchmarkPool, 0.5)) : 150;
   const benchmarkSeconds = toFinite(idealSecondsPerQuestion, null) > 0
     ? Number(idealSecondsPerQuestion)
     : clamp(autoBenchmarkSec, 60, 240);
@@ -311,7 +418,7 @@ export function buildSpeedAccuracyData(categories = [], simuladoRows = [], optio
 
   const enriched = points.map((p) => {
     const isFast = p.avgSeconds <= benchmarkSeconds;
-    const isAccurate = p.accuracyPct >= targetPct;
+    const isAccurate = p.accuracyPct >= roundedTargetPct;
     let quadrant = 'slowInaccurate';
     let quadrantLabel = 'Lacuna Teórica';
     if (isFast && isAccurate) {
@@ -331,7 +438,7 @@ export function buildSpeedAccuracyData(categories = [], simuladoRows = [], optio
   return {
     points: enriched,
     benchmarkSeconds,
-    targetPct: Number(targetPct.toFixed(1)),
+    targetPct: roundedTargetPct,
     quadrants,
   };
 }
@@ -844,7 +951,11 @@ export function buildConsistencyBoxPlotData(categories = [], options = {}) {
   const gMax = Math.max(gMin + 1, toFinite(maxScore, 100));
   const gRange = Math.max(1e-9, gMax - gMin);
 
-  const cats = safeArr(categories).filter((c) => !showOnlyFocus || !focusSubjectId || c.id === focusSubjectId);
+  const hasFocusId = focusSubjectId !== null && focusSubjectId !== undefined && String(focusSubjectId).trim() !== '';
+  const cats = safeArr(categories).filter(
+    (c) => !showOnlyFocus || !hasFocusId || (c?.id != null && String(c.id) === String(focusSubjectId))
+  );
+  const isSingleFocus = Boolean(showOnlyFocus && hasFocusId && cats.length === 1);
 
   const rows = [];
   cats.forEach((cat) => {
@@ -855,10 +966,14 @@ export function buildConsistencyBoxPlotData(categories = [], options = {}) {
 
     const scores = history
       .map((h) => {
-        const s = getSafeScore(h, cMax, cMin);
-        if (!Number.isFinite(s)) return NaN;
+        let s = getSafeScore(h, cMax, cMin);
+        if (!Number.isFinite(s) && h?.topics != null) {
+          const tf = extractTopicsTotals(h, cMax, cMin);
+          if (tf.hasTopicsScore && Number.isFinite(tf.score)) s = tf.score;
+        }
+        if (!Number.isFinite(s) || isPhantomZeroTimeAttempt(h, s)) return NaN;
         // Project onto global scale if displaying multi-subject together
-        if (!showOnlyFocus && (cMax !== gMax || cMin !== gMin)) {
+        if (!isSingleFocus && (cMax !== gMax || cMin !== gMin)) {
           return gMin + clamp((s - cMin) / cRange, 0, 1) * gRange;
         }
         return clamp(s, cMin, cMax);
@@ -880,7 +995,17 @@ export function buildConsistencyBoxPlotData(categories = [], options = {}) {
     const std = Math.sqrt(Math.max(0, variance));
     const iqr = Math.max(0, q3 - q1);
 
-    const activeDomain = showOnlyFocus ? cRange : gRange;
+    // Tukey fences (1.5 * IQR) for outlier detection (only meaningful when n >= 4)
+    const lowerFence = q1 - 1.5 * iqr;
+    const upperFence = q3 + 1.5 * iqr;
+    const inFence = scores.length >= 4 ? scores.filter((v) => v >= lowerFence && v <= upperFence) : scores;
+    const outliers = scores.length >= 4
+      ? scores.filter((v) => v < lowerFence || v > upperFence).map((v) => Number(v.toFixed(2)))
+      : [];
+    const whiskerMin = inFence.length ? inFence[0] : minVal;
+    const whiskerMax = inFence.length ? inFence[inFence.length - 1] : maxVal;
+
+    const activeDomain = isSingleFocus ? cRange : gRange;
     const iqrPct = (iqr / activeDomain) * 100;
     let stability = 'Estável';
     if (scores.length < 3) stability = 'Poucos dados';
@@ -889,26 +1014,31 @@ export function buildConsistencyBoxPlotData(categories = [], options = {}) {
 
     const rawCutoff = toFinite(cat?.minCutoff, null);
     const minCutoff = rawCutoff !== null && rawCutoff > cMin
-      ? (!showOnlyFocus && (cMax !== gMax || cMin !== gMin)
+      ? (!isSingleFocus && (cMax !== gMax || cMin !== gMin)
         ? gMin + clamp((rawCutoff - cMin) / cRange, 0, 1) * gRange
-        : rawCutoff)
+        : Math.min(cMax, rawCutoff))
       : null;
+    const belowCutoffCount = minCutoff !== null ? scores.filter((v) => v < minCutoff).length : 0;
 
     rows.push({
-      id: cat.id || cat.name,
+      id: cat.id ?? cat.name,
       name: cat.name,
       color: cat.color || '#6366f1',
       count: scores.length,
       min: Number(minVal.toFixed(2)),
+      whiskerMin: Number(whiskerMin.toFixed(2)),
       q1: Number(q1.toFixed(2)),
       median: Number(median.toFixed(2)),
       q3: Number(q3.toFixed(2)),
+      whiskerMax: Number(whiskerMax.toFixed(2)),
       max: Number(maxVal.toFixed(2)),
+      outliers,
       mean: Number(mean.toFixed(2)),
       std: Number(std.toFixed(2)),
       iqr: Number(iqr.toFixed(2)),
       stability,
       minCutoff: minCutoff !== null ? Number(minCutoff.toFixed(2)) : null,
+      belowCutoffCount,
     });
   });
 
@@ -917,17 +1047,27 @@ export function buildConsistencyBoxPlotData(categories = [], options = {}) {
   return {
     rows,
     hasCutoffs: rows.some((r) => r.minCutoff !== null),
-    domainMin: showOnlyFocus && cats[0] ? resolveScale(cats[0], gMax, gMin).min : gMin,
-    domainMax: showOnlyFocus && cats[0] ? resolveScale(cats[0], gMax, gMin).max : gMax,
+    domainMin: isSingleFocus && cats[0] ? resolveScale(cats[0], gMax, gMin).min : gMin,
+    domainMax: isSingleFocus && cats[0] ? resolveScale(cats[0], gMax, gMin).max : gMax,
   };
 }
 
 // ============================================================================
 // #11 — Simulador de Ritmo de Prova (Pacing / Orçamento de Tempo)
 // ============================================================================
+export function normalizeExamPacingConfig(examDurationMinutes, examTotalQuestions) {
+  const rawDur = toFinite(examDurationMinutes, null);
+  const rawQ = toFinite(examTotalQuestions, null);
+  const duration = clamp(Math.round(rawDur !== null && rawDur > 0 ? rawDur : 240), 15, 720);
+  const questions = clamp(Math.round(rawQ !== null && rawQ > 0 ? rawQ : 100), 5, 500);
+  return { examDurationMinutes: duration, examTotalQuestions: questions };
+}
+
 export function buildExamPacingData(categories = [], options = {}) {
-  const examDurationMinutes = Math.max(15, toFinite(options.examDurationMinutes, 240));
-  const examTotalQuestions = Math.max(5, Math.round(toFinite(options.examTotalQuestions, 100)));
+  const { examDurationMinutes, examTotalQuestions } = normalizeExamPacingConfig(
+    options.examDurationMinutes,
+    options.examTotalQuestions
+  );
   const idealSecPerQuestion = (examDurationMinutes * 60) / examTotalQuestions;
   const cutoffMs = getCutoffMs(options.timeWindow);
 
@@ -937,6 +1077,14 @@ export function buildExamPacingData(categories = [], options = {}) {
   let globalTimedQ = 0;
 
   cats.forEach((cat) => {
+    const mw = options.mcWeights;
+    const hasIdWeight = mw && cat.id != null && toFinite(mw[cat.id], null) !== null;
+    const hasNameWeight = mw && cat.name != null && toFinite(mw[cat.name], null) !== null;
+    const resolvedWeight = hasIdWeight
+      ? toFinite(mw[cat.id], 0)
+      : (hasNameWeight ? toFinite(mw[cat.name], 0) : toFinite(cat.weight, 10));
+    if (resolvedWeight <= 0) return;
+
     const { min: catMin, max: catMax } = resolveScale(cat, 100, 0);
     const validHistory = safeArr(cat?.simuladoStats?.history)
       .filter((h) => h && h.valid !== false && h.validated !== false);
@@ -944,42 +1092,47 @@ export function buildExamPacingData(categories = [], options = {}) {
     let timeSec = 0;
     let timedQ = 0;
     history.forEach((h) => {
+      const rootTs = toFinite(h.timeSpent ?? h.durationSeconds, 0);
+      const explicitTq = toFinite(h.timedQuestoes, 0);
       const topics = safeArr(h.topics);
       let topicsTs = 0;
       let topicsTq = 0;
+      let allTopicsExplicit = true;
       topics.forEach((t) => {
+        if (!t || t.valid === false || t.validated === false) return;
         const tTs = toFinite(t?.timeSpent ?? t?.durationSeconds, 0);
-        const tQ = toFinite(t?.timedQuestoes, 0) || toFinite(t?.total ?? t?.questoes ?? t?.totalQuestoes ?? t?.questions, 0);
+        const tExpQ = toFinite(t?.timedQuestoes, 0);
+        const tQ = tExpQ > 0 ? tExpQ : toFinite(t?.total ?? t?.questoes ?? t?.totalQuestoes ?? t?.questions, 0);
         if (tTs > 0 && tQ > 0) {
           topicsTs += tTs;
           topicsTq += tQ;
+          if (tExpQ <= 0) allTopicsExplicit = false;
         }
       });
-      if (topicsTs > 0 && topicsTq > 0) {
+      const rootAuthoritative = rootTs > 0 && explicitTq > 0 && ((!allTopicsExplicit && topicsTq > explicitTq) || topicsTs < rootTs);
+      if (topicsTs > 0 && topicsTq > 0 && !rootAuthoritative) {
         timeSec += topicsTs;
         timedQ += topicsTq;
       } else {
-        const ts = toFinite(h.timeSpent ?? h.durationSeconds, 0);
         let tot = toFinite(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions, 0);
         if (tot <= 0 && h.topics != null) {
           const tf = extractTopicsTotals(h, catMax, catMin);
           if (tf.total > 0) tot = tf.total;
         }
-        const tq = toFinite(h.timedQuestoes, 0) || (ts > 0 ? tot : 0);
-        if (ts > 0 && tq > 0) {
-          timeSec += ts;
+        const tq = explicitTq > 0 ? explicitTq : (rootTs > 0 ? tot : 0);
+        if (rootTs > 0 && tq > 0) {
+          timeSec += rootTs;
           timedQ += tq;
         }
       }
     });
     globalTimeSec += timeSec;
     globalTimedQ += timedQ;
-    const overrideWeight = options.mcWeights && cat.id != null ? toFinite(options.mcWeights[cat.id], null) : null;
     rawEntries.push({
-      id: cat.id || cat.name,
+      id: cat.id ?? cat.name,
       name: cat.name,
       color: cat.color || '#6366f1',
-      weight: Math.max(0.5, overrideWeight !== null && overrideWeight > 0 ? overrideWeight : toFinite(cat.weight, 10)),
+      weight: Math.max(0.01, resolvedWeight),
       hasTimedData: timedQ > 0,
       avgSecPerQ: timedQ > 0 ? timeSec / timedQ : null,
       timedQuestions: Math.round(timedQ),
@@ -1041,10 +1194,12 @@ export function buildExamPacingData(categories = [], options = {}) {
     }
   }
 
+  let rawTotalProjectedMinutes = 0;
   const subjects = rawEntries.map((e, idx) => {
     const allocatedQuestions = allocations[idx].allocated;
     const effectiveSec = e.avgSecPerQ ?? fallbackAvgSec;
     const projectedMinutes = (allocatedQuestions * effectiveSec) / 60;
+    rawTotalProjectedMinutes += projectedMinutes;
     const budgetMinutes = (allocatedQuestions * idealSecPerQuestion) / 60;
     const deltaMinutes = projectedMinutes - budgetMinutes;
     return {
@@ -1062,11 +1217,13 @@ export function buildExamPacingData(categories = [], options = {}) {
     };
   });
 
-  const totalProjectedMinutes = Number(subjects.reduce((acc, s) => acc + s.projectedMinutes, 0).toFixed(1));
-  const deltaMinutes = Number((totalProjectedMinutes - examDurationMinutes).toFixed(1));
-  const overallAvgSec = (totalProjectedMinutes * 60) / examTotalQuestions;
-  const estimatedUnanswered = deltaMinutes > 0 && overallAvgSec > 0
-    ? Math.min(examTotalQuestions, Math.ceil((deltaMinutes * 60) / overallAvgSec))
+  const rawDelta = rawTotalProjectedMinutes - examDurationMinutes;
+  const safeRawDelta = Math.abs(rawDelta) < 1e-6 ? 0 : rawDelta;
+  const totalProjectedMinutes = Number(rawTotalProjectedMinutes.toFixed(1));
+  const deltaMinutes = Number(safeRawDelta.toFixed(1));
+  const overallAvgSec = (rawTotalProjectedMinutes * 60) / examTotalQuestions;
+  const estimatedUnanswered = safeRawDelta > 1e-6 && overallAvgSec > 0
+    ? Math.min(examTotalQuestions, Math.ceil((safeRawDelta * 60) / overallAvgSec))
     : 0;
 
   subjects.sort((a, b) => b.deltaMinutes - a.deltaMinutes);
@@ -1107,12 +1264,23 @@ export function buildProjectionFanData(focusCategory, timeline = [], options = {
       .filter((h) => h && h.valid !== false && h.validated !== false);
     const windowedHist = filterDatedEntriesByWindow(validHist, (h) => h.date || h.createdAt, cutoffMs);
     windowedHist.forEach((h) => {
-      const sc = getSafeScore(h, maxScore, minScore);
+      let sc = getSafeScore(h, maxScore, minScore);
       const dk = getDateKey(h.date || h.createdAt);
       const isSynth = Boolean(h.syntheticVolume || h.isSynthetic || h.type === 'percent-only');
-      const tot = isSynth ? 0 : toFinite(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions, 0);
+      let tot = isSynth ? 0 : toFinite(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions, 0);
+      if ((!Number.isFinite(sc) || tot <= 0) && !isSynth && h.topics != null) {
+        const tf = extractTopicsTotals(h, maxScore, minScore);
+        if (tf.total > 0) {
+          if (tot <= 0) tot = tf.total;
+          if (!Number.isFinite(sc)) sc = tf.score;
+        } else if (!Number.isFinite(sc) && tf.hasTopicsScore) {
+          sc = tf.score;
+        }
+      }
       const volWeight = tot > 0 ? tot : getSyntheticTotal(maxScore);
-      if (Number.isFinite(sc) && dk) allRawObs.push({ date: dk, score: sc, weight: volWeight });
+      if (Number.isFinite(sc) && dk && !isPhantomZeroTimeAttempt(h, sc)) {
+        allRawObs.push({ date: dk, score: sc, weight: volWeight });
+      }
     });
   } else {
     const windowedTimeline = filterDatedEntriesByWindow(safeArr(timeline), (row) => row?.date, cutoffMs);
@@ -1305,7 +1473,17 @@ export function buildKalmanChartData(focusCategory, timeline = [], options = {})
   if (focusCategory) {
     const validHist = safeArr(focusCategory?.simuladoStats?.history)
       .filter((h) => h && h.valid !== false && h.validated !== false);
-    observations = filterDatedEntriesByWindow(validHist, (h) => h.date || h.createdAt, cutoffMs);
+    observations = filterDatedEntriesByWindow(validHist, (h) => h.date || h.createdAt, cutoffMs)
+      .map((h) => {
+        let sc = getSafeScore(h, maxScore, minScore);
+        if (!Number.isFinite(sc) && h?.topics != null) {
+          const tf = extractTopicsTotals(h, maxScore, minScore);
+          if (tf.hasTopicsScore && Number.isFinite(tf.score)) sc = tf.score;
+        }
+        if (!Number.isFinite(sc) || isPhantomZeroTimeAttempt(h, sc)) return null;
+        return { ...h, score: sc };
+      })
+      .filter(Boolean);
   } else {
     const filteredTimeline = filterDatedEntriesByWindow(safeArr(timeline), (row) => row?.date, cutoffMs);
     observations = filteredTimeline

@@ -19,8 +19,16 @@ export function aggregateHeatmap(filtered, granularity = 'daily', _maxScore = 10
   if (granularity === 'daily') return filtered;
   const buckets = new Map();
   (filtered?.dates || []).forEach((d, index) => {
-    const key = granularity === 'monthly' ? String(d.key || '').slice(0, 7) : getMondayKey(d.key);
-    if (!buckets.has(key)) buckets.set(key, { key, indices: [], label: d.label });
+    const rawKey = typeof d === 'string' ? d : d?.key;
+    const normKey = getDateKey(rawKey) || (rawKey ? String(rawKey) : '');
+    const key = granularity === 'monthly'
+      ? (normKey && /^\d{4}-\d{2}-\d{2}$/.test(normKey) ? normKey.slice(0, 7) : `mes-${rawKey || index}`)
+      : getMondayKey(normKey || rawKey);
+    const fallbackLabel = normKey && /^\d{4}-\d{2}-\d{2}$/.test(normKey)
+      ? `${normKey.slice(8, 10)}/${normKey.slice(5, 7)}`
+      : (rawKey ? String(rawKey) : '');
+    const label = (typeof d === 'object' && d?.label) ? d.label : fallbackLabel;
+    if (!buckets.has(key)) buckets.set(key, { key, indices: [], label });
     buckets.get(key).indices.push(index);
   });
   const dates = [...buckets.values()].map((b, i) => ({
@@ -65,16 +73,17 @@ export function aggregateHeatmap(filtered, granularity = 'daily', _maxScore = 10
       const anySynthetic = samples.some(c => c?.isSynthetic === true);
       const hasRealVolume = realTotal > 0;
       const isSynthetic = allSynthetic || (!hasRealVolume && anySynthetic && total > 0);
-      // ✅ FIX: pct é SEMPRE percentual [0,100], invariante à escala
-      const effTotal = hasRealVolume ? realTotal : total;
-      const effCorrect = hasRealVolume ? realCorrect : correct;
-      const pct = effTotal > 0
-        ? Math.max(0, Math.min(100, Number.isFinite(effCorrect / effTotal) ? (effCorrect / effTotal) * 100 : 0))
+      const hasMixedSynthetic = hasRealVolume && anySynthetic && total > realTotal;
+      // ✅ FIX: pct combina volume real + sintético (coerente com modo Diário, timeline e insightGenerator)
+      const pct = total > 0
+        ? Math.max(0, Math.min(100, Number.isFinite(correct / total) ? (correct / total) * 100 : 0))
         : null;
+      const activeDays = samples.filter(c => Number(c?.total) > 0 && c?.pct !== null).length;
       const baseCell = {
-        total: isSynthetic ? total : (hasRealVolume ? realTotal : total),
-        correct: isSynthetic ? correct : (hasRealVolume ? realCorrect : correct),
+        total,
+        correct,
         pct,
+        activeDays,
       };
       if (hasSyntheticMeta) {
         return {
@@ -82,6 +91,7 @@ export function aggregateHeatmap(filtered, granularity = 'daily', _maxScore = 10
           realTotal,
           realCorrect,
           isSynthetic,
+          hasMixedSynthetic,
         };
       }
       return baseCell;

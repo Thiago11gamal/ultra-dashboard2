@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect, useId, useCallback } from 'react';
-import { 
-    ResponsiveContainer, PieChart, Pie, Cell, 
+import {
+    ResponsiveContainer, PieChart, Pie, Cell,
     ComposedChart, Line, Bar, XAxis, YAxis, Tooltip, ReferenceLine, CartesianGrid, LabelList
 } from 'recharts';
 import { getDateKey, toDateMs } from '../../../utils/dateHelper';
@@ -75,14 +75,14 @@ const CustomTooltipPie = ({ active, payload, unit }) => {
     return null;
 };
 
-export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({ 
-    activeCategories: propActiveCategories, 
+export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
+    activeCategories: propActiveCategories,
     categories = [],
     focusCategory = null,
-    globalMetrics = {}, 
+    globalMetrics = {},
     targetScore = 80,
     timeWindow = 'all',
-    maxScore = 100, 
+    maxScore = 100,
     minScore = 0,
     unit = '%',
     simuladoRows = []
@@ -98,30 +98,35 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
         return [];
     }, [rawCategories, focusCategory]);
 
-    const globalMax = Math.max(1, Number(maxScore) || 100);
-    const globalMin = hasValidNumber(minScore) ? Math.min(Number(minScore), globalMax) : 0;
+    const globalMin = hasValidNumber(minScore) ? Number(minScore) : 0;
+    const globalMax = hasValidNumber(maxScore) && Number(maxScore) > globalMin ? Number(maxScore) : Math.max(100, globalMin + 1);
     const globalRange = Math.max(1e-9, globalMax - globalMin);
-    const safeMax = (focusCategory && hasValidNumber(focusCategory?.maxScore) && Number(focusCategory.maxScore) > 0)
+    const focusMaxVal = (focusCategory && hasValidNumber(focusCategory?.maxScore) && Number(focusCategory.maxScore) > 0)
         ? Number(focusCategory.maxScore)
-        : globalMax;
+        : null;
     const safeMin = (focusCategory && hasValidNumber(focusCategory?.minScore))
-        ? Math.min(Number(focusCategory.minScore), safeMax)
-        : Math.min(globalMin, safeMax);
+        ? Number(focusCategory.minScore)
+        : (focusMaxVal != null && focusMaxVal <= globalMin ? 0 : globalMin);
+    const safeMax = (focusMaxVal != null && focusMaxVal > safeMin)
+        ? focusMaxVal
+        : (globalMax > safeMin ? globalMax : safeMin + 1);
     const safeRange = Math.max(1e-9, safeMax - safeMin);
-    const effectiveTargetScore = (focusCategory && hasValidNumber(focusCategory?.minCutoff) && Number(focusCategory.minCutoff) > safeMin)
-        ? Math.max(safeMin, Math.min(safeMax, Number(focusCategory.minCutoff)))
+    const rawTargetScore = (focusCategory && hasValidNumber(focusCategory?.minCutoff) && Number(focusCategory.minCutoff) > safeMin)
+        ? Number(focusCategory.minCutoff)
         : (hasValidNumber(targetScore)
             ? (safeMax === globalMax && safeMin === globalMin
                 ? Number(targetScore)
                 : safeMin + ((Number(targetScore) - globalMin) / globalRange) * safeRange)
             : safeMin + safeRange * 0.8);
+    const effectiveTargetScore = Math.max(safeMin, Math.min(safeMax, rawTargetScore));
 
     const resolveEntryQuestionStats = (h, catMax, catMin) => {
         const isSynthFlag = Boolean(h.syntheticVolume || h.isSynthetic || h.type === 'percent-only');
-        let tot = isSynthFlag ? 0 : Math.max(0, Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions) || 0);
+        const rawTotParsed = Math.max(0, Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions) || 0);
+        let tot = isSynthFlag ? 0 : rawTotParsed;
         let corr = 0;
         const rawCorrVal = h.correct ?? h.acertos ?? h.correctCount;
-        const hasExplicitC = !isSynthFlag && rawCorrVal !== undefined && rawCorrVal !== null && String(rawCorrVal).trim() !== '' && !h.isPercentage;
+        const hasExplicitC = !isSynthFlag && !h.isPercentage && hasValidNumber(rawCorrVal);
         if (tot <= 0 && !isSynthFlag && h?.topics != null) {
             const tf = extractTopicsTotals(h, catMax, catMin);
             if (tf.total > 0) {
@@ -136,32 +141,27 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
         if (tot > 0 && hasExplicitC) {
             const rawC = Math.max(0, Number(rawCorrVal) || 0);
             corr = resolveEffectiveCorrect(h, rawScore, tot, true, rawC, catMax, catMin);
-            return { tot, corr, realTot: tot, isSynthetic: false };
+            return { tot, corr: Math.max(0, Math.min(tot, corr)), realTot: tot, isSynthetic: false };
         }
-        if (tot === 0 && hasExplicitC) {
-            const rawC = Math.max(0, Number(rawCorrVal) || 0);
-            const hasExplicitScore = hasValidNumber(h.score) || hasValidNumber(h.scorePoints) || hasValidNumber(h.scorePct);
-            if (rawC > 0 && !hasExplicitScore) {
-                return { tot: rawC, corr: rawC, realTot: rawC, isSynthetic: false };
-            }
+        if (tot > 0) {
+            if (!Number.isFinite(rawScore)) return { tot: 0, corr: 0, realTot: 0, isSynthetic: false };
+            corr = resolveEffectiveCorrect(h, rawScore, tot, false, 0, catMax, catMin);
+            return { tot, corr: Math.max(0, Math.min(tot, corr)), realTot: tot, isSynthetic: false };
         }
-        if (!Number.isFinite(rawScore) && tot <= 0) return { tot: 0, corr: 0, realTot: 0, isSynthetic: false };
-        const score = Number.isFinite(rawScore) ? rawScore : catMin;
-        const isSynthetic = tot === 0;
-        if (tot === 0 && (isSynthFlag || h.isPercentage || hasValidNumber(h.score) || hasValidNumber(h.scorePoints) || hasValidNumber(h.scorePct))) {
-            tot = getSyntheticTotal(catMax);
-        }
-        if (tot <= 0) return { tot: 0, corr: 0, realTot: 0, isSynthetic: false };
-        corr = isSynthetic
-            ? pointsToRatio(score, catMax, catMin) * tot
-            : resolveEffectiveCorrect(h, score, tot, false, 0, catMax, catMin);
-        return { tot, corr: Math.max(0, Math.min(tot, corr)), realTot: isSynthetic ? 0 : tot, isSynthetic };
+        if (!Number.isFinite(rawScore)) return { tot: 0, corr: 0, realTot: 0, isSynthetic: false };
+        const hasExplicitScore = isSynthFlag || h.isPercentage || hasValidNumber(h.score) || hasValidNumber(h.scorePoints) || hasValidNumber(h.scorePct) || hasValidNumber(h.value);
+        if (!hasExplicitScore) return { tot: 0, corr: 0, realTot: 0, isSynthetic: false };
+        const synthTot = (isSynthFlag && rawTotParsed > 0) ? rawTotParsed : getSyntheticTotal(catMax);
+        corr = pointsToRatio(rawScore, catMax, catMin) * synthTot;
+        return { tot: synthTot, corr: Math.max(0, Math.min(synthTot, corr)), realTot: 0, isSynthetic: true };
     };
 
     const generalAccuracy = useMemo(() => {
         if (focusCategory) {
             const catMax = hasValidNumber(focusCategory?.maxScore) && Number(focusCategory.maxScore) > 0 ? Number(focusCategory.maxScore) : safeMax;
-            const catMin = hasValidNumber(focusCategory?.minScore) ? Math.min(Number(focusCategory.minScore), catMax) : safeMin;
+            const catMin = hasValidNumber(focusCategory?.minScore)
+                ? Math.min(Number(focusCategory.minScore), catMax)
+                : (safeMin < catMax ? safeMin : 0);
             const history = filterHistoryByTimeWindow(focusCategory.simuladoStats?.history || [], timeWindow);
             let totalQ = 0;
             let totalC = 0;
@@ -209,7 +209,9 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
         const maxAllowedDateKey = todayKey;
         activeCategories.forEach(cat => {
             const catMax = hasValidNumber(cat?.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : safeMaxScore;
-            const catMin = hasValidNumber(cat?.minScore) ? Math.min(Number(cat.minScore), catMax) : safeMinScore;
+            const catMin = hasValidNumber(cat?.minScore)
+                ? Math.min(Number(cat.minScore), catMax)
+                : (safeMinScore < catMax ? safeMinScore : 0);
             const history = filterHistoryByTimeWindow(cat.simuladoStats?.history || [], timeWindow);
             history.forEach(h => {
                 const dKey = getDateKey(h.date || h.createdAt);
@@ -239,7 +241,7 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
         return { dailyData: result, lastActiveEntry: lastEntry };
     }, [activeCategories, timeWindow, safeMax, safeMin, todayKey]);
 
-    const temporalMetrics = useMemo(() => {
+    const { temporalMetrics, latestTestDayKey } = useMemo(() => {
         const ms1Week = 7 * 86400000;
         const ms1Month = 30 * 86400000;
         const ms3Months = 90 * 86400000;
@@ -260,7 +262,9 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
 
         activeCategories.forEach(cat => {
             const catMax = hasValidNumber(cat?.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : safeMaxScore;
-            const catMin = hasValidNumber(cat?.minScore) ? Math.min(Number(cat.minScore), catMax) : safeMinScore;
+            const catMin = hasValidNumber(cat?.minScore)
+                ? Math.min(Number(cat.minScore), catMax)
+                : (safeMinScore < catMax ? safeMinScore : 0);
             const history = Object.values(cat.simuladoStats?.history || {}).filter(h => h && h.valid !== false && h.validated !== false);
             history.forEach(h => {
                 const hDateKey = getDateKey(h.date || h.createdAt);
@@ -281,10 +285,14 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
             });
         });
 
+        const hasTimeComponent = (v) => (
+            typeof v === 'number' ||
+            (typeof v === 'string' && (v.includes('T') || v.includes(':')))
+        );
         const hasExplicitTime = (entry) => Boolean(
-            entry?.lastUpdated ||
-            entry?.createdAt ||
-            (typeof entry?.date === 'string' && entry.date.includes('T'))
+            hasTimeComponent(entry?.lastUpdated) ||
+            hasTimeComponent(entry?.createdAt) ||
+            hasTimeComponent(entry?.date)
         );
 
         let latestAcc = null;
@@ -293,33 +301,51 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
         let latestHasTime = false;
         let hasRowMatch = false;
         if (Array.isArray(simuladoRows) && simuladoRows.length > 0) {
-            const activeCategoryIdMap = new Set(activeCategories.map(c => c.id).filter(Boolean));
-            const sortedRows = [...simuladoRows]
-                .filter(r => {
+            const activeCategoryIdSet = new Set(
+                activeCategories
+                    .map(c => (c?.id !== null && c?.id !== undefined && String(c.id).trim() !== '' ? String(c.id) : null))
+                    .filter(Boolean)
+            );
+            const sortedRows = simuladoRows
+                .map((r, origIdx) => ({ r, origIdx }))
+                .filter(({ r }) => {
                   if (!r || r.valid === false || r.validated === false) return false;
                   const rDateKey = getDateKey(r.date || r.createdAt);
                   if (!rDateKey || rDateKey > maxAllowedDateKey) return false;
-                  const idMatches = r.categoryId && activeCategoryIdMap.has(r.categoryId);
-                  if (idMatches) return true;
+                  const hasExplicitRowCatId = r.categoryId !== null && r.categoryId !== undefined && String(r.categoryId).trim() !== '';
+                  if (hasExplicitRowCatId) {
+                      return activeCategoryIdSet.has(String(r.categoryId));
+                  }
                   const rSubjRaw = r.subject || r.categoryName || r.materia || '';
                   return Boolean(rSubjRaw) && activeCategories.some(c => isSubjectMatch(rSubjRaw, c.name));
                 })
+                .map(({ r, origIdx }) => {
+                    const rSubjRaw = r.subject || r.categoryName || r.materia || '';
+                    const hasExplicitRowCatId = r.categoryId !== null && r.categoryId !== undefined && String(r.categoryId).trim() !== '';
+                    const matchedCat = hasExplicitRowCatId
+                        ? activeCategories.find(c => c?.id != null && String(c.id) === String(r.categoryId))
+                        : activeCategories.find(c => rSubjRaw && isSubjectMatch(rSubjRaw, c.name));
+                    const lMax = hasValidNumber(matchedCat?.maxScore) && Number(matchedCat.maxScore) > 0 ? Number(matchedCat.maxScore) : safeMaxScore;
+                    const lMin = hasValidNumber(matchedCat?.minScore)
+                        ? Math.min(Number(matchedCat.minScore), lMax)
+                        : (safeMinScore < lMax ? safeMinScore : 0);
+                    const rawLatest = getSafeScore(r, lMax, lMin);
+                    return { r, origIdx, rawLatest, lMax, lMin };
+                })
+                .filter(({ rawLatest }) => Number.isFinite(rawLatest))
                 .sort((a, b) => {
-                    const dkA = getDateKey(a.date || a.createdAt) || '';
-                    const dkB = getDateKey(b.date || b.createdAt) || '';
+                    const dkA = getDateKey(a.r.date || a.r.createdAt) || '';
+                    const dkB = getDateKey(b.r.date || b.r.createdAt) || '';
                     if (dkA !== dkB) return dkB.localeCompare(dkA);
-                    const timeA = toDateMs(a.lastUpdated || a.createdAt || a.date);
-                    const timeB = toDateMs(b.lastUpdated || b.createdAt || b.date);
-                    return (Number.isFinite(timeB) ? timeB : -Infinity) - (Number.isFinite(timeA) ? timeA : -Infinity);
+                    const timeA = toDateMs(a.r.lastUpdated || a.r.createdAt || a.r.date);
+                    const timeB = toDateMs(b.r.lastUpdated || b.r.createdAt || b.r.date);
+                    const diffT = (Number.isFinite(timeB) ? timeB : -Infinity) - (Number.isFinite(timeA) ? timeA : -Infinity);
+                    if (diffT !== 0) return diffT;
+                    return b.origIdx - a.origIdx;
                 });
             if (sortedRows.length > 0) {
-                const latestRow = sortedRows[0];
-                const rSubjRaw = latestRow.subject || latestRow.categoryName || latestRow.materia || '';
-                const matchedCat = activeCategories.find(c => (c.id && c.id === latestRow.categoryId) || (rSubjRaw && isSubjectMatch(rSubjRaw, c.name)));
-                const lMax = hasValidNumber(matchedCat?.maxScore) && Number(matchedCat.maxScore) > 0 ? Number(matchedCat.maxScore) : safeMaxScore;
-                const lMin = hasValidNumber(matchedCat?.minScore) ? Math.min(Number(matchedCat.minScore), lMax) : safeMinScore;
-                const rawLatest = getSafeScore(latestRow, lMax, lMin);
-                latestAcc = Number.isFinite(rawLatest) ? ratioToPoints(pointsToRatio(rawLatest, lMax, lMin), safeMaxScore, safeMinScore) : null;
+                const { r: latestRow, rawLatest, lMax, lMin } = sortedRows[0];
+                latestAcc = ratioToPoints(pointsToRatio(rawLatest, lMax, lMin), safeMaxScore, safeMinScore);
                 latestTimestamp = toDateMs(latestRow.lastUpdated || latestRow.createdAt || latestRow.date) || -Infinity;
                 latestDayKey = getDateKey(latestRow.date || latestRow.createdAt) || '';
                 latestHasTime = hasExplicitTime(latestRow);
@@ -329,7 +355,9 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
 
         activeCategories.forEach(cat => {
             const catMax = hasValidNumber(cat?.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : safeMaxScore;
-            const catMin = hasValidNumber(cat?.minScore) ? Math.min(Number(cat.minScore), catMax) : safeMinScore;
+            const catMin = hasValidNumber(cat?.minScore)
+                ? Math.min(Number(cat.minScore), catMax)
+                : (safeMinScore < catMax ? safeMinScore : 0);
             const history = Object.values(cat.simuladoStats?.history || {}).filter(h => h && h.valid !== false && h.validated !== false);
             history.forEach(h => {
                 const hDateKey = getDateKey(h?.date || h?.createdAt);
@@ -359,14 +387,17 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
         });
 
         const getAcc = (b) => b.total > 0 ? ratioToPoints(b.correct / b.total, safeMaxScore, safeMinScore) : null;
-        return [
-            { id: 'month6', label: 'Últimos 180 dias', val: getAcc(buckets.month6), rIn: 72, rOut: 79 },
-            { id: 'month3', label: 'Últimos 90 dias', val: getAcc(buckets.month3), rIn: 80, rOut: 87 },
-            { id: 'month', label: 'Últimos 30 dias', val: getAcc(buckets.month), rIn: 88, rOut: 95 },
-            { id: 'week', label: 'Últimos 7 dias', val: getAcc(buckets.week), rIn: 96, rOut: 103 },
-            { id: 'today', label: 'Hoje', val: getAcc(buckets.today), rIn: 104, rOut: 111 },
-            { id: 'last', label: 'Último Teste', val: latestAcc, rIn: 112, rOut: 119 }
-        ];
+        return {
+            latestTestDayKey: latestDayKey,
+            temporalMetrics: [
+                { id: 'month6', label: 'Últimos 180 dias', val: getAcc(buckets.month6), rIn: 72, rOut: 79 },
+                { id: 'month3', label: 'Últimos 90 dias', val: getAcc(buckets.month3), rIn: 80, rOut: 87 },
+                { id: 'month', label: 'Últimos 30 dias', val: getAcc(buckets.month), rIn: 88, rOut: 95 },
+                { id: 'week', label: 'Últimos 7 dias', val: getAcc(buckets.week), rIn: 96, rOut: 103 },
+                { id: 'today', label: 'Hoje', val: getAcc(buckets.today), rIn: 104, rOut: 111 },
+                { id: 'last', label: 'Último Teste', val: latestAcc, rIn: 112, rOut: 119 }
+            ]
+        };
     }, [activeCategories, safeMax, safeMin, todayKey, simuladoRows]);
 
     const lastMetric = temporalMetrics.find(t => t.id === 'last');
@@ -375,8 +406,9 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
     const chartData = useMemo(() => {
         if (!dailyData || dailyData.length === 0) return [];
         const data = dailyData.map(d => ({ ...d }));
-        if (latestAcc !== null) {
-            const lastIdx = data.length - 1;
+        const lastIdx = data.length - 1;
+        const canAttachBar = latestAcc !== null && (!latestTestDayKey || latestTestDayKey === data[lastIdx].date);
+        if (canAttachBar) {
             const prevAcc = data.length > 1 ? data[lastIdx - 1].accuracy : data[0].accuracy;
             data[lastIdx].lastTestAcc = latestAcc;
             const marginLine = stabilityMargin;
@@ -389,7 +421,13 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
             }
         }
         return data;
-    }, [dailyData, latestAcc, stabilityMargin]);
+    }, [dailyData, latestAcc, latestTestDayKey, stabilityMargin]);
+
+    const isFlatTimeline = useMemo(() => {
+        if (chartData.length <= 1) return true;
+        const first = chartData[0]?.accuracy;
+        return chartData.every(d => Math.abs((d?.accuracy ?? first) - first) < 1e-6);
+    }, [chartData]);
 
     const renderAccuracyLabel = useCallback((props) => {
         const { x, y, value, index } = props;
@@ -534,14 +572,13 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
                     </div>
                 </div>
                 <div className="mt-4 flex flex-wrap items-center justify-center gap-2.5 w-full">
-                    <div className={`px-3 py-1.5 rounded-xl flex items-center gap-2 border ${
-                        deltaStatus === 'positive' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' :
+                    <div className={`px-3 py-1.5 rounded-xl flex items-center gap-2 border ${deltaStatus === 'positive' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' :
                         deltaStatus === 'negative' ? 'bg-rose-500/10 border-rose-500/30 text-rose-300' :
-                        'bg-amber-500/10 border-amber-500/30 text-amber-300'
-                    }`}>
+                            'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                        }`}>
                         {deltaStatus === 'positive' ? <TrendingUp size={14} /> :
-                         deltaStatus === 'negative' ? <TrendingDown size={14} /> :
-                         <Minus size={14} />}
+                            deltaStatus === 'negative' ? <TrendingDown size={14} /> :
+                                <Minus size={14} />}
                         <div className="flex flex-col">
                             <span className="text-sm font-black font-mono tabular-nums leading-tight">
                                 {delta > 0 ? '+' : delta < 0 ? '−' : ''}{safeFix(deltaAbs)}{unit}
@@ -549,11 +586,10 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
                             <span className="text-[10px] font-semibold opacity-80">vs Geral</span>
                         </div>
                     </div>
-                    <div className={`px-3 py-1.5 rounded-xl flex items-center gap-2 border ${
-                        deltaMeta >= 0 ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' :
+                    <div className={`px-3 py-1.5 rounded-xl flex items-center gap-2 border ${deltaMeta >= 0 ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' :
                         deltaMeta >= -(safeRange * 0.1) ? 'bg-amber-500/10 border-amber-500/30 text-amber-300' :
-                        'bg-rose-500/10 border-rose-500/30 text-rose-300'
-                    }`}>
+                            'bg-rose-500/10 border-rose-500/30 text-rose-300'
+                        }`}>
                         <Target size={13} />
                         <div className="flex flex-col">
                             <span className="text-sm font-black font-mono tabular-nums leading-tight">
@@ -563,14 +599,13 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
                         </div>
                     </div>
                     {deltaLastVsToday !== null && (
-                        <div className={`px-3 py-1.5 rounded-xl flex items-center gap-2 border ${
-                            lastVsTodayStatus === 'positive' ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-300' :
+                        <div className={`px-3 py-1.5 rounded-xl flex items-center gap-2 border ${lastVsTodayStatus === 'positive' ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-300' :
                             lastVsTodayStatus === 'negative' ? 'bg-orange-500/10 border-orange-500/30 text-orange-300' :
-                            'bg-amber-500/10 border-amber-500/30 text-amber-300'
-                        }`}>
+                                'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                            }`}>
                             {lastVsTodayStatus === 'positive' ? <TrendingUp size={14} /> :
-                             lastVsTodayStatus === 'negative' ? <TrendingDown size={14} /> :
-                             <Minus size={14} />}
+                                lastVsTodayStatus === 'negative' ? <TrendingDown size={14} /> :
+                                    <Minus size={14} />}
                             <div className="flex flex-col">
                                 <span className="text-xs font-black font-mono tabular-nums leading-tight">
                                     {deltaLastVsToday > 0 ? '+' : deltaLastVsToday < 0 ? '−' : ''}{safeFix(Math.abs(deltaLastVsToday))}{unit}
@@ -624,67 +659,67 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
                                 </linearGradient>
                             </defs>
                             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
-                            <XAxis 
-                                dataKey="displayDate" 
-                                stroke="#64748b" 
-                                fontSize={10} 
-                                tickLine={false} 
-                                axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} 
+                            <XAxis
+                                dataKey="displayDate"
+                                stroke="#64748b"
+                                fontSize={10}
+                                tickLine={false}
+                                axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
                                 dy={10}
                                 fontWeight={600}
                             />
-                            <YAxis 
-                                domain={[safeMin, safeMax]} 
-                                stroke="#64748b" 
-                                fontSize={10} 
-                                tickLine={false} 
-                                axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} 
-                                tickFormatter={(v) => `${formatValue(v)}${unit}`} 
+                            <YAxis
+                                domain={[safeMin, safeMax]}
+                                stroke="#64748b"
+                                fontSize={10}
+                                tickLine={false}
+                                axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
+                                tickFormatter={(v) => `${formatValue(v)}${unit}`}
                                 fontWeight={600}
                             />
                             <Tooltip content={<CustomTooltipTimeline unit={unit} />} cursor={{ stroke: 'rgba(255,255,255,0.15)', strokeWidth: 1.5, strokeDasharray: '4 4' }} />
-                            <ReferenceLine 
-                                y={generalAccuracy} 
-                                stroke={COLORS.reference} 
-                                strokeDasharray="4 4" 
-                                strokeWidth={1.5} 
+                            <ReferenceLine
+                                y={generalAccuracy}
+                                stroke={COLORS.reference}
+                                strokeDasharray="4 4"
+                                strokeWidth={1.5}
                                 opacity={0.7}
                                 label={{ value: 'Média geral', fill: COLORS.reference, fontSize: 10, fontWeight: 700, position: 'insideTopLeft', dy: -4 }}
                             />
-                            <ReferenceLine 
-                                y={effectiveTargetScore} 
-                                stroke="#10b981" 
-                                strokeDasharray="5 3" 
-                                strokeWidth={1.6} 
+                            <ReferenceLine
+                                y={effectiveTargetScore}
+                                stroke="#10b981"
+                                strokeDasharray="5 3"
+                                strokeWidth={1.6}
                                 opacity={0.85}
                                 label={{ value: `Meta ${formatValue(effectiveTargetScore)}${unit}`, fill: '#34d399', fontSize: 10, fontWeight: 700, position: 'insideTopRight', dy: -4 }}
                             />
                             <Line 
                                 type="monotoneX" 
                                 dataKey="accuracy" 
-                                stroke={`url(#neonGradient_${neonGradInstanceId})`} 
+                                stroke={isFlatTimeline ? '#c084fc' : `url(#neonGradient_${neonGradInstanceId})`} 
                                 strokeWidth={3} 
                                 dot={{ fill: '#0f172a', stroke: '#c084fc', strokeWidth: 2, r: 4 }}
                                 activeDot={{ fill: '#c084fc', stroke: '#fff', strokeWidth: 2, r: 6 }}
                                 isAnimationActive={true}
                                 animationDuration={1000}
                             >
-                                <LabelList 
-                                    dataKey="accuracy" 
+                                <LabelList
+                                    dataKey="accuracy"
                                     content={renderAccuracyLabel}
                                 />
                             </Line>
-                            <Bar dataKey="lastTestAcc" barSize={18} radius={[6,6,0,0]} isAnimationActive={true} animationDuration={1000} fill={COLORS.gaugeFillValid}>
+                            <Bar dataKey="lastTestAcc" barSize={18} radius={[6, 6, 0, 0]} isAnimationActive={true} animationDuration={1000} fill={COLORS.gaugeFillValid}>
                                 {chartData.map((entry, index) => (
                                     <Cell key={`cell-${index}`} fill={entry.lastTestColor || COLORS.gaugeFillValid} style={{ filter: entry.lastTestColor ? `drop-shadow(0 0 6px ${entry.lastTestColor}80)` : 'none' }} />
                                 ))}
-                                <LabelList 
-                                    dataKey="lastTestAcc" 
-                                    position="top" 
-                                    offset={6} 
-                                    formatter={(v) => Number.isFinite(Number(v)) ? `${formatValue(v)}${unit}` : ''} 
-                                    fill="#fff" 
-                                    fontSize={10} 
+                                <LabelList
+                                    dataKey="lastTestAcc"
+                                    position="top"
+                                    offset={6}
+                                    formatter={(v) => Number.isFinite(Number(v)) ? `${formatValue(v)}${unit}` : ''}
+                                    fill="#fff"
+                                    fontSize={10}
                                     fontWeight={900}
                                 />
                             </Bar>

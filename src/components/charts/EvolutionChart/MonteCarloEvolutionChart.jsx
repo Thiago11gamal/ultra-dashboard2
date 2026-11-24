@@ -3,13 +3,26 @@ import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceArea, ReferenceLine
 } from 'recharts';
 import { Target, TrendingUp, AlertCircle, Sparkles, Loader2 } from 'lucide-react';
-import { format, isValid } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { isValid } from 'date-fns';
 import { formatDuration, normalizeDate, getDateKey } from '../../../utils/dateHelper';
 import { formatValue, formatPercent } from '../../../utils/scoreHelper';
 import { applyScenarioAdjustments, classifyScenarioSignal } from '../../../utils/monteCarloScenario.js';
 import { normalizeProbability } from '../../../utils/evolutionGuards';
 import { BenchmarkStrip } from '../../ui/BenchmarkStrip';
+
+const PT_MONTHS_SHORT = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+
+const formatDayFromKey = (dayKey) => {
+    if (typeof dayKey !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(dayKey)) {
+        return { displayDate: String(dayKey || ''), fullDate: String(dayKey || '') };
+    }
+    const [yyyy, mmStr, dd] = dayKey.split('-');
+    const mIdx = Math.max(0, Math.min(11, Number(mmStr) - 1));
+    return {
+        displayDate: `${dd}/${mmStr}`,
+        fullDate: `${dd} ${PT_MONTHS_SHORT[mIdx]} ${yyyy}`,
+    };
+};
 
 const hasValidNumber = (v) =>
     v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
@@ -18,16 +31,19 @@ const MonteCarloTooltip = React.memo(({ active, payload, unit, targetScore, maxS
     if (active && payload && payload.length) {
         const dataPoint = payload[0].payload;
         const fullDate = dataPoint.fullDate;
+        const todayKey = getDateKey(new Date());
+        const isTodayPoint = dataPoint.dayKey === todayKey || dataPoint.date === 'Hoje' || dataPoint.date === 'HOJE';
 
         // Operador de coalescência nula garante falhas seguras e respeita o piso (minScore)
-        const pointTarget = Math.max(minScore, Math.min(maxScore, (dataPoint.target === null || dataPoint.target === undefined || dataPoint.target === '') ? targetScore : (Number.isFinite(Number(dataPoint.target)) ? Number(dataPoint.target) : targetScore)));
-        const pointMean = Math.max(minScore, Math.min(maxScore, (dataPoint.mean === null || dataPoint.mean === undefined || dataPoint.mean === '') ? minScore : (Number.isFinite(Number(dataPoint.mean)) ? Number(dataPoint.mean) : minScore)));
-        const projMean = dataPoint.projectedMean != null && Number.isFinite(Number(dataPoint.projectedMean)) ? Math.max(minScore, Math.min(maxScore, Number(dataPoint.projectedMean))) : pointMean;
-        const pointProb = Math.max(0, Math.min(100, (dataPoint.probability === null || dataPoint.probability === undefined || dataPoint.probability === '') ? 0 : (Number.isFinite(Number(dataPoint.probability)) ? Number(dataPoint.probability) : 0)));
+        const pointTarget = Math.max(minScore, Math.min(maxScore, !hasValidNumber(dataPoint.target) ? targetScore : Number(dataPoint.target)));
+        const pointMean = Math.max(minScore, Math.min(maxScore, !hasValidNumber(dataPoint.mean) ? minScore : Number(dataPoint.mean)));
+        const projMean = hasValidNumber(dataPoint.projectedMean) ? Math.max(minScore, Math.min(maxScore, Number(dataPoint.projectedMean))) : pointMean;
+        const pointProb = Math.max(0, Math.min(100, !hasValidNumber(dataPoint.probability) ? 0 : Number(dataPoint.probability)));
         const pointLow = dataPoint.ciRange?.[0] ?? pointMean;
         const pointHigh = dataPoint.ciRange?.[1] ?? pointMean;
 
-        const isGood = projMean >= pointTarget;
+        const isGood = projMean >= targetScore;
+        const hasDifferentHistoricalTarget = Math.abs(pointTarget - targetScore) > 0.05;
 
         return (
             <div className="bg-slate-950/90 border border-white/15 p-4 rounded-2xl shadow-[0_12px_36px_rgba(0,0,0,0.6)] backdrop-blur-xl min-w-[220px]">
@@ -53,7 +69,7 @@ const MonteCarloTooltip = React.memo(({ active, payload, unit, targetScore, maxS
                     </div>
                     <div className="mt-2 bg-black/40 rounded-xl border border-white/5 p-2.5 space-y-1.5">
                         <div className="flex justify-between items-center text-[10px]">
-                            <span className="font-bold text-slate-400">{dataPoint.date === 'Hoje' || dataPoint.date === 'HOJE' ? 'Hoje:' : 'Esperado:'}</span>
+                            <span className="font-bold text-slate-400">{isTodayPoint ? 'Hoje:' : 'Esperado:'}</span>
                             <span className="font-mono font-bold text-slate-200">
                                 {unit === 'horas' ? formatDuration(pointMean) : `${formatValue(pointMean)}${unit}`}
                             </span>
@@ -76,6 +92,14 @@ const MonteCarloTooltip = React.memo(({ active, payload, unit, targetScore, maxS
                                 {formatPercent(pointProb)}
                             </span>
                         </div>
+                        {hasDifferentHistoricalTarget && (
+                            <div className="flex justify-between items-center text-[9px] text-slate-500 pt-1 border-t border-white/5">
+                                <span>Meta na data:</span>
+                                <span className="font-mono">
+                                    {unit === 'horas' ? formatDuration(pointTarget) : `${formatValue(pointTarget)}${unit}`}
+                                </span>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -96,11 +120,11 @@ const SCENARIO_OPTIONS = [
  * Visualizes the trajectory of projected scores and success probabilities over time.
  * Hardened to support non-zero scoring floors (minScore) and preventing Y-axis overshoot.
  */
-export const MonteCarloEvolutionChart = React.memo(({ 
-    data = [], 
-    targetScore = 75, 
-    unit = 'pts', 
-    minScore = 0, 
+export const MonteCarloEvolutionChart = React.memo(({
+    data = [],
+    targetScore = 75,
+    unit = 'pts',
+    minScore = 0,
     maxScore = 100,
     loading = false
 }) => {
@@ -111,17 +135,17 @@ export const MonteCarloEvolutionChart = React.memo(({
     const scenarioLabels = useMemo(() => Object.fromEntries(SCENARIO_OPTIONS.map(opt => [opt.id, opt.fullLabel])), []);
 
     const safeMin = hasValidNumber(minScore) ? Number(minScore) : 0;
-    const safeMax = Number(maxScore) > safeMin ? Number(maxScore) : safeMin + 1;
-    
+    const safeMax = hasValidNumber(maxScore) && Number(maxScore) > safeMin ? Number(maxScore) : Math.max(100, safeMin + 1);
+
     const safeTargetScore = useMemo(() => {
-      const fallback = safeMin + (safeMax - safeMin) * 0.8;
-      return Math.max(safeMin, Math.min(safeMax, hasValidNumber(targetScore) ? Number(targetScore) : fallback));
+        const fallback = safeMin + (safeMax - safeMin) * 0.8;
+        return Math.max(safeMin, Math.min(safeMax, hasValidNumber(targetScore) ? Number(targetScore) : fallback));
     }, [targetScore, safeMin, safeMax]);
 
     const formattedData = useMemo(() => {
         if (!data || !Array.isArray(data)) return [];
         const validSorted = data
-            .filter(d => d?.date)
+            .filter(d => d?.date && (hasValidNumber(d.mean) || hasValidNumber(d.projectedMean)))
             .map(d => ({ ...d, parsedDate: normalizeDate(d.date) }))
             .filter(d => isValid(d.parsedDate))
             .sort((a, b) => a.parsedDate.getTime() - b.parsedDate.getTime());
@@ -129,22 +153,18 @@ export const MonteCarloEvolutionChart = React.memo(({
         const byDay = new Map();
         validSorted.forEach(item => {
             const dayKey = getDateKey(item.parsedDate) || String(item.parsedDate.getTime());
-            byDay.set(dayKey, item);
+            byDay.set(dayKey, { ...item, dayKey });
         });
 
         return Array.from(byDay.values())
             .map(d => {
-                let displayDate = d.date;
-                let fullDate = d.date;
-
-                displayDate = format(d.parsedDate, 'dd/MM', { locale: ptBR });
-                fullDate = format(d.parsedDate, 'dd MMM yyyy', { locale: ptBR });
+                const { displayDate, fullDate } = formatDayFromKey(d.dayKey);
 
                 // Sanitização: manter intervalo de confiança dentro do domínio e com ordem válida
-                const meanRaw = (d.mean === null || d.mean === undefined || d.mean === '') ? safeMin : (Number.isFinite(Number(d.mean)) ? Number(d.mean) : safeMin);
+                const meanRaw = hasValidNumber(d.mean) ? Number(d.mean) : Number(d.projectedMean);
                 const mean = Math.max(safeMin, Math.min(safeMax, meanRaw));
-                const rawLow = (d.ci95Low === null || d.ci95Low === undefined || d.ci95Low === '') ? mean : (Number.isFinite(Number(d.ci95Low)) ? Number(d.ci95Low) : mean);
-                const rawHigh = (d.ci95High === null || d.ci95High === undefined || d.ci95High === '') ? mean : (Number.isFinite(Number(d.ci95High)) ? Number(d.ci95High) : mean);
+                const rawLow = hasValidNumber(d.ci95Low) ? Number(d.ci95Low) : mean;
+                const rawHigh = hasValidNumber(d.ci95High) ? Number(d.ci95High) : mean;
                 const boundedLow = Math.max(safeMin, Math.min(safeMax, rawLow));
                 const boundedHigh = Math.max(safeMin, Math.min(safeMax, rawHigh));
                 const low = Math.min(boundedLow, boundedHigh);
@@ -157,7 +177,7 @@ export const MonteCarloEvolutionChart = React.memo(({
                     displayDate,
                     fullDate,
                     mean,
-                    projectedMean: (d.projectedMean === null || d.projectedMean === undefined || d.projectedMean === '') ? mean : (Number.isFinite(Number(d.projectedMean)) ? Math.max(safeMin, Math.min(safeMax, Number(d.projectedMean))) : mean),
+                    projectedMean: hasValidNumber(d.projectedMean) ? Math.max(safeMin, Math.min(safeMax, Number(d.projectedMean))) : mean,
                     probability,
                     ciRange: [low, high]
                 };
@@ -221,18 +241,19 @@ export const MonteCarloEvolutionChart = React.memo(({
         const range = Math.max(1e-9, safeMax - safeMin);
         const gapUnit = unit === '%' ? 'pp' : ` ${unit}`;
         const fmt = (v) => (unit === 'horas' ? formatDuration(v) : `${formatValue(v)}${unit === '%' ? '%' : ` ${unit}`}`);
+        const fmtGap = (v) => (unit === 'horas' ? formatDuration(Math.abs(v)) : `${formatValue(Math.abs(v))}${gapUnit}`);
         const prob = Number(latest?.probability);
         return {
             currentValue: fmt(proj),
             targetValue: fmt(safeTargetScore),
             gapLabel: Math.abs(diff) < 0.05
                 ? 'Na meta ✓'
-                : (diff > 0 ? `+${formatValue(diff)}${gapUnit} acima` : `Faltam ${formatValue(Math.abs(diff))}${gapUnit}`),
+                : (diff > 0 ? `+${fmtGap(diff)} acima` : `Faltam ${fmtGap(diff)}`),
             status: diff >= -0.05 ? 'success' : diff >= -(range * 0.1) ? 'warning' : 'danger',
             progressPct: safeTargetScore > safeMin
                 ? ((proj - safeMin) / Math.max(1e-9, safeTargetScore - safeMin)) * 100
                 : 100,
-            extra: Number.isFinite(prob) ? `Aprovação: ${prob.toFixed(0)}% (alvo ≥ 80%)` : null,
+            extra: Number.isFinite(prob) ? `Aprovação: ${prob.toFixed(0)}% (alvo ≥ 70%)` : null,
         };
     }, [scenarioAdjustedData, safeTargetScore, safeMin, safeMax, unit]);
 
@@ -244,16 +265,62 @@ export const MonteCarloEvolutionChart = React.memo(({
     );
 
     if (formattedData.length <= 1) {
+        const isSinglePoint = formattedData.length === 1;
         return (
             <div className="w-full min-h-[400px] flex flex-col items-center justify-center bg-slate-950/40 rounded-2xl border border-white/5 p-6 overflow-hidden relative">
+                {loading && (
+                    <div className="absolute inset-0 z-20 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center rounded-2xl">
+                        <div className="flex flex-col items-center gap-2.5">
+                            <Loader2 size={24} className="animate-spin text-indigo-400" />
+                            <span className="text-[11px] font-bold uppercase text-indigo-300 tracking-wider animate-pulse">
+                                Recalculando Monte Carlo...
+                            </span>
+                        </div>
+                    </div>
+                )}
+                {isSinglePoint && mcBenchmark && (
+                    <div className="w-full max-w-2xl mb-5 space-y-2.5">
+                        <div className="flex justify-end">
+                            <div className="inline-flex items-center gap-1 bg-slate-950/80 border border-white/[0.08] rounded-xl p-1 shadow-inner">
+                                {SCENARIO_OPTIONS.map(opt => (
+                                    <button
+                                        key={opt.id}
+                                        type="button"
+                                        onClick={() => setScenario(opt.id)}
+                                        aria-label={`Selecionar cenário ${opt.fullLabel}`}
+                                        aria-pressed={scenario === opt.id}
+                                        className={`relative px-2.5 py-1 text-[11px] font-bold transition-all duration-200 rounded-lg border ${
+                                            scenario === opt.id
+                                                ? 'bg-indigo-500/20 text-indigo-200 border-indigo-400/40 shadow-sm'
+                                                : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
+                                        }`}
+                                    >
+                                        {opt.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                        <BenchmarkStrip
+                            currentLabel={`Projeção inicial (${formattedData[0]?.fullDate || formattedData[0]?.displayDate})`}
+                            currentValue={mcBenchmark.currentValue}
+                            targetLabel="Meta"
+                            targetValue={mcBenchmark.targetValue}
+                            gapLabel={mcBenchmark.gapLabel}
+                            status={mcBenchmark.status}
+                            progressPct={mcBenchmark.progressPct}
+                            extra={mcBenchmark.extra}
+                            compact
+                        />
+                    </div>
+                )}
                 <div className="w-16 h-16 rounded-2xl bg-blue-500/10 flex items-center justify-center mb-4">
                     <AlertCircle size={32} className="text-blue-400" />
                 </div>
                 <h3 className="text-lg font-black text-slate-200 mb-2 uppercase tracking-widest text-center">
-                    Nenhum ponto registrado
+                    {isSinglePoint ? '1 dia registrado — aguardando evolução' : 'Nenhum ponto registrado'}
                 </h3>
                 <p className="text-xs text-slate-400 text-center max-w-sm mb-6 leading-relaxed">
-                    {formattedData.length === 0 
+                    {!isSinglePoint
                         ? 'A evolução do Monte Carlo é registrada gradualmente conforme o motor calcula as projeções diárias. Aguarde o primeiro registro de hoje.'
                         : 'É necessário ter pelo menos dois dias de projeções diferentes para traçar a linha do tempo da evolução. Continue estudando para gerar mais dados.'}
                 </p>
@@ -261,8 +328,8 @@ export const MonteCarloEvolutionChart = React.memo(({
                 <div className="w-full max-w-md h-40 opacity-20 pointer-events-none">
                     <ResponsiveContainer width="100%" height="100%" minWidth={120} minHeight={150}>
                         <AreaChart data={[
-                            { date: '1', mean: safeMin + (safeMax - safeMin) * 0.4 }, 
-                            { date: '2', mean: safeMin + (safeMax - safeMin) * 0.6 }, 
+                            { date: '1', mean: safeMin + (safeMax - safeMin) * 0.4 },
+                            { date: '2', mean: safeMin + (safeMax - safeMin) * 0.6 },
                             { date: '3', mean: safeMin + (safeMax - safeMin) * 0.85 }
                         ]}>
                             <XAxis dataKey="date" hide />
@@ -286,7 +353,7 @@ export const MonteCarloEvolutionChart = React.memo(({
                         <h3 className="text-sm font-black text-slate-100 tracking-tight">Rastreador de Aprovação</h3>
                         {mcAssumptions && (
                             <p className="text-[11px] text-slate-400 font-medium">
-                                {mcAssumptions.points} registros · IC 95% de {formatValue(mcAssumptions.ciWidth)}{unit === '%' ? ' pp' : ` ${unit}`} · Cenário {mcAssumptions.scenario}
+                                {mcAssumptions.points} registros · IC 95% de {unit === 'horas' ? formatDuration(mcAssumptions.ciWidth) : `${formatValue(mcAssumptions.ciWidth)}${unit === '%' ? ' pp' : ` ${unit}`}`} · Cenário {mcAssumptions.scenario}
                             </p>
                         )}
                     </div>
@@ -301,11 +368,10 @@ export const MonteCarloEvolutionChart = React.memo(({
                                 onClick={() => setScenario(opt.id)}
                                 aria-label={`Selecionar cenário ${opt.fullLabel}`}
                                 aria-pressed={scenario === opt.id}
-                                className={`relative px-3 py-1 text-[11px] font-bold transition-all duration-200 rounded-lg border ${
-                                    scenario === opt.id
-                                        ? 'bg-indigo-500/20 text-indigo-200 border-indigo-400/40 shadow-sm'
-                                        : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
-                                }`}
+                                className={`relative px-3 py-1 text-[11px] font-bold transition-all duration-200 rounded-lg border ${scenario === opt.id
+                                    ? 'bg-indigo-500/20 text-indigo-200 border-indigo-400/40 shadow-sm'
+                                    : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
+                                    }`}
                             >
                                 {opt.label}
                             </button>
@@ -342,14 +408,14 @@ export const MonteCarloEvolutionChart = React.memo(({
             )}
 
             {loading && (
-              <div className="absolute inset-0 z-20 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center rounded-2xl">
-                <div className="flex flex-col items-center gap-2.5">
-                  <Loader2 size={24} className="animate-spin text-indigo-400" />
-                  <span className="text-[11px] font-bold uppercase text-indigo-300 tracking-wider animate-pulse">
-                    Recalculando Monte Carlo...
-                  </span>
+                <div className="absolute inset-0 z-20 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center rounded-2xl">
+                    <div className="flex flex-col items-center gap-2.5">
+                        <Loader2 size={24} className="animate-spin text-indigo-400" />
+                        <span className="text-[11px] font-bold uppercase text-indigo-300 tracking-wider animate-pulse">
+                            Recalculando Monte Carlo...
+                        </span>
+                    </div>
                 </div>
-              </div>
             )}
             <div className="w-full relative h-[360px] flex items-center justify-center">
                 {displayData.length > 0 ? (
@@ -371,13 +437,13 @@ export const MonteCarloEvolutionChart = React.memo(({
                                 </linearGradient>
                             </defs>
                             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
-                            
+
                             {/* Glowing Target Zone */}
                             <ReferenceArea y1={safeTargetScore} y2={safeMax} fill={`url(#targetGlow-${safeId})`} />
-                            <ReferenceLine 
-                                y={safeTargetScore} 
-                                stroke="#10b981" 
-                                strokeDasharray="4 3" 
+                            <ReferenceLine
+                                y={safeTargetScore}
+                                stroke="#10b981"
+                                strokeDasharray="4 3"
                                 strokeWidth={1.5}
                                 label={{ value: `Meta (${unit === 'horas' ? formatDuration(safeTargetScore) : `${formatValue(safeTargetScore)}${unit}`})`, fill: '#10b981', fontSize: 10, fontWeight: 700, position: 'insideTopLeft', dy: 4 }}
                             />
@@ -399,7 +465,7 @@ export const MonteCarloEvolutionChart = React.memo(({
                                 tickLine={false}
                                 axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
                                 dx={-5}
-                                width={45}
+                                width={unit !== '%' || safeMin < 0 || safeMax >= 1000 ? 60 : 48}
                                 domain={[safeMin, safeMax]}
                                 allowDataOverflow={false}
                                 tickCount={6}
@@ -412,7 +478,7 @@ export const MonteCarloEvolutionChart = React.memo(({
                             />
 
                             <Area connectNulls
-                                type="linear" 
+                                type="linear"
                                 dataKey="ciRange"
                                 stroke="none"
                                 fillOpacity={1}
@@ -427,11 +493,11 @@ export const MonteCarloEvolutionChart = React.memo(({
                                 strokeWidth={3}
                                 fill="none"
                                 activeDot={{ r: 6, strokeWidth: 2, fill: '#38bdf8', stroke: '#ffffff', className: "animate-pulse shadow-lg" }}
-                                dot={scenarioAdjustedData.length < 40 ? { 
-                                    r: Math.max(1.5, 3.5 - (scenarioAdjustedData.length / 14)), 
-                                    strokeWidth: 1.5, 
-                                    fill: '#090d16', 
-                                    stroke: '#38bdf8' 
+                                dot={scenarioAdjustedData.length < 40 ? {
+                                    r: Math.max(1.5, 3.5 - (scenarioAdjustedData.length / 14)),
+                                    strokeWidth: 1.5,
+                                    fill: '#090d16',
+                                    stroke: '#38bdf8'
                                 } : false}
                                 isAnimationActive={false}
                             />
@@ -449,16 +515,7 @@ export const MonteCarloEvolutionChart = React.memo(({
                             />
                         </AreaChart>
                     </ResponsiveContainer>
-                ) : scenarioAdjustedData.length === 0 ? null : (
-                    <div className="w-full h-full opacity-10 pointer-events-none blur-sm">
-                    <ResponsiveContainer width="100%" height="100%" minHeight={150} minWidth={1}>
-                        <AreaChart data={[{ mean: safeMin }, { mean: scenarioAdjustedData[0]?.mean ?? safeMin }, { mean: safeMin }]}>
-                            <YAxis hide domain={[safeMin, safeMax]} />
-                            <Area connectNulls type="monotoneX" dataKey="mean" stroke="#60a5fa" fill="none" strokeWidth={3} isAnimationActive={false} />
-                        </AreaChart>
-                    </ResponsiveContainer>
-                    </div>
-                )}
+                ) : null}
             </div>
 
             {/* Compact inline legend + trend alert (avoids duplicating the parent "Guia da análise") */}

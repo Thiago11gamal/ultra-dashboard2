@@ -20,6 +20,12 @@ import { toDateMs, getDateKey } from '../../../utils/dateHelper';
 import { parseNoonLocal, addDaysNoon } from '../../../utils/parseNoonLocal';
 
 const safeArr = (v) => (Array.isArray(v) ? v : (v && typeof v === 'object' ? Object.values(v) : [])).filter(Boolean);
+const isStrictNum = (v) =>
+  v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
+const normalizeConfidence = (raw) => {
+  if (typeof raw !== 'string') return '';
+  return raw.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+};
 
 const ERROR_META = [
   { key: 'teoria', label: 'Lacuna Teórica', color: '#f43f5e' },
@@ -112,11 +118,11 @@ export const MetacognitionFatigueChart = React.memo(function MetacognitionFatigu
   maxScore = 100,
 }) {
   const telemetry = useMemo(() => {
+    const todayKey = getDateKey(new Date());
     let cutoffMs = null;
     if (timeWindow && timeWindow !== 'all') {
       const days = Number.parseInt(String(timeWindow), 10);
       if (Number.isFinite(days) && days > 0) {
-        const todayKey = getDateKey(new Date());
         const todayNoon = todayKey ? parseNoonLocal(todayKey) : new Date();
         const cutoffNoon = todayNoon ? addDaysNoon(todayNoon, -days) : null;
         const cutoffKey = cutoffNoon ? getDateKey(cutoffNoon) : null;
@@ -136,8 +142,9 @@ export const MetacognitionFatigueChart = React.memo(function MetacognitionFatigu
 
     const rows = safeArr(simuladoRows).filter((r) => {
       if (!r || r.valid === false || r.validated === false) return false;
+      const dk = getDateKey(r.date || r.createdAt);
+      if (todayKey && dk && dk > todayKey) return false;
       if (cutoffMs) {
-        const dk = getDateKey(r.date || r.createdAt);
         const ms = dk ? toDateMs(dk) : NaN;
         if (Number.isFinite(ms) && ms < cutoffMs) return false;
       }
@@ -214,9 +221,10 @@ export const MetacognitionFatigueChart = React.memo(function MetacognitionFatigu
     telemetry.forEach((q) => {
       if (q.wasAnswered === false) return;
       const isCorrect = Boolean(q.correct ?? q.wasCorrect);
-      if (q.confidence === 'certeza') isCorrect ? counts.certezaOk++ : counts.certezaErr++;
-      else if (q.confidence === 'duvida') isCorrect ? counts.duvidaOk++ : counts.duvidaErr++;
-      else if (q.confidence === 'chute') isCorrect ? counts.chuteOk++ : counts.chuteErr++;
+      const conf = normalizeConfidence(q.confidence);
+      if (conf === 'certeza') isCorrect ? counts.certezaOk++ : counts.certezaErr++;
+      else if (conf === 'duvida') isCorrect ? counts.duvidaOk++ : counts.duvidaErr++;
+      else if (conf === 'chute') isCorrect ? counts.chuteOk++ : counts.chuteErr++;
     });
     const total = Object.values(counts).reduce((a, b) => a + b, 0);
     return { counts, total };
@@ -247,8 +255,13 @@ export const MetacognitionFatigueChart = React.memo(function MetacognitionFatigu
   // Exclui questões deixadas em branco (wasAnswered === false) do denominador de acerto
   // para não confundir omissão estratégica (CEBRASPE) com queda por fadiga.
   const fatigueCurve = useMemo(() => {
-    const labels = ['1º Quarto (Início)', '2º Quarto', '3º Quarto', '4º Quarto (Final)'];
-    const buckets = labels.map((label) => ({ label, total: 0, answered: 0, correct: 0, timeSum: 0, timedCount: 0 }));
+    const quarters = [
+      { label: '1º Quarto (Início)', short: '1º' },
+      { label: '2º Quarto', short: '2º' },
+      { label: '3º Quarto', short: '3º' },
+      { label: '4º Quarto (Final)', short: '4º' },
+    ];
+    const buckets = quarters.map((q) => ({ label: q.label, short: q.short, total: 0, answered: 0, correct: 0, timeSum: 0, timedCount: 0 }));
     telemetry.forEach((q) => {
       const b = buckets[q.positionQuartile];
       if (!b) return;
@@ -267,6 +280,7 @@ export const MetacognitionFatigueChart = React.memo(function MetacognitionFatigu
       .filter((b) => b.answered > 0)
       .map((b) => ({
         label: b.label,
+        short: b.short,
         accuracyPct: Math.round((b.correct / b.answered) * 100),
         avgSeconds: b.timedCount > 0 ? Math.round(b.timeSum / b.timedCount) : null,
         total: b.answered,
@@ -296,11 +310,10 @@ export const MetacognitionFatigueChart = React.memo(function MetacognitionFatigu
   const certezaTotal = metaMatrix.counts.certezaOk + metaMatrix.counts.certezaErr;
   const certezaAccPct = certezaTotal > 0 ? Math.round((metaMatrix.counts.certezaOk / certezaTotal) * 100) : null;
   const illusionPct = metaMatrix.total > 0 ? Math.round((metaMatrix.counts.certezaErr / metaMatrix.total) * 100) : 0;
-  const gMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
-  const gMax = Number.isFinite(Number(maxScore)) && Number(maxScore) > gMin ? Number(maxScore) : gMin + 100;
-  const tNum = Number(targetScore);
-  const fatigueTargetPct = Number.isFinite(tNum)
-    ? Math.round(Math.max(10, Math.min(100, ((tNum - gMin) / Math.max(1e-9, gMax - gMin)) * 100)))
+  const gMin = isStrictNum(minScore) ? Number(minScore) : 0;
+  const gMax = isStrictNum(maxScore) && Number(maxScore) > gMin ? Number(maxScore) : gMin + 100;
+  const fatigueTargetPct = isStrictNum(targetScore)
+    ? Math.round(Math.max(10, Math.min(100, ((Number(targetScore) - gMin) / Math.max(1e-9, gMax - gMin)) * 100)))
     : 80;
 
   return (
@@ -312,7 +325,7 @@ export const MetacognitionFatigueChart = React.memo(function MetacognitionFatigu
           targetLabel="Alvo calibração"
           targetValue="≥ 90%"
           gapLabel={certezaAccPct != null
-            ? (certezaAccPct >= 90 ? `+${certezaAccPct - 90}pp acima` : `Faltam ${90 - certezaAccPct}pp`)
+            ? (certezaAccPct === 90 ? 'No alvo ✓' : certezaAccPct > 90 ? `+${certezaAccPct - 90}pp acima` : `Faltam ${90 - certezaAccPct}pp`)
             : `Ilusão: ${illusionPct}% (alvo < 5%)`}
           status={certezaAccPct != null
             ? (certezaAccPct >= 90 && illusionPct < 5 ? 'success' : certezaAccPct >= 75 ? 'warning' : 'danger')
@@ -399,21 +412,26 @@ export const MetacognitionFatigueChart = React.memo(function MetacognitionFatigu
                 <span
                   className={`text-[11px] font-mono font-bold tabular-nums px-2.5 py-0.5 rounded-full border ${fatigueDelta <= -12
                     ? 'bg-rose-500/15 border-rose-500/35 text-rose-300'
-                    : fatigueDelta >= 5
-                      ? 'bg-emerald-500/15 border-emerald-500/35 text-emerald-300'
-                      : 'bg-sky-500/15 border-sky-500/35 text-sky-300'
+                    : fatigueDelta < -5
+                      ? 'bg-amber-500/15 border-amber-500/35 text-amber-300'
+                      : fatigueDelta >= 5
+                        ? 'bg-emerald-500/15 border-emerald-500/35 text-emerald-300'
+                        : 'bg-sky-500/15 border-sky-500/35 text-sky-300'
                     }`}
                 >
                   {fatigueDelta <= -12
                     ? `Queda de fadiga: ${fatigueDelta}pp no final`
-                    : fatigueDelta >= 5
-                      ? `Aquecimento positivo: +${fatigueDelta}pp`
-                      : `Resistência estável (${fatigueDelta >= 0 ? '+' : ''}${fatigueDelta}pp)`}
+                    : fatigueDelta < -5
+                      ? `Queda moderada: ${fatigueDelta}pp`
+                      : fatigueDelta >= 5
+                        ? `Aquecimento positivo: +${fatigueDelta}pp`
+                        : `Resistência estável (${fatigueDelta >= 0 ? '+' : ''}${fatigueDelta}pp)`}
                 </span>
               )}
             </div>
           </div>
           {metaMatrix.total === 0 && (() => {
+            const firstQuarter = fatigueCurve[0];
             const lastQuarter = fatigueCurve[fatigueCurve.length - 1];
             const qDiff = lastQuarter.accuracyPct - fatigueTargetPct;
             return (
@@ -425,7 +443,7 @@ export const MetacognitionFatigueChart = React.memo(function MetacognitionFatigu
                 gapLabel={qDiff === 0 ? 'Na meta ✓' : qDiff > 0 ? `+${qDiff}pp acima` : `Faltam ${Math.abs(qDiff)}pp`}
                 status={qDiff >= 0 ? 'success' : qDiff >= -10 ? 'warning' : 'danger'}
                 progressPct={fatigueTargetPct > 0 ? (lastQuarter.accuracyPct / fatigueTargetPct) * 100 : 100}
-                extra={fatigueDelta !== null ? `Variação 1º→4º quarto: ${fatigueDelta >= 0 ? '+' : ''}${fatigueDelta}pp (alvo ≥ −5pp)` : null}
+                extra={fatigueDelta !== null ? `Variação ${firstQuarter.short}→${lastQuarter.short} quarto: ${fatigueDelta >= 0 ? '+' : ''}${fatigueDelta}pp (alvo ≥ −5pp)` : null}
                 compact
               />
             );

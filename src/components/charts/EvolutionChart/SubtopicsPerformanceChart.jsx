@@ -131,18 +131,24 @@ export const SubtopicsPerformanceChart = React.memo(({
     );
 
     // Garantir range mínimo e fallback sensato (respeitando escala e meta da matéria em foco quando showOnlyFocus está ativo)
-    const focusedCategory = (showOnlyFocus && focusSubjectId)
-        ? safeCategories.find(cat => cat && cat.id === focusSubjectId)
+    const hasFocusId = focusSubjectId !== null && focusSubjectId !== undefined && String(focusSubjectId).trim() !== '';
+    const isSameId = (a, b) => a !== null && a !== undefined && b !== null && b !== undefined && String(a) === String(b);
+
+    const focusedCategory = (showOnlyFocus && hasFocusId)
+        ? safeCategories.find(cat => cat && isSameId(cat.id, focusSubjectId))
         : null;
     const globalMinScorePct = hasValidNumber(minScore) ? Number(minScore) : 0;
-    const globalMaxScorePct = Number(maxScore) > globalMinScorePct ? Number(maxScore) : globalMinScorePct + 1;
+    const globalMaxScorePct = hasValidNumber(maxScore) && Number(maxScore) > globalMinScorePct ? Number(maxScore) : Math.max(100, globalMinScorePct + 1);
     const globalRangePct = Math.max(1e-9, globalMaxScorePct - globalMinScorePct);
 
+    const focusedCatMax = (focusedCategory && hasValidNumber(focusedCategory.maxScore) && Number(focusedCategory.maxScore) > 0)
+        ? Number(focusedCategory.maxScore)
+        : null;
     const safeMinScorePct = (focusedCategory && hasValidNumber(focusedCategory.minScore))
         ? Number(focusedCategory.minScore)
-        : globalMinScorePct;
-    const safeMaxScorePct = (focusedCategory && hasValidNumber(focusedCategory.maxScore) && Number(focusedCategory.maxScore) > safeMinScorePct)
-        ? Number(focusedCategory.maxScore)
+        : (focusedCatMax != null && focusedCatMax <= globalMinScorePct ? 0 : globalMinScorePct);
+    const safeMaxScorePct = (focusedCatMax != null && focusedCatMax > safeMinScorePct)
+        ? focusedCatMax
         : (globalMaxScorePct > safeMinScorePct ? globalMaxScorePct : safeMinScorePct + 1);
     const safeRangePct = Math.max(1e-9, safeMaxScorePct - safeMinScorePct);
 
@@ -173,13 +179,14 @@ export const SubtopicsPerformanceChart = React.memo(({
     );
 
     const relevantCategories = useMemo(() => {
-        return safeCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId);
-    }, [safeCategories, showOnlyFocus, focusSubjectId]);
+        if (!showOnlyFocus || !hasFocusId) return safeCategories;
+        return safeCategories.filter(cat => isSameId(cat.id, focusSubjectId));
+    }, [safeCategories, showOnlyFocus, hasFocusId, focusSubjectId]);
 
     const chartData = useMemo(() => {
         const topicMap = {};
-        const safeMaxScore = Math.max(1, Number(maxScore) || 100);
         const safeMinScore = hasValidNumber(minScore) ? Number(minScore) : 0;
+        const safeMaxScore = hasValidNumber(maxScore) && Number(maxScore) > safeMinScore ? Number(maxScore) : Math.max(100, safeMinScore + 1);
         const scopeByCat = !showOnlyFocus && relevantCategories.length > 1;
 
         relevantCategories.forEach(cat => {
@@ -187,16 +194,18 @@ export const SubtopicsPerformanceChart = React.memo(({
             if (!recentHistory.length) return;
 
             const catMax = hasValidNumber(cat.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : safeMaxScore;
-            const catMin = hasValidNumber(cat.minScore) ? Math.min(Number(cat.minScore), catMax) : safeMinScore;
+            const catMin = hasValidNumber(cat.minScore)
+                ? Math.min(Number(cat.minScore), catMax)
+                : (safeMinScore < catMax ? safeMinScore : 0);
             const catRange = Math.max(1e-9, catMax - catMin);
             const tasksList = toArray(cat.tasks);
 
             for (let i = 0; i < recentHistory.length; i++) {
                 const h = recentHistory[i];
-                let topicList = toArray(h.topics);
+                let topicList = toArray(h.topics).filter(t => t && typeof t === 'object' && t.valid !== false && t.validated !== false);
                 const parentPenalty = Number(h.penaltyPerWrong) || 0;
                 if (topicList.length === 0) {
-                    const matchedTask = h.taskId ? tasksList.find(tk => tk && tk.id === h.taskId) : null;
+                    const matchedTask = h.taskId != null ? tasksList.find(tk => tk && isSameId(tk.id, h.taskId)) : null;
                     const fallbackName = matchedTask?.title || matchedTask?.text || matchedTask?.name || h.topic || h.assunto || h.subtopic || h.topicName;
                     if (fallbackName) {
                         topicList = [{
@@ -206,6 +215,12 @@ export const SubtopicsPerformanceChart = React.memo(({
                             score: h.score,
                             scorePoints: h.scorePoints,
                             scorePct: h.scorePct,
+                            value: h.value,
+                            unit: h.unit,
+                            scoreUnit: h.scoreUnit,
+                            source: h.source,
+                            sourceMinScore: h.sourceMinScore,
+                            sourceMaxScore: h.sourceMaxScore,
                             penaltyPerWrong: h.penaltyPerWrong,
                             blanks: h.blanks,
                             netPoints: h.netPoints,
@@ -215,16 +230,24 @@ export const SubtopicsPerformanceChart = React.memo(({
                             type: h.type
                         }];
                     }
-                } else if (parentPenalty > 0) {
-                    topicList = topicList.map(t => (t && t.penaltyPerWrong == null ? { ...t, penaltyPerWrong: parentPenalty } : t));
+                } else {
+                    const shouldCopyBlanks = topicList.length === 1 && h.blanks != null;
+                    if (parentPenalty > 0 || shouldCopyBlanks) {
+                        topicList = topicList.map(t => ({
+                            ...t,
+                            ...(parentPenalty > 0 && t.penaltyPerWrong == null ? { penaltyPerWrong: parentPenalty } : {}),
+                            ...(shouldCopyBlanks && t.blanks == null ? { blanks: h.blanks } : {}),
+                        }));
+                    }
                 }
 
                 topicList.forEach(t => {
-                    const rawName = String(t.name || '').replace(/^\[(.*?)\]\s*/i, '').replace(/<[^>]*>?/gm, '').trim();
+                    const rawTopicTitle = t.name || t.topic || t.assunto || t.title || t.subtopic || t.topicName || '';
+                    const rawName = String(rawTopicTitle).replace(/^\[(.*?)\]\s*/i, '').replace(/<[^>]*>?/gm, '').trim();
                     const n = rawName ? rawName.charAt(0).toUpperCase() + rawName.slice(1) : '';
                     if (!n || n.toLowerCase() === 'nenhum') return;
                     const rawKey = n.toLowerCase();
-                    const catScope = String(cat.id || cat.name || '');
+                    const catScope = String(cat.id ?? cat.name ?? '');
                     const key = scopeByCat ? `${catScope}::${rawKey}` : rawKey;
 
                     if (!topicMap[key]) {
@@ -233,7 +256,7 @@ export const SubtopicsPerformanceChart = React.memo(({
 
                     const isSynthFlag = Boolean(t.syntheticVolume || t.isSynthetic || t.type === 'percent-only');
                     const rawTotParsed = isSynthFlag ? 0 : (parseInt(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions, 10) || 0);
-                    const hasTopicScore = hasValidNumber(t.score) || hasValidNumber(t.scorePoints) || hasValidNumber(t.scorePct);
+                    const hasTopicScore = hasValidNumber(t.score) || hasValidNumber(t.scorePoints) || hasValidNumber(t.scorePct) || hasValidNumber(t.value);
                     const isSynthTopic = rawTotParsed <= 0;
                     let total = rawTotParsed;
                     if (isSynthTopic && (t.isPercentage || hasTopicScore || isSynthFlag)) {
@@ -302,8 +325,8 @@ export const SubtopicsPerformanceChart = React.memo(({
     const { timeSeriesData, uniqueTopics } = useMemo(() => {
         const dateMap = {};
         const topicVolumeMap = {};
-        const safeMaxScore = Math.max(1, Number(maxScore) || 100);
         const safeMinScore = hasValidNumber(minScore) ? Number(minScore) : 0;
+        const safeMaxScore = hasValidNumber(maxScore) && Number(maxScore) > safeMinScore ? Number(maxScore) : Math.max(100, safeMinScore + 1);
         const scopeByCat = !showOnlyFocus && relevantCategories.length > 1;
 
         const toTopicKey = (name) => {
@@ -324,7 +347,9 @@ export const SubtopicsPerformanceChart = React.memo(({
             if (!recentHistory.length) return;
 
             const catMax = hasValidNumber(cat.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : safeMaxScore;
-            const catMin = hasValidNumber(cat.minScore) ? Math.min(Number(cat.minScore), catMax) : safeMinScore;
+            const catMin = hasValidNumber(cat.minScore)
+                ? Math.min(Number(cat.minScore), catMax)
+                : (safeMinScore < catMax ? safeMinScore : 0);
             const catRange = Math.max(1e-9, catMax - catMin);
             const tasksList = toArray(cat.tasks);
 
@@ -340,10 +365,10 @@ export const SubtopicsPerformanceChart = React.memo(({
                     dateMap[dateKey] = { dateKey, dateLabel, originalDate: dayNoonMs };
                 }
 
-                let topicList = toArray(h.topics);
+                let topicList = toArray(h.topics).filter(t => t && typeof t === 'object' && t.valid !== false && t.validated !== false);
                 const parentPenalty = Number(h.penaltyPerWrong) || 0;
                 if (topicList.length === 0) {
-                    const matchedTask = h.taskId ? tasksList.find(tk => tk && tk.id === h.taskId) : null;
+                    const matchedTask = h.taskId != null ? tasksList.find(tk => tk && isSameId(tk.id, h.taskId)) : null;
                     const fallbackName = matchedTask?.title || matchedTask?.text || matchedTask?.name || h.topic || h.assunto || h.subtopic || h.topicName;
                     if (fallbackName) {
                         topicList = [{
@@ -353,6 +378,12 @@ export const SubtopicsPerformanceChart = React.memo(({
                             score: h.score,
                             scorePoints: h.scorePoints,
                             scorePct: h.scorePct,
+                            value: h.value,
+                            unit: h.unit,
+                            scoreUnit: h.scoreUnit,
+                            source: h.source,
+                            sourceMinScore: h.sourceMinScore,
+                            sourceMaxScore: h.sourceMaxScore,
                             penaltyPerWrong: h.penaltyPerWrong,
                             blanks: h.blanks,
                             netPoints: h.netPoints,
@@ -362,18 +393,26 @@ export const SubtopicsPerformanceChart = React.memo(({
                             type: h.type
                         }];
                     }
-                } else if (parentPenalty > 0) {
-                    topicList = topicList.map(t => (t && t.penaltyPerWrong == null ? { ...t, penaltyPerWrong: parentPenalty } : t));
+                } else {
+                    const shouldCopyBlanks = topicList.length === 1 && h.blanks != null;
+                    if (parentPenalty > 0 || shouldCopyBlanks) {
+                        topicList = topicList.map(t => ({
+                            ...t,
+                            ...(parentPenalty > 0 && t.penaltyPerWrong == null ? { penaltyPerWrong: parentPenalty } : {}),
+                            ...(shouldCopyBlanks && t.blanks == null ? { blanks: h.blanks } : {}),
+                        }));
+                    }
                 }
 
                 topicList.forEach(t => {
-                    const rawName = String(t.name || '').replace(/^\[(.*?)\]\s*/i, '').replace(/<[^>]*>?/gm, '').trim();
+                    const rawTopicTitle = t.name || t.topic || t.assunto || t.title || t.subtopic || t.topicName || '';
+                    const rawName = String(rawTopicTitle).replace(/^\[(.*?)\]\s*/i, '').replace(/<[^>]*>?/gm, '').trim();
                     const topicName = rawName ? rawName.charAt(0).toUpperCase() + rawName.slice(1) : '';
                     if (!topicName || topicName.toLowerCase() === 'nenhum') return;
 
                     const isSynthFlag = Boolean(t.syntheticVolume || t.isSynthetic || t.type === 'percent-only');
                     const rawTotParsed = isSynthFlag ? 0 : (parseInt(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions, 10) || 0);
-                    const hasTopicScore = hasValidNumber(t.score) || hasValidNumber(t.scorePoints) || hasValidNumber(t.scorePct);
+                    const hasTopicScore = hasValidNumber(t.score) || hasValidNumber(t.scorePoints) || hasValidNumber(t.scorePct) || hasValidNumber(t.value);
                     const isSynthTopic = rawTotParsed <= 0;
                     let total = rawTotParsed;
                     if (isSynthTopic && (t.isPercentage || hasTopicScore || isSynthFlag)) {
@@ -399,12 +438,15 @@ export const SubtopicsPerformanceChart = React.memo(({
                     if (!Number.isFinite(correct)) return;
                     correct = Math.max(0, Math.min(total, correct));
 
-                    const scopedId = scopeByCat ? `${cat.id || cat.name || ''}::${topicName}` : topicName;
+                    const scopedId = scopeByCat ? `${cat.id ?? cat.name ?? ''}::${topicName}` : topicName;
                     const sKey = toTopicKey(scopedId);
                     if (!topicVolumeMap[sKey]) {
-                        topicVolumeMap[sKey] = { name: topicName, rawKey: topicName.toLowerCase(), catName: cat.name || '', key: sKey, volume: 0 };
+                        topicVolumeMap[sKey] = { name: topicName, rawKey: topicName.toLowerCase(), catName: cat.name || '', key: sKey, volume: 0, realVolume: 0 };
                     }
                     topicVolumeMap[sKey].volume += total;
+                    if (!isSynthTopic) {
+                        topicVolumeMap[sKey].realVolume += total;
+                    }
 
                     const totKey = `${sKey}_total`;
                     const corKey = `${sKey}_correct`;
@@ -433,7 +475,7 @@ export const SubtopicsPerformanceChart = React.memo(({
         });
 
         const topTopics = Object.values(topicVolumeMap)
-            .sort((a, b) => b.volume - a.volume)
+            .sort((a, b) => (b.realVolume - a.realVolume) || (b.volume - a.volume))
             .slice(0, 8)
             .map(({ name, rawKey, catName, key }) => ({
                 name: (seriesNameFreq[rawKey] > 1 && catName)
@@ -511,7 +553,7 @@ export const SubtopicsPerformanceChart = React.memo(({
     }, [chartData]);
 
     const barsContainerHeight = useMemo(() => {
-        return Math.max(420, Math.min(chartData.length * 48, 1600));
+        return Math.max(420, chartData.length * 42);
     }, [chartData.length]);
 
     const subtopicsBenchmark = useMemo(() => {
@@ -520,7 +562,8 @@ export const SubtopicsPerformanceChart = React.memo(({
         let weightSum = 0;
         let onTarget = 0;
         chartData.forEach((item) => {
-            const w = Math.max(1, Number(item.realTotal ?? item.total) || 1);
+            const effVol = Number(item.realTotal) > 0 ? Number(item.realTotal) : Number(item.total);
+            const w = Math.max(1, Number.isFinite(effVol) && effVol > 0 ? effVol : 1);
             weightedAcc += (Number(item.accuracy) || 0) * w;
             weightSum += w;
             if ((Number(item.accuracy) || 0) >= targetScorePct) onTarget += 1;
@@ -597,7 +640,7 @@ export const SubtopicsPerformanceChart = React.memo(({
                     <div className="min-w-[520px] lg:min-w-full relative" style={{ height: barsContainerHeight }}>
                         <ChartFrame minHeight={420} label="Analisando subtópicos">
                             <ResponsiveContainer width="100%" height="100%" minHeight={420} minWidth={1}>
-                                <BarChart data={chartData} layout="vertical" margin={{ top: 10, right: 110, left: 0, bottom: 0 }}>
+                                <BarChart data={chartData} layout="vertical" margin={{ top: 24, right: 110, left: 0, bottom: 0 }}>
                                     <defs>
                                         <linearGradient id={`gradGood_${instanceId}`} x1="0" y1="0" x2="1" y2="0">
                                             <stop offset="0%" stopColor="#10b981" stopOpacity={0.7} />

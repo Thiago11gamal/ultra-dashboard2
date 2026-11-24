@@ -11,6 +11,12 @@ const HIDDEN_NAMES = new Set([
     'Ganho Estimado'
 ]);
 
+const toStrictNum = (v) => {
+    if (v === null || v === undefined || typeof v === 'boolean' || String(v).trim() === '') return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+};
+
 export const ChartTooltip = ({
     active,
     payload,
@@ -22,11 +28,11 @@ export const ChartTooltip = ({
     minScore = 0,
     targetScore = null
 }) => {
-    const safeMax = Math.max(1, Number(maxScore) || 100);
-    const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
-    const scaleRange = Math.max(1, safeMax - safeMin);
-    const hasTarget = targetScore !== null && targetScore !== undefined && targetScore !== '' && typeof targetScore !== 'boolean' && Number.isFinite(Number(targetScore));
-    const safeTarget = hasTarget ? Number(targetScore) : null;
+    const safeMin = toStrictNum(minScore) ?? 0;
+    const rawMax = toStrictNum(maxScore);
+    const safeMax = rawMax !== null && rawMax > safeMin ? rawMax : Math.max(safeMin + 1, 100);
+    const scaleRange = Math.max(1e-9, safeMax - safeMin);
+    const safeTarget = toStrictNum(targetScore);
     const gapUnit = unit === '%' ? 'pp' : ` ${unit}`;
 
     const displayHeaderDate = React.useMemo(() => {
@@ -69,6 +75,11 @@ export const ChartTooltip = ({
                 <span className="inline-flex items-center gap-1.5">
                     <Calendar size={13} className="text-indigo-400" aria-hidden="true" />
                     <span>{displayHeaderDate}</span>
+                    {isCompare && currentData?.__future && (
+                        <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-purple-500/20 border border-purple-400/35 text-purple-200">
+                            Projeção MC
+                        </span>
+                    )}
                 </span>
                 <div className="flex items-center gap-2 shrink-0">
                     {safeTarget != null && (
@@ -89,13 +100,13 @@ export const ChartTooltip = ({
                     {visibleItems.map((p, i) => {
                         const dataKey = p.dataKey;
                         if (typeof dataKey !== 'string') return null;
-                        const catId = dataKey.replace(/^(bay_ci_low|bay_ci_high|trend_status|raw_correct|raw_total|raw|bay|stats|trend)_/, '');
-                        const mainVal = Number(Array.isArray(p.value) ? p.value[0] : p.value);
+                        const catId = dataKey.replace(/^(bay_ci_low|bay_ci_high|trend_status|raw_correct|raw_total|raw_blanks|raw|bay|stats|trend)_/, '');
+                        const mainVal = toStrictNum(Array.isArray(p.value) ? p.value[0] : p.value);
                         const rawCorrect = currentData ? currentData[`raw_correct_${catId}`] : null;
                         const rawTotal = currentData ? currentData[`raw_total_${catId}`] : null;
                         const trendVal = currentData ? currentData[`trend_${catId}`] : null;
                         const trendStatus = currentData ? currentData[`trend_status_${catId}`] : 'stable';
-                        const hasMain = Number.isFinite(mainVal);
+                        const hasMain = mainVal !== null;
 
                         return (
                             <div
@@ -176,11 +187,13 @@ export const ChartTooltip = ({
                         const dataKey = p.dataKey;
                         if (typeof dataKey !== 'string') return null;
 
-                        const catId = dataKey.replace(/^(bay_ci_low|bay_ci_high|trend_status|raw_correct|raw_total|raw|bay|stats|trend)_/, '');
+                        const catId = dataKey.replace(/^(bay_ci_low|bay_ci_high|trend_status|raw_correct|raw_total|raw_blanks|raw|bay|stats|trend)_/, '');
                         const subjName = p.name;
 
+                        const activeSeriesVal = toStrictNum(Array.isArray(p.value) ? p.value[0] : p.value);
                         const rawCorrect = currentData ? currentData[`raw_correct_${catId}`] : null;
                         const rawTotal = currentData ? currentData[`raw_total_${catId}`] : null;
+                        const rawBlanks = currentData ? (toStrictNum(currentData[`raw_blanks_${catId}`]) ?? 0) : 0;
                         const rawVal = currentData ? currentData[`raw_${catId}`] : null;
                         const bayVal = currentData ? currentData[`bay_${catId}`] : null;
                         const statsVal = currentData ? currentData[`stats_${catId}`] : null;
@@ -195,7 +208,8 @@ export const ChartTooltip = ({
                                         <span className="truncate">{subjName}</span>
                                     </span>
                                     {safeTarget != null && (() => {
-                                        const refVal = Number.isFinite(Number(bayVal)) ? Number(bayVal) : (Number.isFinite(Number(rawVal)) ? Number(rawVal) : (Number.isFinite(Number(statsVal)) ? Number(statsVal) : null));
+                                        // Alinha o badge à série efetivamente plotada no gráfico ativo (raw, stats ou bay) sem coerção Number(null)===0
+                                        const refVal = activeSeriesVal ?? toStrictNum(bayVal) ?? toStrictNum(rawVal) ?? toStrictNum(statsVal);
                                         if (refVal == null) return null;
                                         const diff = refVal - safeTarget;
                                         return (
@@ -263,19 +277,27 @@ export const ChartTooltip = ({
                                 </div>
                                 {rawCorrect != null && rawTotal > 0 && (() => {
                                     const safeCorr = Math.max(0, Math.min(rawTotal, Number(rawCorrect) || 0));
-                                    const errs = Math.max(0, rawTotal - safeCorr);
+                                    const safeBlanks = Math.max(0, Math.min(rawTotal - safeCorr, rawBlanks));
+                                    const errs = Math.max(0, rawTotal - safeCorr - safeBlanks);
                                     const errPct = Math.round((errs / rawTotal) * 100);
-                                    const correctPct = 100 - errPct;
+                                    const blankPct = Math.round((safeBlanks / rawTotal) * 100);
+                                    const correctPct = Math.max(0, 100 - errPct - blankPct);
                                     return (
                                         <div className="mt-2.5 flex flex-col gap-1.5 px-0.5">
-                                            <div className="text-[11px] text-slate-400 flex justify-between items-center">
+                                            <div className="text-[11px] text-slate-400 flex justify-between items-center gap-2">
                                                 <span>Simulado deste dia:</span>
                                                 <span className="tabular-nums">
-                                                    <strong className="text-rose-400">{errs} erros</strong> ({errPct}%)
+                                                    <strong className="text-rose-400">{errs} {errs === 1 ? 'erro' : 'erros'}</strong> ({errPct}%)
+                                                    {safeBlanks > 0 && (
+                                                        <span className="text-slate-400 ml-1.5">· {safeBlanks} br.</span>
+                                                    )}
                                                 </span>
                                             </div>
                                             <div className="w-full h-1.5 bg-slate-800/70 rounded-full overflow-hidden flex">
                                                 <div className="h-full bg-emerald-500/85 transition-all duration-300" style={{ width: `${correctPct}%` }} />
+                                                {blankPct > 0 && (
+                                                    <div className="h-full bg-slate-500/80 transition-all duration-300" style={{ width: `${blankPct}%` }} />
+                                                )}
                                                 <div className="h-full bg-rose-500/85 transition-all duration-300" style={{ width: `${errPct}%` }} />
                                             </div>
                                         </div>
@@ -284,6 +306,23 @@ export const ChartTooltip = ({
                             </div>
                         );
                     })}
+                    {isCompare && (() => {
+                        const band = currentData?.__future
+                            ? currentData?.['Cenário Range']
+                            : (currentData?.['Banda Bayesiana'] || currentData?.['Cenário Range']);
+                        if (!Array.isArray(band) || band.length < 2) return null;
+                        const bLow = toStrictNum(band[0]);
+                        const bHigh = toStrictNum(band[1]);
+                        if (bLow === null || bHigh === null || bHigh <= bLow) return null;
+                        return (
+                            <div className="flex justify-between items-center gap-2 px-2 py-1 rounded-lg bg-slate-900/50 border border-white/[0.05] text-[10px] font-mono tabular-nums text-slate-400">
+                                <span>{currentData?.__future ? 'Cone MC (IC 95%):' : 'Faixa Bayesiana (IC 95%):'}</span>
+                                <span className="text-slate-200 font-bold">
+                                    {formatValue(bLow)}{unit} – {formatValue(bHigh)}{unit}
+                                </span>
+                            </div>
+                        );
+                    })()}
                 </div>
             )}
         </div>

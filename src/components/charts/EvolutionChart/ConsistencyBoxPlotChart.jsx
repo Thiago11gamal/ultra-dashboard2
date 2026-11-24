@@ -11,6 +11,9 @@ const STABILITY_STYLE = {
   'Poucos dados': 'bg-slate-700/40 text-slate-400 border-slate-600/40',
 };
 
+const isStrictNum = (v) =>
+  v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
+
 export const ConsistencyBoxPlotChart = React.memo(function ConsistencyBoxPlotChart({
   categories = [],
   showOnlyFocus = false,
@@ -21,8 +24,9 @@ export const ConsistencyBoxPlotChart = React.memo(function ConsistencyBoxPlotCha
   maxScore = 100,
   unit = '%',
 }) {
-  const [hoveredRow, setHoveredRow] = useState(null);
+  const [hoveredRowId, setHoveredRowId] = useState(null);
   const [pinnedRowId, setPinnedRowId] = useState(null);
+  const [sortBy, setSortBy] = useState('median_desc');
 
   const data = useMemo(
     () =>
@@ -36,16 +40,31 @@ export const ConsistencyBoxPlotChart = React.memo(function ConsistencyBoxPlotCha
     [categories, showOnlyFocus, focusSubjectId, timeWindow, minScore, maxScore]
   );
 
+  const sortedRows = useMemo(() => {
+    const list = [...data.rows];
+    if (sortBy === 'volatile_desc') {
+      list.sort((a, b) => (b.iqr - a.iqr) || (b.std - a.std));
+    } else if (sortBy === 'median_asc') {
+      list.sort((a, b) => a.median - b.median);
+    } else {
+      list.sort((a, b) => b.median - a.median);
+    }
+    return list;
+  }, [data.rows, sortBy]);
+
   const activeRow = useMemo(() => {
-    if (hoveredRow) return hoveredRow;
-    if (pinnedRowId) return data.rows.find((r) => r.id === pinnedRowId) || null;
+    if (hoveredRowId != null) return data.rows.find((r) => String(r.id) === String(hoveredRowId)) || null;
+    if (pinnedRowId != null) return data.rows.find((r) => String(r.id) === String(pinnedRowId)) || null;
     return null;
-  }, [hoveredRow, pinnedRowId, data.rows]);
+  }, [hoveredRowId, pinnedRowId, data.rows]);
 
   const domainRange = Math.max(1e-6, data.domainMax - data.domainMin);
+  const safeTarget = isStrictNum(targetScore)
+    ? Math.max(data.domainMin, Math.min(data.domainMax, Number(targetScore)))
+    : data.domainMin + domainRange * 0.8;
   const toPct = (v) => Math.max(0, Math.min(100, ((v - data.domainMin) / domainRange) * 100));
   const fmt = (v) => (unit === '%' ? `${Number(v).toFixed(1)}%` : `${formatValue(v)} ${unit}`);
-  const targetLeftPct = toPct(targetScore);
+  const targetLeftPct = toPct(safeTarget);
 
   const ticks = useMemo(() => {
     return [0, 0.25, 0.5, 0.75, 1].map((t) => {
@@ -61,22 +80,22 @@ export const ConsistencyBoxPlotChart = React.memo(function ConsistencyBoxPlotCha
   const boxBenchmark = useMemo(() => {
     if (!data.rows.length) return null;
     const avgMed = data.rows.reduce((acc, r) => acc + r.median, 0) / data.rows.length;
-    const onTarget = data.rows.filter((r) => r.median >= targetScore).length;
-    const stableAndOnTarget = data.rows.filter((r) => r.median >= targetScore && r.stability === 'Estável').length;
-    const diff = avgMed - targetScore;
+    const onTarget = data.rows.filter((r) => r.median >= safeTarget).length;
+    const stableAndOnTarget = data.rows.filter((r) => r.median >= safeTarget && r.stability === 'Estável').length;
+    const diff = avgMed - safeTarget;
     const gapUnit = unit === '%' ? 'pp' : ` ${unit}`;
     return {
       currentValue: fmt(avgMed),
-      targetValue: fmt(targetScore),
+      targetValue: fmt(safeTarget),
       gapLabel: Math.abs(diff) < 0.05 ? 'Na meta ✓' : (diff > 0 ? `+${formatValue(diff)}${gapUnit} acima` : `Faltam ${formatValue(Math.abs(diff))}${gapUnit}`),
       status: diff >= -0.05 ? 'success' : diff >= -(domainRange * 0.1) ? 'warning' : 'danger',
-      progressPct: targetScore > data.domainMin
-        ? ((avgMed - data.domainMin) / Math.max(1e-9, targetScore - data.domainMin)) * 100
+      progressPct: safeTarget > data.domainMin
+        ? ((avgMed - data.domainMin) / Math.max(1e-9, safeTarget - data.domainMin)) * 100
         : 100,
-      extra: `${onTarget}/${data.rows.length} na meta · ${stableAndOnTarget} estáveis`,
+      extra: `${onTarget}/${data.rows.length} na meta · ${stableAndOnTarget} estáveis na meta`,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data.rows, data.domainMin, targetScore, domainRange, unit]);
+  }, [data.rows, data.domainMin, safeTarget, domainRange, unit]);
 
   if (data.rows.length === 0) {
     return (
@@ -89,7 +108,7 @@ export const ConsistencyBoxPlotChart = React.memo(function ConsistencyBoxPlotCha
   }
 
   return (
-    <div className="w-full space-y-4" role="img" aria-label="Box Plot de Consistência por Matéria">
+    <div className="w-full space-y-4" role="region" aria-label="Box Plot de Consistência por Matéria">
       {boxBenchmark && (
         <BenchmarkStrip
           currentLabel="Mediana geral"
@@ -103,7 +122,7 @@ export const ConsistencyBoxPlotChart = React.memo(function ConsistencyBoxPlotCha
           compact
         />
       )}
-      {/* Legenda */}
+      {/* Legenda + Ordenação */}
       <div className="flex flex-wrap items-center justify-between gap-3 text-[11px] text-slate-400">
         <div className="flex flex-wrap items-center gap-4">
           <span className="flex items-center gap-1.5">
@@ -120,7 +139,7 @@ export const ConsistencyBoxPlotChart = React.memo(function ConsistencyBoxPlotCha
           </span>
           <span className="flex items-center gap-1.5">
             <span className="inline-block w-3 border-t border-dashed border-emerald-400" />
-            Meta ({fmt(targetScore)})
+            Meta ({fmt(safeTarget)})
           </span>
           {data.hasCutoffs && (
             <span className="flex items-center gap-1.5">
@@ -129,39 +148,66 @@ export const ConsistencyBoxPlotChart = React.memo(function ConsistencyBoxPlotCha
             </span>
           )}
         </div>
-        <span className="text-[10px] text-slate-500">
-          Estável: IQR ≤ {formatValue(domainRange * 0.1)}{unit === '%' ? ' pp' : ` ${unit}`} · Moderada: até {formatValue(domainRange * 0.18)}{unit === '%' ? ' pp' : ` ${unit}`} · Volátil: &gt; {formatValue(domainRange * 0.18)}{unit === '%' ? ' pp' : ` ${unit}`} · Clique para fixar detalhes
-        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          {data.rows.length > 1 && (
+            <div className="inline-flex items-center gap-1 bg-slate-950/80 border border-white/[0.08] p-0.5 rounded-lg text-[10px] font-bold">
+              {[
+                { id: 'median_desc', label: 'Maior med.' },
+                { id: 'volatile_desc', label: 'Mais voláteis' },
+                { id: 'median_asc', label: 'Menor med.' },
+              ].map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setSortBy(opt.id)}
+                  aria-pressed={sortBy === opt.id}
+                  className={`px-2 py-0.5 rounded-md transition-colors ${sortBy === opt.id ? 'bg-indigo-500/25 text-indigo-100' : 'text-slate-400 hover:text-white'}`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          )}
+          <span className="text-[10px] text-slate-500">
+            Estável: IQR ≤ {formatValue(domainRange * 0.1)}{unit === '%' ? ' pp' : ` ${unit}`} · Moderada: até {formatValue(domainRange * 0.18)}{unit === '%' ? ' pp' : ` ${unit}`} · Volátil: &gt; {formatValue(domainRange * 0.18)}{unit === '%' ? ' pp' : ` ${unit}`} · Clique para fixar
+          </span>
+        </div>
       </div>
 
       {/* Linhas por matéria */}
       <div className="space-y-2.5">
-        {data.rows.map((row) => {
-          const minP = toPct(row.min);
+        {sortedRows.map((row) => {
+          const hasOutliers = Array.isArray(row.outliers) && row.outliers.length > 0;
+          const wMinP = toPct(hasOutliers && row.whiskerMin != null ? row.whiskerMin : row.min);
           const q1P = toPct(row.q1);
           const medP = toPct(row.median);
           const q3P = toPct(row.q3);
-          const maxP = toPct(row.max);
+          const wMaxP = toPct(hasOutliers && row.whiskerMax != null ? row.whiskerMax : row.max);
           const meanP = toPct(row.mean);
           const cutoffP = row.minCutoff !== null ? toPct(row.minCutoff) : null;
-          const isHovered = activeRow?.id === row.id;
+          const isHovered = activeRow != null && String(activeRow.id) === String(row.id);
+          const isPinned = pinnedRowId != null && String(pinnedRowId) === String(row.id);
           const badgeClass = STABILITY_STYLE[row.stability] || STABILITY_STYLE['Poucos dados'];
+          const whiskerW = Math.max(0.5, wMaxP - wMinP);
+          const whiskerLeft = Math.max(0, Math.min(100 - whiskerW, wMinP));
 
           return (
             <div
               key={row.id}
+              role="button"
               tabIndex={0}
-              onClick={() => setPinnedRowId((prev) => (prev === row.id ? null : row.id))}
+              aria-pressed={isPinned}
+              onClick={() => setPinnedRowId((prev) => (prev != null && String(prev) === String(row.id) ? null : row.id))}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault();
-                  setPinnedRowId((prev) => (prev === row.id ? null : row.id));
+                  setPinnedRowId((prev) => (prev != null && String(prev) === String(row.id) ? null : row.id));
                 }
               }}
-              onMouseEnter={() => setHoveredRow(row)}
-              onMouseLeave={() => setHoveredRow(null)}
-              onFocus={() => setHoveredRow(row)}
-              onBlur={() => setHoveredRow(null)}
+              onMouseEnter={() => setHoveredRowId(row.id)}
+              onMouseLeave={() => setHoveredRowId(null)}
+              onFocus={() => setHoveredRowId(row.id)}
+              onBlur={() => setHoveredRowId(null)}
               className={`rounded-2xl border px-3.5 py-3 transition-all cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 ${
                 isHovered
                   ? 'bg-slate-800/80 border-white/20 shadow-lg'
@@ -182,7 +228,11 @@ export const ConsistencyBoxPlotChart = React.memo(function ConsistencyBoxPlotCha
                 </div>
 
                 {/* Plot horizontal */}
-                <div className="flex-1 relative h-8 select-none">
+                <div
+                  className="flex-1 relative h-8 select-none"
+                  role="img"
+                  aria-label={`${row.name}: mínimo ${fmt(row.min)}, mediana ${fmt(row.median)}, máximo ${fmt(row.max)}`}
+                >
                   {/* Trilho base */}
                   <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-1 rounded-full bg-slate-800/90" />
 
@@ -195,31 +245,41 @@ export const ConsistencyBoxPlotChart = React.memo(function ConsistencyBoxPlotCha
                   {/* Marcador de corte mínimo específico da matéria */}
                   {cutoffP !== null && (
                     <div
-                      className="absolute top-0.5 bottom-0.5 w-0.5 bg-rose-400/80 pointer-events-none"
+                      className="absolute top-0.5 bottom-0.5 w-0.5 -translate-x-1/2 bg-rose-400/80 pointer-events-none"
                       style={{ left: `${cutoffP}%` }}
                       title={`Corte mínimo: ${fmt(row.minCutoff)}`}
                     />
                   )}
 
-                  {/* Whisker (Mínimo a Máximo) */}
+                  {/* Whisker (Tukey ou Mín-Máx) */}
                   <div
                     className="absolute top-1/2 -translate-y-1/2 h-0.5"
                     style={{
-                      left: `${minP}%`,
-                      width: `${Math.max(0.5, maxP - minP)}%`,
+                      left: `${whiskerLeft}%`,
+                      width: `${whiskerW}%`,
                       backgroundColor: row.color,
                       opacity: 0.75,
                     }}
                   />
                   {/* Caps do Whisker */}
                   <div
-                    className="absolute top-1/2 -translate-y-1/2 w-0.5 h-3 rounded"
-                    style={{ left: `${minP}%`, backgroundColor: row.color }}
+                    className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-0.5 h-3 rounded"
+                    style={{ left: `${wMinP}%`, backgroundColor: row.color }}
                   />
                   <div
-                    className="absolute top-1/2 -translate-y-1/2 w-0.5 h-3 rounded"
-                    style={{ left: `${maxP}%`, backgroundColor: row.color }}
+                    className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-0.5 h-3 rounded"
+                    style={{ left: `${wMaxP}%`, backgroundColor: row.color }}
                   />
+
+                  {/* Outliers (pontos além de 1.5 × IQR) */}
+                  {hasOutliers && row.outliers.map((outVal, oi) => (
+                    <div
+                      key={`out-${oi}`}
+                      className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-2 h-2 rounded-full border bg-slate-950"
+                      style={{ left: `${toPct(outVal)}%`, borderColor: row.color }}
+                      title={`Outlier: ${fmt(outVal)}`}
+                    />
+                  ))}
 
                   {/* Caixa IQR (Q1 a Q3) */}
                   {(() => {
@@ -240,7 +300,7 @@ export const ConsistencyBoxPlotChart = React.memo(function ConsistencyBoxPlotCha
 
                   {/* Mediana */}
                   <div
-                    className="absolute top-1/2 -translate-y-1/2 w-0.5 h-6 bg-white rounded shadow"
+                    className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-0.5 h-6 bg-white rounded shadow"
                     style={{ left: `${medP}%` }}
                   />
 
@@ -280,16 +340,18 @@ export const ConsistencyBoxPlotChart = React.memo(function ConsistencyBoxPlotCha
       {/* Painel de detalhe da linha selecionada/hovered */}
       {activeRow && (
         <div className="rounded-2xl border border-white/[0.08] bg-slate-950/85 p-3.5 space-y-2.5 text-xs">
-          <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-white/10">
+          <div className="flex flex-wrap items-center justify-between gap-2 pb-1.5 border-b border-white/10">
             <span className="font-black text-white flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: activeRow.color }} />
               {activeRow.name}
             </span>
             <span className="text-[11px] text-slate-400 font-mono tabular-nums">
               {activeRow.count} simulados · {activeRow.stability}
+              {activeRow.minCutoff != null && ` · Corte ${fmt(activeRow.minCutoff)}${activeRow.belowCutoffCount > 0 ? ` (${activeRow.belowCutoffCount} abaixo)` : ''}`}
+              {Array.isArray(activeRow.outliers) && activeRow.outliers.length > 0 && ` · ${activeRow.outliers.length} ${activeRow.outliers.length === 1 ? 'outlier' : 'outliers'}`}
             </span>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 tabular-nums">
+          <div className="grid grid-cols-2 sm:grid-cols-7 gap-2 tabular-nums">
             <div>
               <p className="text-[10px] uppercase text-slate-400 font-bold">Mínimo</p>
               <p className="font-mono font-bold text-rose-300">{fmt(activeRow.min)}</p>
@@ -301,6 +363,10 @@ export const ConsistencyBoxPlotChart = React.memo(function ConsistencyBoxPlotCha
             <div>
               <p className="text-[10px] uppercase text-slate-400 font-bold">Mediana</p>
               <p className="font-mono font-black text-white">{fmt(activeRow.median)}</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase text-slate-400 font-bold">Média</p>
+              <p className="font-mono font-bold text-amber-200">{fmt(activeRow.mean)}</p>
             </div>
             <div>
               <p className="text-[10px] uppercase text-slate-400 font-bold">Q3 (75%)</p>

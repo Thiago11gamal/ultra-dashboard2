@@ -50,8 +50,9 @@ export function filterHistoryByTimeWindow(history, timeWindow) {
 export function useSubjectAggData({ categories, showOnlyFocus, focusCategory, timeWindow, maxScore, minScore }) {
   return useMemo(() => {
     if (!Array.isArray(categories) || !categories.length) return [];
+    const hasFocusId = focusCategory?.id !== null && focusCategory?.id !== undefined && String(focusCategory.id).trim() !== '';
     return categories
-      .filter((cat) => !showOnlyFocus || cat.id === focusCategory?.id)
+      .filter((cat) => !showOnlyFocus || !hasFocusId || (cat?.id != null && String(cat.id) === String(focusCategory.id)))
       .map((cat) => {
         const history = filterHistoryByTimeWindow(cat.simuladoStats?.history || [], timeWindow)
           .filter((h) => h && h.materia !== 'Simulado Personalizado');
@@ -122,36 +123,50 @@ export function useSubjectAggData({ categories, showOnlyFocus, focusCategory, ti
         const totalQ = realQ > 0 ? realQ : synthQ;
         const totalCorrect = Math.round(realQ > 0 ? realC : synthC);
 
+        const parsePosFinite = (v) => (isStrictNum(v) && Number(v) > 0 ? Number(v) : 0);
         const stats = history.reduce(
           (acc, h) => {
-            const rootTs = typeof h.timeSpent === 'number' ? h.timeSpent : null;
+            const rootTs = parsePosFinite(h.timeSpent ?? h.durationSeconds);
+            const explicitTimedQ = parsePosFinite(h.timedQuestoes);
             let topicsTs = 0;
             let topicsTimedQ = 0;
             let hasTopicWithTime = false;
+            let allTimedTopicsHaveExplicitTq = true;
             const safeTopics = Array.isArray(h.topics) ? h.topics : Object.values(h.topics || {});
             if (safeTopics.length > 0) {
               for (const t of safeTopics) {
                 if (!t || typeof t !== 'object') continue;
-                const tTs = typeof t.timeSpent === 'number' ? t.timeSpent : null;
-                const tTot = typeof t.timedQuestoes === 'number' && t.timedQuestoes > 0
-                  ? t.timedQuestoes
-                  : Number(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions) || 0;
-                if (tTs !== null && tTs > 0 && tTot > 0) {
-                  topicsTs += tTs; topicsTimedQ += tTot; hasTopicWithTime = true;
+                const tTs = parsePosFinite(t.timeSpent ?? t.durationSeconds);
+                const tExplicitQ = parsePosFinite(t.timedQuestoes);
+                const tTot = tExplicitQ > 0
+                  ? tExplicitQ
+                  : parsePosFinite(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions);
+                if (tTs > 0 && tTot > 0) {
+                  topicsTs += tTs;
+                  topicsTimedQ += tTot;
+                  hasTopicWithTime = true;
+                  if (tExplicitQ <= 0) allTimedTopicsHaveExplicitTq = false;
                 }
               }
             }
-            if (hasTopicWithTime) return { ts: acc.ts + topicsTs, tq: acc.tq + topicsTimedQ };
-            const explicitTimedQ = isStrictNum(h.timedQuestoes) && Number(h.timedQuestoes) > 0 ? Number(h.timedQuestoes) : 0;
+            const rootAuthoritative = rootTs > 0 && explicitTimedQ > 0 && (
+              (!allTimedTopicsHaveExplicitTq && topicsTimedQ > explicitTimedQ) ||
+              (topicsTs < rootTs)
+            );
+            if (hasTopicWithTime && !rootAuthoritative) {
+              return { ts: acc.ts + topicsTs, tq: acc.tq + topicsTimedQ };
+            }
             let rootTot = explicitTimedQ > 0
               ? explicitTimedQ
-              : (Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions) || 0);
+              : parsePosFinite(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions);
             if (rootTot <= 0 && h.topics != null) {
               const tf = extractTopicsTotals(h, catMax, catMin);
               if (tf.total > 0) rootTot = tf.total;
             }
-            if (rootTs !== null && rootTs > 0 && rootTot > 0) return { ts: acc.ts + rootTs, tq: acc.tq + rootTot };
-            if (rootTs !== null && rootTs > 0 && (isStrictNum(h.score) || isStrictNum(h.scorePoints) || isStrictNum(h.scorePct))) return { ts: acc.ts + rootTs, tq: acc.tq + getSyntheticTotal(catMax) };
+            if (rootTs > 0 && rootTot > 0) return { ts: acc.ts + rootTs, tq: acc.tq + rootTot };
+            if (rootTs > 0 && (isStrictNum(h.score) || isStrictNum(h.scorePoints) || isStrictNum(h.scorePct))) {
+              return { ts: acc.ts + rootTs, tq: acc.tq + getSyntheticTotal(catMax) };
+            }
             return acc;
           },
           { ts: 0, tq: 0 }

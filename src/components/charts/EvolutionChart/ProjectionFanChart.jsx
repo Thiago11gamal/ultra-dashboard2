@@ -57,6 +57,9 @@ function FanTooltip({ active, payload, unit }) {
   );
 }
 
+const isStrictNum = (v) =>
+  v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
+
 export const ProjectionFanChart = React.memo(function ProjectionFanChart({
   focusCategory = null,
   timeline = [],
@@ -74,19 +77,25 @@ export const ProjectionFanChart = React.memo(function ProjectionFanChart({
   const examHorizon = Math.max(1, Math.min(365, Math.round(Number(projectDays) || 60)));
   const effectiveHorizon = customHorizon ?? examHorizon;
 
+  const safeMin = isStrictNum(minScore) ? Number(minScore) : 0;
+  const safeMax = isStrictNum(maxScore) && Number(maxScore) > safeMin ? Number(maxScore) : Math.max(100, safeMin + 1);
+  const safeTarget = isStrictNum(targetScore)
+    ? Math.max(safeMin, Math.min(safeMax, Number(targetScore)))
+    : safeMin + (safeMax - safeMin) * 0.8;
+
   const data = useMemo(
     () =>
       buildProjectionFanData(focusCategory, timeline, {
-        minScore,
-        maxScore,
-        targetScore,
+        minScore: safeMin,
+        maxScore: safeMax,
+        targetScore: safeTarget,
         timeWindow,
         horizonDays: effectiveHorizon,
         mcHorizonDays: examHorizon,
         historicalCutoffs,
         activeMcResult,
       }),
-    [focusCategory, timeline, minScore, maxScore, targetScore, timeWindow, effectiveHorizon, examHorizon, historicalCutoffs, activeMcResult]
+    [focusCategory, timeline, safeMin, safeMax, safeTarget, timeWindow, effectiveHorizon, examHorizon, historicalCutoffs, activeMcResult]
   );
 
   const fmt = (v) => (unit === '%' ? `${Number(v).toFixed(1)}%` : `${formatValue(v)} ${unit}`);
@@ -104,18 +113,18 @@ export const ProjectionFanChart = React.memo(function ProjectionFanChart({
   return (
     <div className="w-full space-y-4">
       {data.summary && (() => {
-        const diff = data.summary.finalP50 - targetScore;
-        const range = Math.max(1e-9, maxScore - minScore);
+        const diff = data.summary.finalP50 - safeTarget;
+        const range = Math.max(1e-9, safeMax - safeMin);
         const gapUnit = unit === '%' ? 'pp' : ` ${unit}`;
         return (
           <BenchmarkStrip
             currentLabel={`Hoje ${fmt(data.summary.currentLevel)} · P50 (${effectiveHorizon}d)`}
             currentValue={fmt(data.summary.finalP50)}
             targetLabel="Meta"
-            targetValue={fmt(targetScore)}
+            targetValue={fmt(safeTarget)}
             gapLabel={Math.abs(diff) < 0.05 ? 'Na meta ✓' : (diff > 0 ? `+${formatValue(diff)}${gapUnit} acima` : `Faltam ${formatValue(Math.abs(diff))}${gapUnit}`)}
             status={diff >= -0.05 ? 'success' : diff >= -(range * 0.1) ? 'warning' : 'danger'}
-            progressPct={targetScore > minScore ? ((data.summary.finalP50 - minScore) / Math.max(1e-9, targetScore - minScore)) * 100 : 100}
+            progressPct={safeTarget > safeMin ? ((data.summary.finalP50 - safeMin) / Math.max(1e-9, safeTarget - safeMin)) * 100 : 100}
             extra={data.alreadyAtTarget ? 'Já na meta ✓' : (data.targetCrossingDate ? `Cruza em ${data.targetCrossingDate.split('-').reverse().join('/')}` : (diff >= 0 ? 'Atinge no prazo ✓' : 'Abaixo no prazo'))}
             compact
           />
@@ -156,9 +165,9 @@ export const ProjectionFanChart = React.memo(function ProjectionFanChart({
             <p className="text-xs font-black font-mono tabular-nums text-white mt-0.5">
               {data.alreadyAtTarget
                 ? 'Já na meta ✓'
-                : (data.targetCrossingDate ? data.targetCrossingDate.split('-').reverse().join('/') : 'Acima do prazo')}
+                : (data.targetCrossingDate ? data.targetCrossingDate.split('-').reverse().join('/') : 'Não atinge no prazo')}
             </p>
-            <p className="text-[10px] text-slate-500">quando P50 bate {fmt(targetScore)}</p>
+            <p className="text-[10px] text-slate-500">quando P50 bate {fmt(safeTarget)}</p>
           </div>
         </div>
 
@@ -167,9 +176,8 @@ export const ProjectionFanChart = React.memo(function ProjectionFanChart({
             type="button"
             onClick={() => setCustomHorizon(null)}
             aria-pressed={customHorizon === null}
-            className={`px-2.5 py-1 rounded-lg border transition-colors ${
-              customHorizon === null ? 'bg-emerald-500/25 text-emerald-200 border-emerald-400/45' : 'text-slate-400 hover:text-white border-transparent'
-            }`}
+            className={`px-2.5 py-1 rounded-lg border transition-colors ${customHorizon === null ? 'bg-emerald-500/25 text-emerald-200 border-emerald-400/45' : 'text-slate-400 hover:text-white border-transparent'
+              }`}
           >
             Prova ({examHorizon}d)
           </button>
@@ -179,9 +187,8 @@ export const ProjectionFanChart = React.memo(function ProjectionFanChart({
               type="button"
               onClick={() => setCustomHorizon(d)}
               aria-pressed={customHorizon === d}
-              className={`px-2.5 py-1 rounded-lg border transition-colors ${
-                customHorizon === d ? 'bg-indigo-500/25 text-indigo-100 border-indigo-400/45' : 'text-slate-400 hover:text-white border-transparent'
-              }`}
+              className={`px-2.5 py-1 rounded-lg border transition-colors ${customHorizon === d ? 'bg-indigo-500/25 text-indigo-100 border-indigo-400/45' : 'text-slate-400 hover:text-white border-transparent'
+                }`}
             >
               {d}d
             </button>
@@ -206,11 +213,11 @@ export const ProjectionFanChart = React.memo(function ProjectionFanChart({
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
               <XAxis dataKey="label" stroke="#64748b" fontSize={10} />
               <YAxis
-                domain={[minScore, maxScore]}
+                domain={[safeMin, safeMax]}
                 stroke="#64748b"
                 fontSize={11}
                 tickFormatter={(v) => {
-                  const decimals = (maxScore - minScore) <= 20 ? 1 : 0;
+                  const decimals = (safeMax - safeMin) <= 20 ? 1 : 0;
                   const formatted = formatValue(v, decimals);
                   return unit === '%' ? `${formatted}%` : formatted;
                 }}
@@ -221,7 +228,7 @@ export const ProjectionFanChart = React.memo(function ProjectionFanChart({
               {data.cutoffBand && (
                 <ReferenceArea
                   y1={data.cutoffBand.min}
-                  y2={data.cutoffBand.max === data.cutoffBand.min ? Math.min(maxScore, data.cutoffBand.max + (maxScore - minScore) * 0.015) : data.cutoffBand.max}
+                  y2={data.cutoffBand.max === data.cutoffBand.min ? Math.min(safeMax, data.cutoffBand.max + (safeMax - safeMin) * 0.015) : data.cutoffBand.max}
                   fill="#f59e0b"
                   fillOpacity={0.14}
                   stroke="#f59e0b"
@@ -231,10 +238,10 @@ export const ProjectionFanChart = React.memo(function ProjectionFanChart({
               )}
 
               <ReferenceLine
-                y={targetScore}
+                y={safeTarget}
                 stroke="#10b981"
                 strokeDasharray="5 5"
-                label={{ value: `Meta ${fmt(targetScore)}`, position: 'insideTopRight', fill: '#10b981', fontSize: 10 }}
+                label={{ value: `Meta ${fmt(safeTarget)}`, position: 'insideTopRight', fill: '#10b981', fontSize: 10 }}
               />
               <ReferenceLine x="Hoje" stroke="#94a3b8" strokeDasharray="3 3" />
 

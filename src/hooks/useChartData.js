@@ -67,7 +67,7 @@ export function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100
         let compCorrect = rawCorrect;
 
         if (isPercentOnly) {
-            compTotal = getSyntheticTotal(safeMax);
+            compTotal = rawTotal > 0 ? rawTotal : getSyntheticTotal(safeMax);
             compCorrect = toRatio(score) * compTotal;
         } else if (rawTotal > 0) {
             compCorrect = resolveEffectiveCorrect(
@@ -360,14 +360,16 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
                     }
                 }
                 if (!Number.isFinite(score)) return;
-                if (!exactByDate[key]) exactByDate[key] = { correct: 0, total: 0, compCorrect: 0, compTotal: 0 };
+                if (!exactByDate[key]) exactByDate[key] = { correct: 0, total: 0, blanks: 0, compCorrect: 0, compTotal: 0 };
                 let corrNorm;
                 let compTotal = rawTotal;
                 let compCorrect;
+                let rowBlanks = 0;
                 if (rawTotal > 0) {
                     corrNorm = (!h.isPercentage && hasCorrect && Number.isFinite(parsedCorrect))
                         ? rawC
                         : Math.max(0, Math.min(rawTotal, Math.round(toCatRatio(score) * rawTotal)));
+                    rowBlanks = Math.min(Math.max(0, rawTotal - corrNorm), Math.max(0, Number(h.blanks) || 0));
                     compCorrect = resolveEffectiveCorrect(
                         h,
                         score,
@@ -384,6 +386,7 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
                 }
                 exactByDate[key].correct += corrNorm;
                 exactByDate[key].total += rawTotal;
+                exactByDate[key].blanks += rowBlanks;
                 exactByDate[key].compCorrect += compCorrect;
                 exactByDate[key].compTotal += compTotal;
             });
@@ -395,6 +398,7 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
                 const exact = exactByDate[date];
                 const displayCorrect = exact ? exact.correct : 0;
                 const displayTotal = exact ? exact.total : 0;
+                const displayBlanks = exact ? exact.blanks : 0;
                 let rawDailyScore = null;
                 if (exact && exact.compTotal >= 1) {
                     const calc = catMin + (exact.compCorrect / exact.compTotal) * catRange;
@@ -409,6 +413,7 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
                     ...dataByDate[date],
                     [`raw_correct_${cat.id}`]: displayCorrect,
                     [`raw_total_${cat.id}`]: displayTotal,
+                    [`raw_blanks_${cat.id}`]: displayBlanks,
                     [`raw_${cat.id}`]: rawDailyScore,
                     [`bay_${cat.id}`]: bayVal,
                     [`bay_ci_low_${cat.id}`]: snap.bayesian ? (Number.isFinite(Number(snap.bayesian.ciLow)) ? Number(snap.bayesian.ciLow) : catMin) : catMin,
@@ -477,11 +482,19 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
         const sortedDates = hasNonFuture ? rawSortedDates.filter(d => d <= todayKey) : rawSortedDates;
         const datesToUse = sortedDates;
         const dates = datesToUse.map(dateStr => {
-            const d = normalizeDate(dateStr);
             const parts = typeof dateStr === 'string' ? dateStr.split('-') : [];
+            const y = Number(parts[0]);
+            const mNum = Number(parts[1]);
+            const dNum = Number(parts[2]);
             const day = parts[2] || '01';
             const m = parts[1] || '01';
-            const dayOfWeek = (d instanceof Date && !isNaN(d.getTime())) ? d.getDay() : 0;
+            let dayOfWeek = 0;
+            if (parts.length === 3 && Number.isFinite(y) && Number.isFinite(mNum) && Number.isFinite(dNum)) {
+                dayOfWeek = new Date(Date.UTC(y, mNum - 1, dNum)).getUTCDay();
+            } else {
+                const d = normalizeDate(dateStr);
+                dayOfWeek = (d instanceof Date && !isNaN(d.getTime())) ? d.getDay() : 0;
+            }
             return {
                 key: dateStr,
                 dayName: DAY_NAMES[dayOfWeek] || '',
@@ -557,17 +570,17 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
             const cells = datesToUse.map(dateStr => {
                 const entry = dayMap[dateStr];
                 if (!entry || entry.total === 0) return null;
-                const pct = entry.realTotal > 0
-                    ? (entry.realCorrect / entry.realTotal) * 100
-                    : (entry.correct / entry.total) * 100;
+                const pct = (entry.correct / entry.total) * 100;
                 const isSynthetic = entry.realTotal === 0;
+                const hasMixedSynthetic = entry.realTotal > 0 && entry.total > entry.realTotal;
                 return {
                     pct: Math.max(0, Math.min(100, Number.isFinite(pct) ? pct : 0)),
-                    correct: isSynthetic ? entry.correct : entry.realCorrect,
-                    total: isSynthetic ? entry.total : entry.realTotal,
+                    correct: entry.correct,
+                    total: entry.total,
                     realCorrect: entry.realCorrect,
                     realTotal: entry.realTotal,
                     isSynthetic,
+                    hasMixedSynthetic,
                 };
             });
             return { cat, cells };

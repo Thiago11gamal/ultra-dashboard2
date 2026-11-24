@@ -351,12 +351,15 @@ export function kalmanAbilitySeries(observations = [], options = {}) {
     const totalDt = kahanSum(dts);
     const driftPerDay = totalDt > 1e-6 ? kahanSum(diffs) / totalDt : 0;
     let sumNoiseSq = 0;
+    let sumC = 0;
     for (let i = 0; i < diffs.length; i++) {
       const detrended = diffs[i] - driftPerDay * dts[i];
       const pureMeasSq = Math.max(0, detrended * detrended - qAbility * dts[i]);
       sumNoiseSq += pureMeasSq;
+      const ratioDt = totalDt > 1e-6 ? dts[i] / totalDt : 1 / diffs.length;
+      sumC += 1 - 2 * ratioDt + ratioDt * ratioDt;
     }
-    const diffVar = sumNoiseSq / Math.max(1, diffs.length - 1);
+    const diffVar = sumNoiseSq / Math.max(1, sumC);
     const estMeasurementVar = 0.5 * diffVar;
     observationVariance = Math.max(
       Math.pow(domain * 0.04, 2),
@@ -425,8 +428,8 @@ export function kalmanAbilitySeries(observations = [], options = {}) {
     const ci95High = clampNumber(ability + 1.96 * abilitySd, minScore, maxScore);
     const innovationSigma = i > 0 && obsSd > 1e-6 ? Math.abs(innovation) / Math.sqrt(Math.max(1e-9, S)) : 0;
 
-    const rawDateIso = typeof current.rawDate === 'string' && /^\d{4}-\d{2}-\d{2}/.test(current.rawDate)
-      ? current.rawDate.slice(0, 10)
+    const rawDateIso = typeof current.rawDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(current.rawDate.trim())
+      ? current.rawDate.trim()
       : null;
     const tzDateKey = getDateKey(current.rawDate ?? current.time);
     const resolvedDate = rawDateIso || tzDateKey || new Date(current.time).toISOString().slice(0, 10);

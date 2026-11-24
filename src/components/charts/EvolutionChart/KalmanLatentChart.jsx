@@ -30,16 +30,23 @@ function KalmanDot(props) {
   return <circle cx={cx} cy={cy} r={3.5} fill="#fb923c" stroke="#0f172a" strokeWidth={1} />;
 }
 
+const isStrictNum = (v) =>
+  v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
+
 function KalmanTooltip({ active, payload, unit }) {
   if (!active || !payload || !payload.length) return null;
   const pt = payload[0]?.payload;
   if (!pt) return null;
   const fmt = (v) => (unit === '%' ? `${Number(v).toFixed(1)}%` : `${formatValue(v)} ${unit}`);
+  const formattedDate = typeof pt.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(pt.date)
+    ? pt.date.split('-').reverse().join('/')
+    : (pt.displayDate || pt.date);
+  const inn = Number(pt.innovation) || 0;
 
   return (
     <div className="bg-slate-950/95 border border-white/15 rounded-2xl p-3.5 shadow-2xl backdrop-blur-xl min-w-[215px] text-xs">
       <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-white/10 pb-1.5 mb-2">
-        {pt.date}
+        {formattedDate}
       </p>
       <div className="space-y-1 font-mono">
         <div className="flex justify-between gap-4">
@@ -56,8 +63,8 @@ function KalmanTooltip({ active, payload, unit }) {
         </div>
         <div className="flex justify-between gap-4 text-[11px] text-slate-400">
           <span>Inovação (ruído):</span>
-          <span className={pt.innovation >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
-            {pt.innovation >= 0 ? '+' : ''}{pt.innovation}{unit === '%' ? '%' : ` ${unit}`}
+          <span className={inn >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
+            {inn >= 0 ? '+' : '−'}{formatValue(Math.abs(inn))}{unit === '%' ? '%' : ` ${unit}`}
           </span>
         </div>
       </div>
@@ -81,9 +88,16 @@ export const KalmanLatentChart = React.memo(function KalmanLatentChart({
   unit = '%',
 }) {
   const uid = useId().replace(/:/g, '');
+  const safeMin = isStrictNum(minScore) ? Number(minScore) : 0;
+  const safeMax = isStrictNum(maxScore) && Number(maxScore) > safeMin ? Number(maxScore) : Math.max(100, safeMin + 1);
+  const domainSpan = Math.max(1e-9, safeMax - safeMin);
+  const safeTarget = isStrictNum(targetScore)
+    ? Math.max(safeMin, Math.min(safeMax, Number(targetScore)))
+    : safeMin + domainSpan * 0.8;
+
   const kalman = useMemo(
-    () => buildKalmanChartData(focusCategory, timeline, { minScore, maxScore, timeWindow }),
-    [focusCategory, timeline, minScore, maxScore, timeWindow]
+    () => buildKalmanChartData(focusCategory, timeline, { minScore: safeMin, maxScore: safeMax, timeWindow }),
+    [focusCategory, timeline, safeMin, safeMax, timeWindow]
   );
 
   const chartPoints = useMemo(
@@ -116,10 +130,10 @@ export const KalmanLatentChart = React.memo(function KalmanLatentChart({
   const { summary } = kalman;
   const trendPositive = summary.trendPerMonth >= 0;
   const unitSuffix = unit === '%' ? '%' : ` ${unit}`;
-  const diffMeta = summary.ability - targetScore;
-  const domainSpan = Math.max(1e-9, maxScore - minScore);
+  const diffMeta = summary.ability - safeTarget;
   const gapUnit = unit === '%' ? 'pp' : ` ${unit}`;
-  const monthsToMeta = (diffMeta < 0 && summary.trendPerMonth > 0.2)
+  const minSlopeForEta = Math.max(0.05, domainSpan * 0.002);
+  const monthsToMeta = (diffMeta < 0 && summary.trendPerMonth > minSlopeForEta)
     ? Math.min(24, Math.ceil(Math.abs(diffMeta) / summary.trendPerMonth))
     : null;
 
@@ -129,10 +143,10 @@ export const KalmanLatentChart = React.memo(function KalmanLatentChart({
         currentLabel="Habilidade real (Kalman)"
         currentValue={fmt(summary.ability)}
         targetLabel="Meta"
-        targetValue={fmt(targetScore)}
+        targetValue={fmt(safeTarget)}
         gapLabel={Math.abs(diffMeta) < 0.05 ? 'Na meta ✓' : (diffMeta > 0 ? `+${formatValue(diffMeta)}${gapUnit} acima` : `Faltam ${formatValue(Math.abs(diffMeta))}${gapUnit}`)}
         status={diffMeta >= -0.05 ? 'success' : diffMeta >= -(domainSpan * 0.1) ? 'warning' : 'danger'}
-        progressPct={targetScore > minScore ? ((summary.ability - minScore) / Math.max(1e-9, targetScore - minScore)) * 100 : 100}
+        progressPct={safeTarget > safeMin ? ((summary.ability - safeMin) / Math.max(1e-9, safeTarget - safeMin)) * 100 : 100}
         extra={monthsToMeta ? `Ritmo atual: ~${monthsToMeta} ${monthsToMeta === 1 ? 'mês' : 'meses'} p/ meta` : `${trendPositive ? '+' : ''}${summary.trendPerMonth.toFixed(1)}${unitSuffix}/mês`}
         compact
       />
@@ -188,21 +202,21 @@ export const KalmanLatentChart = React.memo(function KalmanLatentChart({
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
               <XAxis dataKey="xKey" tickFormatter={(val) => displayLabelByKey.get(val) || String(val).split('#')[0]} stroke="#64748b" fontSize={10} />
               <YAxis
-                domain={[minScore, maxScore]}
+                domain={[safeMin, safeMax]}
                 stroke="#64748b"
                 fontSize={11}
                 tickFormatter={(v) => {
-                  const decimals = (maxScore - minScore) <= 20 ? 1 : 0;
+                  const decimals = (safeMax - safeMin) <= 20 ? 1 : 0;
                   const formatted = formatValue(v, decimals);
                   return unit === '%' ? `${formatted}%` : formatted;
                 }}
               />
               <Tooltip content={<KalmanTooltip unit={unit} />} />
               <ReferenceLine
-                y={targetScore}
+                y={safeTarget}
                 stroke="#6366f1"
                 strokeDasharray="4 4"
-                label={{ value: `Meta ${fmt(targetScore)}`, position: 'insideTopRight', fill: '#818cf8', fontSize: 10 }}
+                label={{ value: `Meta ${fmt(safeTarget)}`, position: 'insideTopRight', fill: '#818cf8', fontSize: 10 }}
               />
               <Area
                 type="monotone"

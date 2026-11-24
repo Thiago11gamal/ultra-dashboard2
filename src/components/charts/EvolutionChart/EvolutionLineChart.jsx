@@ -55,8 +55,33 @@ export const EvolutionLineChart = React.memo(function EvolutionLineChart({
     const effectiveSyncId = syncId !== undefined ? syncId : (engine?.id ? `evolutionSync_${engine.id}` : `evolutionSync_${instanceId}`);
 
     const [highlightedDataKey, setHighlightedDataKey] = useState(null);
+    const chartWrapRef = useRef(null);
+    const [chartDims, setChartDims] = useState({ width: 720, height: 360 });
     const isLineClicked = useRef(false);
     const clickTimerRef = useRef(null);
+
+    useEffect(() => {
+        const el = chartWrapRef.current;
+        if (!el) return undefined;
+        let obs = null;
+        try {
+            if (typeof ResizeObserver !== 'undefined') {
+                obs = new ResizeObserver((entries) => {
+                    for (const entry of entries) {
+                        const w = Math.round(entry.contentRect.width);
+                        const h = Math.round(entry.contentRect.height);
+                        if (w > 50 && h > 50) {
+                            setChartDims((prev) => (Math.abs(prev.width - w) > 2 || Math.abs(prev.height - h) > 2 ? { width: w, height: h } : prev));
+                        }
+                    }
+                });
+                obs.observe(el);
+            }
+        } catch { /* ignore */ }
+        return () => {
+            if (obs) obs.disconnect();
+        };
+    }, []);
 
     useEffect(() => {
         return () => {
@@ -65,6 +90,8 @@ export const EvolutionLineChart = React.memo(function EvolutionLineChart({
     }, []);
 
     const hasValidNum = (v) => v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
+    const isSameId = (a, b) => a !== null && a !== undefined && b !== null && b !== undefined && String(a) === String(b);
+    const hasFocusId = focusSubjectId !== null && focusSubjectId !== undefined && String(focusSubjectId).trim() !== '';
     const safeMinScore = hasValidNum(minScore) ? Number(minScore) : 0;
     const safeMaxScore = Number(maxScore) > safeMinScore ? Number(maxScore) : safeMinScore + 1;
     const safeRange = Math.max(1e-9, safeMaxScore - safeMinScore);
@@ -93,7 +120,7 @@ export const EvolutionLineChart = React.memo(function EvolutionLineChart({
 
         return sortedData.map(d => {
             const copy = { ...d };
-            safeActiveCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).forEach(cat => {
+            safeActiveCategories.filter(cat => !showOnlyFocus || !hasFocusId || isSameId(cat.id, focusSubjectId)).forEach(cat => {
                 const cMin = hasValidNum(cat?.minScore) ? Number(cat.minScore) : safeMinScore;
                 const cMax = hasValidNum(cat?.maxScore) && Number(cat.maxScore) > cMin ? Number(cat.maxScore) : safeMaxScore;
                 const cRange = Math.max(1e-9, cMax - cMin);
@@ -134,7 +161,7 @@ export const EvolutionLineChart = React.memo(function EvolutionLineChart({
         const pts = [];
         const idxMap = {};
 
-        safeActiveCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).forEach(cat => {
+        safeActiveCategories.filter(cat => !showOnlyFocus || !hasFocusId || isSameId(cat.id, focusSubjectId)).forEach(cat => {
             const dataKey = engine?.prefix ? `${engine.prefix}${cat.id}` : `raw_${cat.id}`;
             let lastVal = null;
             let lastIdx = -1;
@@ -238,8 +265,8 @@ export const EvolutionLineChart = React.memo(function EvolutionLineChart({
     }, [finalPoints, enhancedChartData.length, safeMaxScore, safeMinScore, safeRange]);
 
     const visibleCategories = useMemo(
-        () => safeActiveCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId),
-        [safeActiveCategories, showOnlyFocus, focusSubjectId]
+        () => safeActiveCategories.filter(cat => !showOnlyFocus || !hasFocusId || isSameId(cat.id, focusSubjectId)),
+        [safeActiveCategories, showOnlyFocus, hasFocusId, focusSubjectId]
     );
 
     const plottedCategories = useMemo(
@@ -248,6 +275,7 @@ export const EvolutionLineChart = React.memo(function EvolutionLineChart({
     );
 
     const rightMargin = showOnlyFocus || visibleCategories.length <= 1 ? 80 : 88;
+    const hasBrush = enhancedChartData.length > 1;
 
     const renderCustomLabel = useCallback((props, catId, displayColor, isFocused, hasFocus) => {
         const { x, y, index, value, viewBox } = props;
@@ -257,20 +285,26 @@ export const EvolutionLineChart = React.memo(function EvolutionLineChart({
         if (index === lastValidIndexByCat[catId] && hasValidNum(value) && Number.isFinite(Number(x)) && Number.isFinite(Number(y))) {
             let offsetPx = 0;
             const adjustedY = yAdjustedMap[catId];
+            // Recharts 3.5.1 passes point viewBox { x, y, width: 0, height: 0 } to Line LabelList,
+            // so use measured container dimensions instead of viewBox.width/height when <= 0.
+            const plotTop = 16;
+            const plotBottomInset = 16 + 32 + (hasBrush ? 28 : 0);
+            const plotHeight = viewBox?.height > 20 ? viewBox.height : Math.max(140, chartDims.height - plotTop - plotBottomInset);
 
             if (adjustedY !== undefined && adjustedY !== value) {
-                const { range } = normalizeScoreDomain(minScore, maxScore);
-                const chartH = viewBox?.height > 0 ? viewBox.height : 320;
-                const pxPerPct = chartH / (range || 1);
-                offsetPx = (value - adjustedY) * pxPerPct;
+                const pxPerUnit = plotHeight / Math.max(1e-9, safeRange);
+                offsetPx = (Number(value) - adjustedY) * pxPerUnit;
             }
 
             const formatted = `${formatValue(value)}${unit}`;
             const boxWidth = Math.max(52, formatted.length * 7 + 20);
-            const maxX = (viewBox?.width ?? 700) + (viewBox?.x ?? 0) + (rightMargin - 4);
-            const labelX = Math.max(0, Math.min(x + 8, maxX - boxWidth));
-            const maxY = (viewBox?.y ?? 20) + (viewBox?.height ?? 320) - 12;
-            const safeCenterY = Math.max(12, Math.min(maxY, y + offsetPx));
+            const maxX = viewBox?.width > 20
+                ? (viewBox.x ?? 0) + viewBox.width + (rightMargin - 4)
+                : Math.max(Number(x) + rightMargin - 4, chartDims.width - 4);
+            const labelX = Math.max(0, Math.min(Number(x) + 8, maxX - boxWidth));
+            const minY = plotTop + 12;
+            const maxY = plotTop + plotHeight - 12;
+            const safeCenterY = Math.max(minY, Math.min(maxY, Number(y) + offsetPx));
 
             return (
                 <g style={{ zIndex: 100, transition: 'all 0.3s ease' }}>
@@ -302,14 +336,14 @@ export const EvolutionLineChart = React.memo(function EvolutionLineChart({
             );
         }
         return null;
-    }, [lastValidIndexByCat, yAdjustedMap, minScore, maxScore, unit, rightMargin]);
+    }, [lastValidIndexByCat, yAdjustedMap, safeRange, unit, rightMargin, chartDims, hasBrush]);
 
     const effectiveHighlightedKey = useMemo(() => {
-        if (!highlightedDataKey) return null;
-        const existsAndHasData = visibleCategories.some(
-            c => c.id === highlightedDataKey && lastValidIndexByCat[c.id] !== undefined
+        if (highlightedDataKey === null || highlightedDataKey === undefined || highlightedDataKey === '') return null;
+        const matched = visibleCategories.find(
+            c => isSameId(c.id, highlightedDataKey) && lastValidIndexByCat[c.id] !== undefined
         );
-        return existsAndHasData ? highlightedDataKey : null;
+        return matched ? matched.id : null;
     }, [highlightedDataKey, visibleCategories, lastValidIndexByCat]);
 
     const renderTooltipContent = useCallback(
@@ -328,11 +362,11 @@ export const EvolutionLineChart = React.memo(function EvolutionLineChart({
 
     const lineConfigByCat = useMemo(() => {
         const map = {};
-        const isAnyHighlighted = !!effectiveHighlightedKey;
-        const hasFocus = showOnlyFocus ? !!focusSubjectId : isAnyHighlighted;
+        const isAnyHighlighted = effectiveHighlightedKey !== null && effectiveHighlightedKey !== undefined;
+        const hasFocus = showOnlyFocus ? hasFocusId : isAnyHighlighted;
         visibleCategories.forEach((cat) => {
-            const isLegendHighlighted = effectiveHighlightedKey === cat.id;
-            const isFocused = showOnlyFocus ? (focusSubjectId === cat.id) : isLegendHighlighted;
+            const isLegendHighlighted = isSameId(effectiveHighlightedKey, cat.id);
+            const isFocused = showOnlyFocus ? isSameId(focusSubjectId, cat.id) : isLegendHighlighted;
             const displayColor = isLegendHighlighted ? '#fbbf24' : (cat.color || '#3b82f6');
             const lineOpacity = hasFocus ? (isFocused ? 1 : 0.28) : 0.85;
             const lineWidth = hasFocus ? (isFocused ? 3.5 : 1.4) : 2.1;
@@ -353,19 +387,20 @@ export const EvolutionLineChart = React.memo(function EvolutionLineChart({
             };
         });
         return map;
-    }, [visibleCategories, effectiveHighlightedKey, showOnlyFocus, focusSubjectId, toggleHighlightByCatId, renderCustomLabel]);
+    }, [visibleCategories, effectiveHighlightedKey, showOnlyFocus, hasFocusId, focusSubjectId, toggleHighlightByCatId, renderCustomLabel]);
 
     const benchmark = useMemo(() => {
         if (!finalPoints.length) return null;
-        const focusedPt = effectiveHighlightedKey
-            ? finalPoints.find((p) => p.id === effectiveHighlightedKey)
-            : (showOnlyFocus && focusSubjectId ? finalPoints.find((p) => p.id === focusSubjectId) : null);
+        const focusedPt = effectiveHighlightedKey != null
+            ? finalPoints.find((p) => isSameId(p.id, effectiveHighlightedKey))
+            : (showOnlyFocus && hasFocusId ? finalPoints.find((p) => isSameId(p.id, focusSubjectId)) : null);
         const currentVal = focusedPt
             ? focusedPt.value
             : finalPoints.reduce((acc, p) => acc + p.value, 0) / finalPoints.length;
         const diff = currentVal - safeTargetScore;
+        const targetTol = Math.min(0.05, safeRange * 0.0005);
         const gapUnit = unit === '%' ? 'pp' : ` ${unit}`;
-        const aboveCount = finalPoints.filter((p) => p.value >= safeTargetScore).length;
+        const aboveCount = finalPoints.filter((p) => p.value >= safeTargetScore - targetTol).length;
         const progress = safeTargetScore > safeMinScore
             ? ((currentVal - safeMinScore) / Math.max(1e-9, safeTargetScore - safeMinScore)) * 100
             : 100;
@@ -373,14 +408,14 @@ export const EvolutionLineChart = React.memo(function EvolutionLineChart({
             currentLabel: focusedPt ? focusedPt.name : (finalPoints.length === 1 ? finalPoints[0].name : 'Média atual'),
             currentValue: `${formatValue(currentVal)}${unit}`,
             targetValue: `${formatValue(safeTargetScore)}${unit}`,
-            gapLabel: Math.abs(diff) < 0.05
+            gapLabel: Math.abs(diff) <= targetTol
                 ? 'Na meta ✓'
                 : (diff > 0 ? `+${formatValue(diff)}${gapUnit} acima` : `Faltam ${formatValue(Math.abs(diff))}${gapUnit}`),
-            status: diff >= -0.05 ? 'success' : diff >= -(safeRange * 0.1) ? 'warning' : 'danger',
+            status: diff >= -targetTol ? 'success' : diff >= -(safeRange * 0.1) ? 'warning' : 'danger',
             progressPct: progress,
             extra: !focusedPt && finalPoints.length > 1 ? `${aboveCount}/${finalPoints.length} na meta` : null,
         };
-    }, [finalPoints, effectiveHighlightedKey, showOnlyFocus, focusSubjectId, safeTargetScore, safeMinScore, safeRange, unit]);
+    }, [finalPoints, effectiveHighlightedKey, showOnlyFocus, hasFocusId, focusSubjectId, safeTargetScore, safeMinScore, safeRange, unit]);
 
     if (!enhancedChartData.length || visibleCategories.length === 0 || finalPoints.length === 0) {
         return (
@@ -465,7 +500,7 @@ export const EvolutionLineChart = React.memo(function EvolutionLineChart({
                 </div>
             )}
 
-            <div className={`relative ${chartHeightClass} w-full outline-none focus:outline-none focus:ring-0 transition-all duration-300`}>
+            <div ref={chartWrapRef} className={`relative ${chartHeightClass} w-full outline-none focus:outline-none focus:ring-0 transition-all duration-300`}>
                 <ChartFrame minHeight={320} label="Traçando evolução">
                     <ResponsiveContainer width="100%" height="100%" minHeight={320} className="outline-none focus:outline-none focus:ring-0" minWidth={1}>
                         <ComposedChart
@@ -565,7 +600,7 @@ export const EvolutionLineChart = React.memo(function EvolutionLineChart({
                                 if (!cfg) return [];
                                 const { isFocused, hasFocus, displayColor, lineOpacity, lineWidth, onLineClick, labelRenderer, dotProps, activeDotEl } = cfg;
                                 const showGlow = isFocused || (!hasFocus && visibleCategories.length <= 4);
-                                const showBand = engine?.id === 'bayesian' && (isFocused || (!hasFocus && (showBandsForAll || cat.id === focusSubjectId)));
+                                const showBand = engine?.id === 'bayesian' && (isFocused || (!hasFocus && (showBandsForAll || isSameId(cat.id, focusSubjectId))));
 
                                 return [
                                     showBand ? (
@@ -615,7 +650,7 @@ export const EvolutionLineChart = React.memo(function EvolutionLineChart({
                                     <Line
                                         connectNulls
                                         key={cat.id}
-                                        id={cat.id}
+                                        id={`${engine?.id || 'line'}_${cat.id}_${instanceId}`}
                                         type={lineType}
                                         dataKey={dataKey}
                                         name={cat.name}

@@ -3,7 +3,7 @@
  * Análises estatísticas avançadas para diagnóstico de performance.
  */
 
-import { getSafeScore } from '../utils/scoreHelper.js';
+import { getSafeScore, extractTopicsTotals } from '../utils/scoreHelper.js';
 import { kahanMean, kahanSum } from './math/kahan.js';
 import { pruneHistoryForMemory, getSortedHistory } from './stats.js';
 import { safeDateParse, getDateKey } from '../utils/dateHelper.js';
@@ -906,8 +906,10 @@ export function computeCategoryDiagnostics({
 export function computeWeeklyCategoryCorrelation(categories = [], maxScore = 100, minScore = 0, options = {}) {
   const safeCats = (Array.isArray(categories) ? categories : Object.values(categories || {})).filter(Boolean);
   if (safeCats.length < 2) return { categories: [], matrix: [], pairs: [] };
-  const safeMax = Math.max(Number(maxScore) || 100, Number(minScore) || 0);
-  const safeMin = Math.min(Number(maxScore) || 100, Number(minScore) || 0);
+  const isStrictNumDiag = (v) =>
+    v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
+  const safeMin = isStrictNumDiag(minScore) ? Number(minScore) : 0;
+  const safeMax = isStrictNumDiag(maxScore) && Number(maxScore) > safeMin ? Number(maxScore) : Math.max(safeMin + 1, 100);
 
   const weekKey = (rawDate) => {
     const dk = getDateKey(rawDate);
@@ -919,8 +921,6 @@ export function computeWeeklyCategoryCorrelation(categories = [], maxScore = 100
     return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}-${String(dt.getUTCDate()).padStart(2, '0')}`;
   };
 
-  const isStrictNumDiag = (v) =>
-    v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
   const todayKey = getDateKey(new Date());
   const cutoffKey = (() => {
     const tw = options?.timeWindow;
@@ -953,10 +953,20 @@ export function computeWeeklyCategoryCorrelation(categories = [], maxScore = 100
       if (cutoffKey && dk < cutoffKey) return;
       const wk = weekKey(dk);
       if (!wk) return;
-      const sc = getSafeScore(h, cMax, cMin);
+      let sc = getSafeScore(h, cMax, cMin);
+      let qWeight = Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions) || 0;
+      if ((!Number.isFinite(sc) || qWeight <= 0) && h.topics != null) {
+        const tf = extractTopicsTotals(h, cMax, cMin);
+        if (tf.total > 0) {
+          if (qWeight <= 0) qWeight = tf.total;
+          if (!Number.isFinite(sc)) sc = tf.score;
+        } else if (!Number.isFinite(sc) && tf.hasTopicsScore) {
+          sc = tf.score;
+        }
+      }
       if (!Number.isFinite(sc)) return;
       const norm = (sc - cMin) / cRange;
-      const qWeight = Math.max(1, Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions) || 20);
+      qWeight = Math.max(1, qWeight || 20);
       if (!byWeek[wk]) byWeek[wk] = { sum: 0, weight: 0 };
       byWeek[wk].sum += norm * qWeight;
       byWeek[wk].weight += qWeight;
