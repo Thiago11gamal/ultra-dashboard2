@@ -638,11 +638,13 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
     // ==================== LOTE 1: STATE-SPACE / KALMAN ====================
     let stateSpace = null;
     const useStateSpace = getCoachFeature(options, 'useStateSpace', false);
-    if (useStateSpace && trendHistory.length >= 3) {
+    const kalmanHistory = allSortedDesc.slice(0, 25).reverse();
+    if (useStateSpace && kalmanHistory.length >= 3) {
         try {
-            stateSpace = kalmanAbilityTrend(trendHistory, {
+            stateSpace = kalmanAbilityTrend(kalmanHistory, {
                 maxScore,
                 minScore,
+                now: referenceDate,
             });
         } catch (err) {
             console.warn('[CoachLogic] State-space/Kalman failed:', err);
@@ -1806,7 +1808,7 @@ function buildSharedUrgencyContext(simulados, studyLogs, allCategories, options 
     );
     const globalHash = options.globalMcStats
         ? simpleHash(
-            `${Number(options.globalMcStats.projectedMean || 0).toFixed(1)}:${Number(options.globalMcStats.probability || 0).toFixed(1)}:${Number(options.globalMcStats.currentMean || 0).toFixed(1)}`
+            `${Number(options.globalMcStats.projectedMean || 0).toFixed(1)}:${Number(options.globalMcStats.probability || 0).toFixed(1)}:${Number(options.globalMcStats.currentMean || 0).toFixed(1)}:${Number(options.globalMcStats.sd || options.globalMcStats.statsData?.pooledSD || 0).toFixed(2)}`
         )
         : 'noglobal';
     const goalKey = options?.user?.goalDate
@@ -2425,6 +2427,7 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100, minSc
                 topicMap[topicKey] = {
                     displayName: name,
                     total: 0,
+                    rawTotal: 0,
                     correct: 0,
                     lastSeen: new Date(0),
                     completed: true,
@@ -2468,6 +2471,7 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100, minSc
             if (Number.isNaN(topicCorrect)) return;
             topicCorrect = Math.max(0, topicCorrect);
             topicMap[topicKey].total += (topicTotal * timeWeight);
+            topicMap[topicKey].rawTotal = (topicMap[topicKey].rawTotal || 0) + topicTotal;
             topicMap[topicKey].correct += (topicCorrect * timeWeight);
             if (topicTotal > 0) {
                 if (topicMap[topicKey].scores.length >= 20) {
@@ -2531,7 +2535,9 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100, minSc
         const name = data.displayName || key;
         const percentage = data.total > 0 ? (data.correct / data.total) * 100 : 0;
         const topicHistory = data.scores.slice(-3);
-        const trend = topicHistory.length >= 2 ? calculateSlope(topicHistory, 100) * 30 : 0;
+        const rawTopicTrend = topicHistory.length >= 2 ? calculateSlope(topicHistory, 100) * 30 : 0;
+        const trendSampleTrust = data.total > 0 ? Math.min(1, Math.max(0.25, (data.rawTotal || data.total) / 8)) : 0;
+        const trend = rawTopicTrend * trendSampleTrust;
         let daysSince = 0;
         if (data.lastSeen.getTime() === 0) {
             daysSince = 30;
@@ -2912,9 +2918,18 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             : minScore;
         const catRange = Math.max(1e-9, catMax - catMin);
         const totalHours = recentLogs.reduce((acc, l) => acc + sanitizeMinutes(l?.minutes ?? l?.minutos ?? l?.duration), 0) / 60;
-        const totalQuestions = recentSims.reduce((acc, s) => acc + (Number(s?.total ?? s?.questoes ?? s?.totalQuestoes ?? s?.questions) || getSyntheticTotal(catMax)), 0);
+        const loggedQuestions = recentLogs.reduce(
+            (acc, l) => acc + Math.max(0, Number(l?.questions ?? l?.questoes ?? l?.questionsCount ?? l?.totalQuestions) || 0),
+            0
+        );
+        const simQuestions = recentSims.reduce((acc, s) => {
+            const explicitTotal = Number(s?.total ?? s?.questoes ?? s?.totalQuestoes ?? s?.questions);
+            if (Number.isFinite(explicitTotal) && explicitTotal > 0) return acc + explicitTotal;
+            return acc + (loggedQuestions > 0 ? 0 : getSyntheticTotal(catMax));
+        }, 0);
+        const totalQuestions = simQuestions + loggedQuestions;
         const questionsPerHour = totalHours >= 0.25 ? totalQuestions / totalHours : 0;
-        const dynamicThreshold = totalHours >= 20 ? 30 : totalHours >= 10 ? 20 : 12;
+        const dynamicThreshold = totalHours >= 20 ? 16 : totalHours >= 10 ? 12 : 8;
 
         // ✅ FIX: Validar averageScore antes de calcular normalizedScore
         const safeAverageScore = Number.isFinite(averageScore) ? averageScore : catMin;
@@ -3219,9 +3234,18 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                     verdictStr = `Estude a base teórica e conceitos fundamentais de ${weakTopic.name}, anotando os pontos-chave no material.`;
                 }
 
+                const matchedUntestedSyllabusTask = weakTopic.isUntested
+                    ? (Array.isArray(cat?.tasks) ? cat.tasks : Object.values(cat?.tasks || {})).find(t => {
+                        if (!t || t.completed) return false;
+                        const tTitle = String(t.topicName || t.topic || t.text || t.title || t.name || '').trim();
+                        return Boolean(tTitle && normalize(tTitle) === normalize(weakTopic.name));
+                    })
+                    : null;
+
                 allGeneratedTasks.push({
                     id: `${safeCatKey}-topic-${uniqueIdSuffix}`,
                     actionType: actionPrefix.startsWith("Revisão por Recência") ? 'srs_review' : 'weak_topic_practice',
+                    ...(matchedUntestedSyllabusTask?.id ? { sourceTaskId: matchedUntestedSyllabusTask.id } : {}),
                     text: `${cat.name}: ${topicLabel}`,
                     completed: false,
                     status: 'pending',
@@ -3233,7 +3257,9 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                     topicName: customTopicName,
                     analysis: {
                         reason: reasonStr,
-                        details: `Aproveitamento: ${Number(weakTopic.percentage || 0).toFixed(0)}% | Última visita: ${weakTopic.daysSince ?? 0} dias | Tendência: ${Number(weakTopic.trend || 0) > 0 ? '+' : ''}${Number(weakTopic.trend || 0).toFixed(1)}`,
+                        details: hasTestedTopicData
+                            ? `Aproveitamento: ${Number(weakTopic.percentage || 0).toFixed(0)}% | Última visita: ${weakTopic.daysSince ?? 0} dias | Tendência: ${Number(weakTopic.trend || 0) > 0 ? '+' : ''}${Number(weakTopic.trend || 0).toFixed(1)}`
+                            : 'Sem questões registradas ainda | Tópico pendente no edital',
                         metrics: cat.urgency?.details?.humanReadable || {},
                         monteCarlo: mc || null,
                         verdict: verdictStr
@@ -3303,6 +3329,8 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
 
                         activeTask = {
                             id: `${safeCatKey}-syllabus-${safeSlug}-${hashString(`${safeCatKey}|syllabus|${title}`)}`,
+                            actionType: 'weak_topic_practice',
+                            sourceTaskId: syllabusTask.id || null,
                             text: `${cat.name}: ${getPriorityLabel(syllabusPriority)}[Avanço de Edital — ${title}]`,
                             completed: false,
                             status: 'pending',

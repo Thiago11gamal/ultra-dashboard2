@@ -9,7 +9,6 @@
  */
 import { getDateKey, normalizeDate } from '../../utils/dateHelper.js';
 import { parseNoonLocal } from '../../utils/parseNoonLocal.js';
-import { blendPriorEmpirical } from './adaptiveMaturityEngine.js';
 
 const MS_PER_DAY = 86_400_000;
 const safeArr = (v) => (Array.isArray(v) ? v : (v && typeof v === 'object' ? Object.values(v) : [])).filter(Boolean);

@@ -27,6 +27,7 @@ import {
   loadCausalModel,
   buildCausalEventsFromHistory,
   trainCausalModel,
+  mergeSimuladosWithCategoryHistory,
 } from '../utils/coachCausal.js';
 import {
   loadModelHealthSnapshots,
@@ -145,6 +146,15 @@ export function useCoachControlCenter({
   maxScore = 100,
   minScore = 0,
   targetScore = 80,
+  user = null,
+  globalMcStats = null,
+  simuladoRows = undefined,
+  allSimulados = undefined,
+  flashcardDecks = undefined,
+  flashcardDue = undefined,
+  coachPlan = undefined,
+  coachPlanner = undefined,
+  calibrationHistoryByCategory = undefined,
 } = {}) {
   const resolvedContestId = contestId ?? getCoachFeatureContestScope();
   const isAdmin = isAdminUser(useAuth()?.currentUser || null);
@@ -335,6 +345,7 @@ export function useCoachControlCenter({
             : (options.features?.useCoachOrchestrator ?? flagOverrides.useCoachOrchestrator ?? currentFlags?.useCoachOrchestrator ?? true),
       };
       const targetContestId = options.contestId ?? resolvedContestId;
+      const contestSnap = getActiveContestSnapshot(targetContestId);
       const result = await runCoachOrchestrator(
         { categories, simulados, studyLogs },
         {
@@ -342,6 +353,15 @@ export function useCoachControlCenter({
           maxScore,
           minScore,
           targetScore,
+          user: user ?? contestSnap?.user,
+          globalMcStats: globalMcStats ?? undefined,
+          simuladoRows: simuladoRows ?? contestSnap?.simuladoRows,
+          allSimulados: allSimulados ?? contestSnap?.simulados,
+          flashcardDecks: flashcardDecks ?? contestSnap?.flashcardDecks,
+          ...(flashcardDue !== undefined ? { flashcardDue } : {}),
+          coachPlan: coachPlan ?? contestSnap?.coachPlan,
+          coachPlanner: coachPlanner ?? contestSnap?.coachPlanner,
+          calibrationHistoryByCategory: calibrationHistoryByCategory ?? contestSnap?.calibrationHistoryByCategory,
           features: mergedFeatures,
           runHealth: options.runHealth !== false,
           runLLM: options.runLLM === true,
@@ -350,6 +370,10 @@ export function useCoachControlCenter({
           saveHealthSnapshots: options.saveHealthSnapshots ?? (options.runHealth !== false),
           force: options.force === true,
           signal: abortController.signal,
+          config: {
+            contestId: targetContestId,
+            MC_ENABLE_ADAPTIVE_CALIBRATION: contestSnap?.settings?.adaptiveCalibrationEnabled !== false,
+          },
         }
       );
       if (abortController.signal.aborted) return null;
@@ -415,7 +439,7 @@ export function useCoachControlCenter({
       pendingRunsRef.current = Math.max(0, pendingRunsRef.current - 1);
       if (isMounted.current && pendingRunsRef.current === 0) setLoading(false);
     }
-  }, [categories, simulados, studyLogs, maxScore, minScore, targetScore, currentFlags, flagOverrides, resolvedContestId]);
+  }, [categories, simulados, studyLogs, maxScore, minScore, targetScore, user, globalMcStats, simuladoRows, allSimulados, flashcardDecks, flashcardDue, coachPlan, coachPlanner, calibrationHistoryByCategory, currentFlags, flagOverrides, resolvedContestId]);
 
   // ==========================================================
   // Carregar dados auxiliares (somente leitura: nunca sobrescreve store em memória)
@@ -637,26 +661,7 @@ export function useCoachControlCenter({
         setError(null);
         const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
         const rawSims = Array.isArray(simulados) ? simulados : [];
-        const hasOnlyGenericSims = rawSims.length > 0 && rawSims.every((s) => {
-          if (!s || typeof s !== 'object') return true;
-          if (s.categoryId != null && String(s.categoryId).trim() !== '') return false;
-          const subj = String(s.subject || s.categoryName || s.materia || '').trim().toLowerCase();
-          return !subj || subj === 'simulado geral' || subj === 'geral' || subj === 'global';
-        });
-        const catHistorySims = safeCats.flatMap((cat) => {
-          const hist = (Array.isArray(cat?.simuladoStats?.history)
-            ? cat.simuladoStats.history
-            : Object.values(cat?.simuladoStats?.history || {})
-          ).filter((entry) => entry && entry.valid !== false && entry.validated !== false);
-          return hist.map((entry) => ({
-            ...entry,
-            categoryId: entry?.categoryId ?? cat?.id,
-            subject: entry?.subject || entry?.categoryName || cat?.name || '',
-          }));
-        });
-        const safeSims = (rawSims.length > 0 && !(hasOnlyGenericSims && catHistorySims.length > 0))
-          ? rawSims
-          : (catHistorySims.length > 0 ? catHistorySims : rawSims);
+        const safeSims = mergeSimuladosWithCategoryHistory(safeCats, rawSims);
         const report = runGranularCoachBacktest(safeCats, safeSims, studyLogs, {
           maxScore,
           minScore,
@@ -718,29 +723,13 @@ export function useCoachControlCenter({
         setError(null);
         const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
         const rawSims = Array.isArray(simulados) ? simulados : [];
-        const hasOnlyGenericSims = rawSims.length > 0 && rawSims.every((s) => {
-          if (!s || typeof s !== 'object') return true;
-          if (s.categoryId != null && String(s.categoryId).trim() !== '') return false;
-          const subj = String(s.subject || s.categoryName || s.materia || '').trim().toLowerCase();
-          return !subj || subj === 'simulado geral' || subj === 'geral' || subj === 'global';
-        });
-        const catHistorySims = safeCats.flatMap((cat) => {
-          const hist = (Array.isArray(cat?.simuladoStats?.history)
-            ? cat.simuladoStats.history
-            : Object.values(cat?.simuladoStats?.history || {})
-          ).filter((entry) => entry && entry.valid !== false && entry.validated !== false);
-          return hist.map((entry) => ({
-            ...entry,
-            categoryId: entry?.categoryId ?? cat?.id,
-            subject: entry?.subject || entry?.categoryName || cat?.name || '',
-          }));
-        });
-        const safeSims = (rawSims.length > 0 && !(hasOnlyGenericSims && catHistorySims.length > 0))
-          ? rawSims
-          : (catHistorySims.length > 0 ? catHistorySims : rawSims);
+        const safeSims = mergeSimuladosWithCategoryHistory(safeCats, rawSims);
+        const contestSnap = getActiveContestSnapshot(resolvedContestId);
         const events = buildCausalEventsFromHistory(safeCats, safeSims, studyLogs, {
           maxScore,
           minScore,
+          coachPlan: coachPlan ?? contestSnap?.coachPlan,
+          coachPlanner: coachPlanner ?? contestSnap?.coachPlanner,
         });
         const model = trainCausalModel(events, {
           contestId: resolvedContestId,
@@ -772,7 +761,7 @@ export function useCoachControlCenter({
       });
     }
     return execute();
-  }, [categories, simulados, studyLogs, maxScore, minScore, resolvedContestId, currentFlags, flagOverrides]);
+  }, [categories, simulados, studyLogs, maxScore, minScore, coachPlan, coachPlanner, resolvedContestId, currentFlags, flagOverrides]);
 
   // ==========================================================
   // Dados derivados

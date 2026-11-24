@@ -4,7 +4,7 @@ import { XP_CONFIG } from '../../config/gamification.js';
 import { getTaskXP } from '../../utils/gamification.js';
 import { markStorageDirty } from '../../utils/storageSafe.js';
 import { normalizePriority } from '../../utils/colorHelper.js';
-import { normalize } from '../../utils/normalization.js';
+import { normalize, isSubjectMatch } from '../../utils/normalization.js';
 import { matchesActiveSubjectTask } from '../../utils/pomodoroHelpers.js';
 
 const clearPomodoroSession = (state) => {
@@ -75,6 +75,38 @@ export const createTaskSlice = (set, get) => ({
                 delete task.awardedXP;
             }
 
+            // Sincronização bidirecional: propaga status da tarefa de edital para coachPlan e coachPlanner
+            const normSyllabusTitle = normalize(String(task.topicName || task.topic || task.text || task.title || ''));
+            const matchesCoachMirror = (ct) => {
+                if (!ct) return false;
+                if (task.id && ct.sourceTaskId && String(ct.sourceTaskId) === String(task.id)) return true;
+                const sameCat = (category.id && ct.categoryId && String(ct.categoryId) === String(category.id)) ||
+                    (category.name && (ct.category || ct.catName) && isSubjectMatch(category.name, ct.category || ct.catName));
+                if (!sameCat || !normSyllabusTitle) return false;
+                const rawCoachTopic = String(ct.topicName || '').replace(/^Avan[çc]o de Edital\s*[—-]\s*/i, '').trim();
+                return Boolean(rawCoachTopic && normalize(rawCoachTopic) === normSyllabusTitle);
+            };
+            const syncCoachItem = (ct) => {
+                if (!matchesCoachMirror(ct)) return;
+                ct.completed = completed;
+                ct.completedAt = completed ? nowIso : null;
+                ct.updatedAt = nowIso;
+                if (completed) {
+                    ct.lastStudiedAt = nowIso;
+                    if (ct.status === 'studying') ct.status = null;
+                }
+            };
+            if (activeData.coachPlan) {
+                const planList = Array.isArray(activeData.coachPlan) ? activeData.coachPlan : Object.values(activeData.coachPlan || {});
+                planList.forEach(syncCoachItem);
+            }
+            if (activeData.coachPlanner && typeof activeData.coachPlanner === 'object') {
+                Object.values(activeData.coachPlanner).forEach(rawDayTasks => {
+                    const dayTasks = Array.isArray(rawDayTasks) ? rawDayTasks : Object.values(rawDayTasks || {});
+                    dayTasks.forEach(syncCoachItem);
+                });
+            }
+
             activeData.lastUpdated = nowIso;
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = nowIso;
@@ -127,8 +159,9 @@ export const createTaskSlice = (set, get) => ({
                 }
             };
 
-            const stripDupSuffix = (idVal) => String(idVal || '').replace(/-dup\d+-[a-zA-Z0-9_-]+$/, '');
+            const stripDupSuffix = (idVal) => String(idVal || '').replace(/(?:__q\d+|-dup\d+-[a-zA-Z0-9_-]+)+$/, '');
             const cleanTaskId = stripDupSuffix(taskId);
+            const matchedCoachTasks = [];
 
             const matchesTask = (t) => {
                 if (!t) return false;
@@ -148,23 +181,47 @@ export const createTaskSlice = (set, get) => ({
             // Search in coachPlan (Backlog)
             if (activeData.coachPlan) {
                 const planList = Array.isArray(activeData.coachPlan) ? activeData.coachPlan : Object.values(activeData.coachPlan || {});
-                const task = planList.find(matchesTask);
-                if (task) handleTask(task);
+                planList.filter(matchesTask).forEach(task => {
+                    matchedCoachTasks.push(task);
+                    handleTask(task);
+                });
             }
 
             // Search in coachPlanner (Days)
             if (activeData.coachPlanner) {
                     Object.values(activeData.coachPlanner).forEach(rawDayTasks => {
                         const dayTasks = Array.isArray(rawDayTasks) ? rawDayTasks : Object.values(rawDayTasks || {});
-                        const task = dayTasks.find(matchesTask);
-                        if (task) handleTask(task);
+                        dayTasks.filter(matchesTask).forEach(task => {
+                            matchedCoachTasks.push(task);
+                            handleTask(task);
+                        });
                     });
                 }
 
-            // Search in categories (Priority tasks in Pomodoro Focus Panel / Neural Core)
+            // Search in categories (Priority tasks in Pomodoro Focus Panel / Neural Core + Syllabus mirror sync)
             if (activeData.categories) {
+                    const sourceTaskIds = new Set(matchedCoachTasks.map(ct => ct?.sourceTaskId ? String(ct.sourceTaskId) : '').filter(Boolean));
+                    const syllabusMirrors = matchedCoachTasks
+                        .filter(ct => ct && (ct.sourceTaskId || /^Avan[çc]o de Edital\s*[—-]/i.test(String(ct.topicName || ''))))
+                        .map(ct => ({
+                            categoryId: ct.categoryId,
+                            categoryName: ct.category || ct.catName || ct.subjectName || '',
+                            normTopic: normalize(String(ct.topicName || '').replace(/^Avan[çc]o de Edital\s*[—-]\s*/i, '').trim())
+                        }));
                     (Array.isArray(activeData.categories) ? activeData.categories : Object.values(activeData.categories)).forEach(cat => {
-                        const task = (Array.isArray(cat?.tasks) ? cat.tasks : Object.values(cat?.tasks || {})).find(matchesTask);
+                        const catTasks = Array.isArray(cat?.tasks) ? cat.tasks : Object.values(cat?.tasks || {});
+                        const task = catTasks.find(t => {
+                            if (!t) return false;
+                            if (matchesTask(t)) return true;
+                            if (t.id && sourceTaskIds.has(String(t.id))) return true;
+                            const tNorm = normalize(String(t.topicName || t.topic || t.text || t.title || ''));
+                            if (!tNorm) return false;
+                            return syllabusMirrors.some(m =>
+                                m.normTopic === tNorm &&
+                                ((m.categoryId && cat?.id && String(cat.id) === String(m.categoryId)) ||
+                                    (m.categoryName && cat?.name && isSubjectMatch(cat.name, m.categoryName)))
+                            );
+                        });
                         if (task) {
                             handleTask(task);
                             const activeSubject = state.appState.pomodoro?.activeSubject;

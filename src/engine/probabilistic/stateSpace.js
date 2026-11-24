@@ -285,6 +285,19 @@ export function kalmanAbilityTrend(observations = [], options = {}) {
       0.5 * ((innovation * innovation) / S);
   }
 
+  // Propaga incerteza latente (P00, P11) entre a última observação e options.now (se houver inatividade),
+  // evitando subestimar abilitySd quando o último simulado ocorreu há semanas/meses.
+  let idleDays = 0;
+  const nowTime = options.now !== undefined && options.now !== null
+    ? parseObservationTime({ date: options.now })
+    : NaN;
+  if (Number.isFinite(nowTime) && nowTime > previousTime + 86400000 * 0.25) {
+    idleDays = clampNumber((nowTime - previousTime) / 86400000, 0, 90);
+    const effTrendIdle = Math.min(idleDays, 30);
+    P00 = Math.max(1e-12, P00 + qAbility * idleDays + (qTrend * Math.pow(effTrendIdle, 3)) / 3);
+    P11 = Math.max(1e-12, P11 + qTrend * effTrendIdle);
+  }
+
   const trendPerMonth = clampNumber(trend * 30, -domain, domain);
 
   return {
@@ -296,6 +309,7 @@ export function kalmanAbilityTrend(observations = [], options = {}) {
     trendSd: Math.sqrt(Math.max(0, P11)),
     abilityTrendCov: P01,
     observationVariance,
+    idleDays: Number(idleDays.toFixed(2)),
     processNoise: {
       ability: qAbility,
       trend: qTrend,

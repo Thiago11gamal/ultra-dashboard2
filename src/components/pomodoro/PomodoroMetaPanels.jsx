@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { getLocalMidnight, getDateKey, parseNoonLocal, normalizeDate } from '../../utils/dateHelper';
 import { getCoachInsight } from '../../utils/coachLogic';
+import { isSubjectMatch } from '../../utils/normalization';
 
 const EMPTY_OBJECT = Object.freeze({});
 
@@ -59,7 +60,7 @@ export const DataTriviaPanel = React.memo(function DataTriviaPanel({ studyLogs, 
     });
 
     (simulados || []).forEach(s => {
-      if (!s) return;
+      if (!s || s.valid === false || s.validated === false) return;
       const sDate = s.date || s.createdAt;
       const sTime = sDate ? normalizeDate(sDate)?.getTime() : NaN;
       if (!Number.isNaN(sTime) && sTime >= startOfLast30Days) recentSimulados++;
@@ -174,10 +175,15 @@ export const AICoachPanel = React.memo(function AICoachPanel({ activeSubject, st
       const hasCategoryHistory = Array.isArray(targetCategory?.simuladoStats?.history)
         ? targetCategory.simuladoStats.history.length > 0
         : Object.keys(targetCategory?.simuladoStats?.history || {}).length > 0;
-      const hasSimulados = hasCategoryHistory || (simulados || []).some(s => s && s.categoryScores && (
-        s.categoryScores[targetCategory.id] !== undefined ||
-        (targetCategory.name && s.categoryScores[targetCategory.name] !== undefined)
-      ));
+      const hasSimulados = hasCategoryHistory || (simulados || []).some(s => {
+        if (!s || s.valid === false || s.validated === false) return false;
+        if (targetCategory.id != null && s.categoryId != null && String(s.categoryId) === String(targetCategory.id)) return true;
+        if (targetCategory.name && isSubjectMatch(s.subject || s.categoryName || s.materia || s.disciplina || '', targetCategory.name)) return true;
+        return Boolean(s.categoryScores && (
+          s.categoryScores[targetCategory.id] !== undefined ||
+          (targetCategory.name && s.categoryScores[targetCategory.name] !== undefined)
+        ));
+      });
       if (!hasSimulados) {
         return {
           title: `IA Mentor · ${targetCategory.name || 'Foco'}`,
@@ -192,7 +198,11 @@ export const AICoachPanel = React.memo(function AICoachPanel({ activeSubject, st
       const rawMinScore = Number(targetCategory.minScore ?? effectiveSettings?.minScore);
       const safeMinScore = Number.isFinite(rawMinScore) ? Math.min(rawMinScore, safeMaxScore) : 0;
       const safeDomain = Math.max(1e-9, safeMaxScore - safeMinScore);
-      const rawInsight = getCoachInsight(targetCategory, simulados, studyLogs, { maxScore: safeMaxScore, minScore: safeMinScore });
+      const rawInsight = getCoachInsight(targetCategory, simulados, studyLogs, {
+        maxScore: safeMaxScore,
+        minScore: safeMinScore,
+        allCategories: safeCats
+      });
       if (rawInsight && !rawInsight.error && rawInsight.text && rawInsight.text !== 'Dados insuficientes para análise.') {
         let color = 'indigo';
         let iconType = 'Brain';

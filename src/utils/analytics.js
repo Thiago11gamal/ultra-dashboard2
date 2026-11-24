@@ -1024,8 +1024,9 @@ export const calculateStudyStreak = (studyLogs) => {
             if (!deck || typeof deck !== 'object') return; // ✅ FIX: validar deck
             toArray(deck?.cards).forEach(card => {
                 if (!card || typeof card !== 'object') return; // ✅ FIX: validar card
-                // D6 FIX: normalizar card.due via getDateKey para não classificar ISO futuro incorretamente
-                const dueKey = card?.due ? getDateKey(card.due) : null;
+                // D6 FIX: normalizar card.due (e fallback legado nextReview/dueDate) via getDateKey
+                const rawDue = card?.due ?? card?.nextReview ?? card?.dueDate;
+                const dueKey = rawDue ? getDateKey(rawDue) : null;
                 if (!dueKey || dueKey <= todayKey) due++;
             });
         });
@@ -1117,8 +1118,9 @@ export const calculateStudyStreak = (studyLogs) => {
             if (!deck || typeof deck !== 'object') return;
             toArray(deck?.cards).forEach(card => {
                 if (!card || typeof card !== 'object') return;
-                // D6 FIX: normalizar datas ISO / timestamps via getDateKey antes do fallback para todayKey
-                const parsedDueKey = card.due ? getDateKey(card.due) : null;
+                // D6 FIX: normalizar datas ISO / timestamps (incluindo nextReview/dueDate legados) via getDateKey antes do fallback para todayKey
+                const rawDue = card.due ?? card.nextReview ?? card.dueDate;
+                const parsedDueKey = rawDue ? getDateKey(rawDue) : null;
                 let dueKey = parsedDueKey || todayKey;
                 if (dueKey < todayKey) {
                     dueKey = todayKey;

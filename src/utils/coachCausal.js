@@ -337,8 +337,25 @@ export function buildTaskCausalEvents(categories = [], simulados = [], options =
 
     if (categorySimulados.length < 2) return;
 
-    const tasks = safeArray(category?.tasks).filter((task) => {
-      return Boolean(task?.completed);
+    const coachPlanItems = [
+      ...safeArray(options.coachPlan),
+      ...Object.values(options.coachPlanner && typeof options.coachPlanner === 'object' ? options.coachPlanner : {}).flatMap((d) => safeArray(d)),
+    ].filter((task) => {
+      if (!task || !task.completed) return false;
+      const matchesId = category?.id != null && task?.categoryId != null && String(task.categoryId) === String(category.id);
+      const taskSubj = task?.category || task?.catName || task?.subjectName || '';
+      const matchesSubj = Boolean(categoryName && taskSubj && isSubjectMatch(taskSubj, categoryName));
+      return matchesId || matchesSubj;
+    });
+
+    const seenCompletedTaskKeys = new Set();
+    const tasks = [...safeArray(category?.tasks).filter((task) => Boolean(task?.completed)), ...coachPlanItems].filter((task) => {
+      const k = task?.sourceTaskId
+        ? `src:${task.sourceTaskId}`
+        : (task?.id ? `id:${String(task.id).replace(/(?:__q\d+|-dup\d+-[a-zA-Z0-9_-]+)+$/, '')}` : `txt:${task?.text || task?.title || ''}:${task?.completedAt || task?.lastStudiedAt || ''}`);
+      if (seenCompletedTaskKeys.has(k)) return false;
+      seenCompletedTaskKeys.add(k);
+      return true;
     });
 
     const taskTimes = tasks
@@ -501,6 +518,79 @@ export function buildStudyModeCausalEvents(simulados = [], studyLogs = [], optio
 }
 
 /**
+ * Mescla simulados globais/por matéria com `category.simuladoStats.history` de cada disciplina,
+ * deduplicando registros equivalentes para não perder histórico parcial de disciplinas sem linha top-level.
+ */
+export function mergeSimuladosWithCategoryHistory(categories = [], simulados = []) {
+  const safeCats = safeArray(categories);
+  const safeSims = safeArray(simulados).filter(
+    (s) => s && typeof s === 'object' && s.valid !== false && s.validated !== false
+  );
+  if (safeCats.length === 0) return safeSims;
+
+  const isGenericOnly = (s) => {
+    if (s?.categoryId != null && String(s.categoryId).trim() !== '') return false;
+    const subj = String(s?.subject || s?.categoryName || s?.materia || s?.disciplina || '').trim().toLowerCase();
+    return !subj || subj === 'simulado geral' || subj === 'geral' || subj === 'global';
+  };
+
+  const nonGenericSims = safeSims.filter((s) => !isGenericOnly(s));
+  const seenIds = new Set();
+  const seenCatDayScores = new Set();
+  const merged = [];
+
+  const buildDayScoreKey = (catKey, entry) => {
+    const t = toTime(entry?.date ?? entry?.createdAt);
+    const dayBucket = Number.isFinite(t) ? Math.floor(t / 86400000) : 'nodate';
+    const rawSc = Number(entry?.score ?? entry?.scorePoints ?? entry?.scorePct ?? entry?.value);
+    const scBucket = Number.isFinite(rawSc)
+      ? Math.round(rawSc * 10)
+      : `${entry?.correct ?? entry?.acertos ?? ''}/${entry?.total ?? entry?.questoes ?? ''}`;
+    return `${catKey}|${dayBucket}|${scBucket}`;
+  };
+
+  nonGenericSims.forEach((s) => {
+    const idSig = s.id && !String(s.id).startsWith('legacy-') ? String(s.id) : null;
+    if (idSig && seenIds.has(idSig)) return;
+    const matchedCat = safeCats.find((c) => {
+      if (!c) return false;
+      if (c.id != null && s.categoryId != null && String(c.id) === String(s.categoryId)) return true;
+      const lbl = s.subject || s.categoryName || s.materia || s.disciplina || '';
+      return Boolean(c.name && lbl && isSubjectMatch(lbl, c.name));
+    });
+    const catKey = matchedCat
+      ? normalizeGroupKey(matchedCat.id || matchedCat.name)
+      : normalizeGroupKey(s.categoryId || s.subject || s.categoryName || s.materia || s.disciplina);
+    const dsKey = buildDayScoreKey(catKey, s);
+    if (idSig) seenIds.add(idSig);
+    seenCatDayScores.add(dsKey);
+    merged.push(s);
+  });
+
+  safeCats.forEach((cat) => {
+    if (!cat) return;
+    const catKey = normalizeGroupKey(cat.id || cat.name);
+    safeArray(cat?.simuladoStats?.history).forEach((h) => {
+      if (!h || h.valid === false || h.validated === false) return;
+      const idSig = h.id && !String(h.id).startsWith('legacy-') ? String(h.id) : null;
+      if (idSig && seenIds.has(idSig)) return;
+      const dsKey = buildDayScoreKey(catKey, h);
+      if (seenCatDayScores.has(dsKey)) return;
+      if (idSig) seenIds.add(idSig);
+      seenCatDayScores.add(dsKey);
+      merged.push({
+        ...h,
+        categoryId: h?.categoryId ?? cat?.id,
+        subject: h?.subject || h?.categoryName || cat?.name || '',
+      });
+    });
+  });
+
+  if (merged.length > 0) return merged;
+  return safeSims;
+}
+
+/**
  * Combina eventos de tarefas, volume de estudo e modalidade de estudo.
  */
 export function buildCausalEventsFromHistory(
@@ -510,25 +600,7 @@ export function buildCausalEventsFromHistory(
   options = {}
 ) {
   const safeSimuladosInput = safeArray(simulados);
-  const hasOnlyGenericSims = safeSimuladosInput.length > 0 && safeSimuladosInput.every((s) => {
-    if (!s || typeof s !== 'object') return true;
-    if (s.categoryId != null && String(s.categoryId).trim() !== '') return false;
-    const subj = String(s.subject || s.categoryName || s.materia || '').trim().toLowerCase();
-    return !subj || subj === 'simulado geral' || subj === 'geral' || subj === 'global';
-  });
-  const catFlattenedSims = safeArray(categories).flatMap((cat) =>
-    safeArray(cat?.simuladoStats?.history)
-      .filter((h) => h && h.valid !== false && h.validated !== false)
-      .map((h) => ({
-        ...h,
-        categoryId: h?.categoryId ?? cat?.id,
-        subject: h?.subject || h?.categoryName || cat?.name || '',
-      }))
-  );
-  const effectiveSimuladosForVolume =
-    safeSimuladosInput.length > 0 && !(hasOnlyGenericSims && catFlattenedSims.length > 0)
-      ? safeSimuladosInput
-      : (catFlattenedSims.length > 0 ? catFlattenedSims : safeSimuladosInput);
+  const effectiveSimuladosForVolume = mergeSimuladosWithCategoryHistory(categories, safeSimuladosInput);
 
   const taskEvents = buildTaskCausalEvents(categories, safeSimuladosInput, options);
   const volumeEvents = buildStudyVolumeCausalEvents(effectiveSimuladosForVolume, studyLogs, {
@@ -733,6 +805,7 @@ export function rerankCoachTasksWithCausalPolicy(tasks = [], causalModel = null,
   };
 
   export default {
+    mergeSimuladosWithCategoryHistory,
     buildStudyVolumeCausalEvents,
     buildTaskCausalEvents,
     buildCausalEventsFromHistory,

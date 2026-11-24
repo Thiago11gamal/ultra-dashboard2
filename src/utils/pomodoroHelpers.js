@@ -49,7 +49,7 @@ export function calculateETA(timeLeft, speed = 1) {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
-const stripDupSuffix = (val) => String(val || '').replace(/-dup\d+-[a-zA-Z0-9_-]+$/, '');
+const stripDupSuffix = (val) => String(val || '').replace(/(?:__q\d+|-dup\d+-[a-zA-Z0-9_-]+)+$/, '');
 
 export function matchesSubjectTask(t, subject) {
   if (!t || !subject || subject.taskId == null) return false;

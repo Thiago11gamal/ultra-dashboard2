@@ -103,12 +103,30 @@ export const CalibrationDriftChart = React.memo(function CalibrationDriftChart({
 
   const data = useMemo(() => {
     if (Array.isArray(series) && series.length > 0) {
-      return series.map((pt, idx) => {
+      const baseLabels = series.map((pt, idx) => {
         const dk = pt.ts > 0 ? getDateKey(new Date(pt.ts)) : null;
         const parts = dk ? dk.split('-') : [];
+        return parts.length === 3 ? `${parts[2]}/${parts[1]}` : `#${idx + 1}`;
+      });
+      const labelCounts = new Map();
+      baseLabels.forEach((lbl) => labelCounts.set(lbl, (labelCounts.get(lbl) || 0) + 1));
+      const seenSeq = new Map();
+
+      return series.map((pt, idx) => {
+        const baseLbl = baseLabels[idx];
+        let dateLabel = baseLbl;
+        if ((labelCounts.get(baseLbl) || 0) > 1 && pt.ts > 0) {
+          const d = new Date(pt.ts);
+          const hh = String(d.getHours()).padStart(2, '0');
+          const mm = String(d.getMinutes()).padStart(2, '0');
+          const candidate = `${baseLbl} ${hh}:${mm}`;
+          const seq = (seenSeq.get(candidate) || 0) + 1;
+          seenSeq.set(candidate, seq);
+          dateLabel = seq > 1 ? `${candidate} (${seq})` : candidate;
+        }
         return {
           ...pt,
-          dateLabel: parts.length === 3 ? `${parts[2]}/${parts[1]}` : `#${idx + 1}`,
+          dateLabel,
           brier: pt.brier != null && Number.isFinite(Number(pt.brier)) ? Number(Number(pt.brier).toFixed(4)) : null,
           ece: pt.ece != null && Number.isFinite(Number(pt.ece)) ? Number(Number(pt.ece).toFixed(4)) : null,
         };

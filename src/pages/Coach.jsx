@@ -34,7 +34,7 @@ import { useNavigate } from 'react-router-dom';
 import { logCalibrationTelemetryEvent } from '../utils/calibrationTelemetry';
 import { CRITICAL_BRIER_THRESHOLD, HIGH_PENALTY_THRESHOLD, ALERT_COOLDOWN_MS } from '../utils/calibration.js';
 import { displaySubject } from '../utils/displaySubject';
-import { formatDateTimePtBR, toDateMs } from '../utils/dateHelper';
+import { formatDateTimePtBR, toDateMs, getDateKey } from '../utils/dateHelper';
 import { getSafeId } from '../utils/idGenerator';
 import { ensureCoachTaskId } from '../utils/coachTaskId';
 import { getCalibrationKey, getCalibrationHistoryFor } from '../utils/coachSafe';
@@ -46,6 +46,14 @@ import { setCoachFeatureContestScope, readFlags, subscribeFlags } from '../utils
 import { loadPersistedCoachFlags } from '../engine/optimization/flagOptimizer';
 import { isSubjectMatch, normalize } from '../utils/normalization';
 import { isAdminUser, syncAdminCoachFlags } from '../utils/adminAccess';
+import {
+    loadCausalModel,
+    buildCausalEventsFromHistory,
+    trainCausalModel,
+    rerankCoachTasksWithCausalPolicy,
+    mergeSimuladosWithCategoryHistory
+} from '../utils/coachCausal';
+import { saveEvaluationResult } from '../utils/coachEvaluation';
 
 const isAnalysisEqual = (a, b, seen = new WeakSet(), depth = 0) => {
     if (Object.is(a, b)) return true;
@@ -582,11 +590,12 @@ export default function Coach() {
         if (!isMcStatsReady) return null;
         return {
             projectedMean: mcStats?.projectedMean,
+            currentMean: mcStats?.currentMean,
             probability: mcStats?.probability,
             statsData: mcStats?.statsData,
             sd: mcStats?.sd
         };
-    }, [isMcStatsReady, mcStats?.projectedMean, mcStats?.probability, mcStats?.statsData, mcStats?.sd]);
+    }, [isMcStatsReady, mcStats?.projectedMean, mcStats?.currentMean, mcStats?.probability, mcStats?.statsData, mcStats?.sd]);
 
     // Chave primitiva estável para hidratar getSuggestedFocus/generateDailyGoals assim que
     // o Worker de Monte Carlo concluir (sem disparar loop #185 por mudança de referência de objeto).
@@ -596,8 +605,12 @@ export default function Coach() {
         if (!Number.isFinite(meanNum)) return '';
         const probRaw = mcStats?.probability;
         const probNum = (probRaw !== null && probRaw !== undefined && probRaw !== '') ? Number(probRaw) : NaN;
-        return `${meanNum.toFixed(1)}|${Number.isFinite(probNum) ? probNum.toFixed(1) : 'na'}`;
-    }, [isMcStatsReady, mcStats?.projectedMean, mcStats?.probability]);
+        const curMeanRaw = mcStats?.currentMean;
+        const curMeanNum = (curMeanRaw !== null && curMeanRaw !== undefined && curMeanRaw !== '') ? Number(curMeanRaw) : NaN;
+        const sdRaw = mcStats?.statsData?.pooledSD ?? mcStats?.sd;
+        const sdNum = (sdRaw !== null && sdRaw !== undefined && sdRaw !== '') ? Number(sdRaw) : NaN;
+        return `${meanNum.toFixed(1)}|${Number.isFinite(probNum) ? probNum.toFixed(1) : 'na'}|${Number.isFinite(curMeanNum) ? curMeanNum.toFixed(1) : 'na'}|${Number.isFinite(sdNum) ? sdNum.toFixed(2) : 'na'}`;
+    }, [isMcStatsReady, mcStats?.projectedMean, mcStats?.currentMean, mcStats?.probability, mcStats?.statsData?.pooledSD, mcStats?.sd]);
 
     // FIX-#185: Stable ref so the analysis useEffect doesn't need mcStatsContext
     // as a dependency. Without this, any isFlashing toggle inside useMonteCarloStats
@@ -689,6 +702,13 @@ export default function Coach() {
                             collectedMetrics.push(metric);
                         }
                     },
+                    onCoachEvaluationSnapshot: (snapshot) => {
+                        try {
+                            if (snapshot && getCoachFeature({ contestId: activeId }, 'useEvaluationTelemetry', false)) {
+                                saveEvaluationResult(snapshot, activeId);
+                            }
+                        } catch { /* ignore telemetry errors */ }
+                    },
                     // Pass global MC stats for richer integration (see analysis of Coach + MC)
                     // FIX-#185: Read from ref (stable) instead of the reactive mcStatsContext
                     globalMcStats: mcStatsContextRef.current,
@@ -722,12 +742,58 @@ export default function Coach() {
 
                 // GERAÇÃO AUTOMÁTICA DO PLANO DE METAS DO COACH (coachPlan)
                 try {
-                    const newTasks = generateDailyGoals(
+                    let newTasks = generateDailyGoals(
                         categories,
                         combinedHistory,
                         studyLogs,
                         baseCoachOptions
                     );
+
+                    // Reordenação por Política Causal quando as flags Lote 11 estiverem ativas
+                    const shouldApplyCausalPolicy =
+                        Array.isArray(newTasks) &&
+                        newTasks.length > 1 &&
+                        (
+                            getCoachFeature({ contestId: activeId }, 'useCausalTaskSelection', false) ||
+                            getCoachFeature({ contestId: activeId }, 'usePersonalizedPolicy', false)
+                        );
+                    if (shouldApplyCausalPolicy) {
+                        try {
+                            let activeCausalModel = loadCausalModel(activeId);
+                            if (!activeCausalModel || !Number(activeCausalModel.sampleSize)) {
+                                const currentSnapshotForCausal = useAppStore.getState().appState?.contests?.[activeId];
+                                const mergedSimsForCausal = mergeSimuladosWithCategoryHistory(categories, combinedHistory);
+                                const causalEvents = buildCausalEventsFromHistory(
+                                    categories,
+                                    mergedSimsForCausal,
+                                    studyLogs,
+                                    {
+                                        maxScore: safeMax,
+                                        minScore: safeMin,
+                                        coachPlan: currentSnapshotForCausal?.coachPlan,
+                                        coachPlanner: currentSnapshotForCausal?.coachPlanner
+                                    }
+                                );
+                                if (Array.isArray(causalEvents) && causalEvents.length > 0) {
+                                    activeCausalModel = trainCausalModel(causalEvents, {
+                                        contestId: activeId,
+                                        maxScore: safeMax,
+                                        minScore: safeMin,
+                                        useBootstrap: getCoachFeature({ contestId: activeId }, 'useCausalBootstrap', false),
+                                        save: true
+                                    });
+                                }
+                            }
+                            if (activeCausalModel && Number(activeCausalModel.sampleSize) > 0) {
+                                newTasks = rerankCoachTasksWithCausalPolicy(newTasks, activeCausalModel, {
+                                    maxScore: safeMax,
+                                    minScore: safeMin
+                                });
+                            }
+                        } catch (errCausal) {
+                            console.warn('[Coach] Falha ao aplicar política causal nas metas:', errCausal);
+                        }
+                    }
 
                     if (Array.isArray(newTasks) && isMountedRef.current) {
                         const currentData = useAppStore.getState().appState?.contests?.[activeId];
@@ -739,8 +805,48 @@ export default function Coach() {
                         if (newTasks.length === 0 && existingPlan.length === 0 && !hasExistingPlannerItems) {
                             setIsAnalyzing(false);
                         } else {
+                            const todayKey = getDateKey(new Date());
                             const normalizeTaskSid = (rawSid) =>
-                                rawSid ? String(rawSid).replace(/-dup\d+-[a-zA-Z0-9_-]+$/, '') : '';
+                                rawSid ? String(rawSid).replace(/(?:__q\d+|-dup\d+-[a-zA-Z0-9_-]+)+$/, '') : '';
+                            const isSyllabusTaskCompletedInCategory = (taskCandidate) => {
+                                if (!taskCandidate) return false;
+                                const srcId = taskCandidate.sourceTaskId ? String(taskCandidate.sourceTaskId) : '';
+                                const cid = taskCandidate.categoryId;
+                                const matchedCat = categories.find(c => c && (
+                                    (cid && c.id && String(c.id) === String(cid)) ||
+                                    (taskCandidate.category && c.name && isSubjectMatch(c.name, taskCandidate.category))
+                                ));
+                                if (!matchedCat) return false;
+                                const catTasks = Array.isArray(matchedCat.tasks) ? matchedCat.tasks : Object.values(matchedCat.tasks || {});
+                                if (srcId) {
+                                    const byId = catTasks.find(ct => ct && String(ct.id) === srcId);
+                                    if (byId) return Boolean(byId.completed);
+                                }
+                                const rawTopic = String(taskCandidate.topicName || '').replace(/^Avan[çc]o de Edital\s*[—-]\s*/i, '').trim();
+                                if (!rawTopic) return false;
+                                const normT = normalize(rawTopic);
+                                const byTitle = catTasks.find(ct => ct && normalize(String(ct.topicName || ct.topic || ct.text || ct.title || '')) === normT);
+                                return byTitle ? Boolean(byTitle.completed) : false;
+                            };
+                            const shouldPreserveCompletion = (prevDoneTask, freshTask = null) => {
+                                if (!prevDoneTask || !prevDoneTask.completed) return false;
+                                const sidToCheck = normalizeTaskSid(getSafeCategoryKey(ensureCoachTaskId(freshTask || prevDoneTask)));
+                                const isSyllabusItem = Boolean(
+                                    (freshTask && freshTask.sourceTaskId) ||
+                                    prevDoneTask.sourceTaskId ||
+                                    /-syllabus-/.test(sidToCheck)
+                                );
+                                if (isSyllabusItem && isSyllabusTaskCompletedInCategory(freshTask || prevDoneTask)) {
+                                    return true;
+                                }
+                                // Para tarefas recorrentes (SRS Blitz, Revisão por Recência, Tópicos Fracos, Síntese),
+                                // preserva concluído apenas no mesmo dia civil; em dias futuros renascem pendentes.
+                                if (!prevDoneTask.completedAt) {
+                                    return !isManualRefresh;
+                                }
+                                const doneDayKey = getDateKey(prevDoneTask.completedAt);
+                                return Boolean(doneDayKey && todayKey && doneDayKey === todayKey);
+                            };
                             const extractTopicKeyFromSid = (rawSid) => {
                                 const clean = normalizeTaskSid(rawSid);
                                 const topicMatch = clean.match(/^(.+?-topic-[a-zA-Z0-9]+)-\d+-([a-zA-Z0-9]+)$/);
@@ -805,7 +911,8 @@ export default function Coach() {
                                             const topicKey = extractTopicKeyFromSid(sid);
                                             const fresh = freshTasksById.get(sid) || (topicKey ? freshTasksByTopicKey.get(topicKey) : null);
                                             const staleAlert = !fresh && !t.completed && isSystemAlertTask(t.text || t.title);
-                                            const staleOnManual = !fresh && !t.completed && isManualRefresh;
+                                            const staleCompletedOnManual = Boolean(t.completed) && isManualRefresh && !shouldPreserveCompletion(t, fresh);
+                                            const staleOnManual = (!fresh && !t.completed && isManualRefresh) || staleCompletedOnManual;
                                             if (staleAlert || staleOnManual) {
                                                 plannerChanged = true;
                                                 return;
@@ -816,17 +923,23 @@ export default function Coach() {
                                             if (rawSid !== sid || resolvedSid !== sid) {
                                                 plannerChanged = true;
                                             }
+                                            const keepCompleted = Boolean(t.completed) && (fresh ? shouldPreserveCompletion(t, fresh) : true);
+                                            if (Boolean(t.completed) !== keepCompleted) {
+                                                plannerChanged = true;
+                                            }
                                             const mergedTask = fresh
                                                 ? {
                                                     ...t,
                                                     id: fresh.id || resolvedSid || sid,
+                                                    ...(fresh.sourceTaskId ? { sourceTaskId: fresh.sourceTaskId } : {}),
+                                                    ...(fresh.actionType ? { actionType: fresh.actionType } : {}),
                                                     text: fresh.text || t.text,
                                                     ...(fresh.title || t.title ? { title: fresh.title || fresh.text || t.title } : {}),
                                                     topicName: fresh.topicName || t.topicName,
                                                     analysis: fresh.analysis || t.analysis,
                                                     priority: fresh.priority || t.priority,
-                                                    completed: Boolean(t.completed),
-                                                    ...(t.completedAt ? { completedAt: t.completedAt } : {})
+                                                    completed: keepCompleted,
+                                                    ...(keepCompleted && t.completedAt ? { completedAt: t.completedAt } : { completedAt: null })
                                                 }
                                                 : (rawSid !== sid ? { ...t, id: sid } : t);
                                             if (
@@ -876,7 +989,7 @@ export default function Coach() {
                                         const sid = normalizeTaskSid(getSafeCategoryKey(ensureCoachTaskId(t)));
                                         const topicKey = extractTopicKeyFromSid(sid);
                                         const prevCompleted = (sid && existingCompletedMap.get(sid)) || (topicKey ? existingCompletedMap.get(topicKey) : null);
-                                        if (prevCompleted) {
+                                        if (prevCompleted && shouldPreserveCompletion(prevCompleted, t)) {
                                             return { ...t, completed: true, completedAt: prevCompleted.completedAt };
                                         }
                                         return t;
@@ -1128,6 +1241,14 @@ export default function Coach() {
                                             maxScore={currentMaxScore}
                                             minScore={currentMinScore}
                                             targetScore={targetScorePoints}
+                                            user={data?.user}
+                                            globalMcStats={mcStatsContext}
+                                            simuladoRows={data?.simuladoRows}
+                                            allSimulados={data?.simulados}
+                                            flashcardDecks={flashcardDecks}
+                                            flashcardDue={flashcardDue}
+                                            coachPlan={data?.coachPlan}
+                                            coachPlanner={data?.coachPlanner}
                                             calibrationAuditLog={data?.calibrationAuditLog}
                                             calibrationHistoryByCategory={data?.calibrationHistoryByCategory}
                                         />
@@ -1147,7 +1268,7 @@ export default function Coach() {
 // QuickStat, StatRow e GovernanceBanner extraídos para src/components/coach/CoachHeaderWidgets.jsx
 
 export function RaioXDashboard({ data }) {
-    const ops = data?.calibrationOps || {};
+    const ops = useMemo(() => data?.calibrationOps || {}, [data?.calibrationOps]);
     const [filter, setFilter] = useState('all');
 
     const toFiniteNumber = (value, fallback = 0) => {
@@ -1218,21 +1339,10 @@ export function RaioXDashboard({ data }) {
             ));
     }, [activeCategoryIds, categories]);
 
-    // BUG-7 FIX: Derive 'now' from latest calibration timestamp to avoid impure Date.now() in useMemo.
+    // Paridade total com GovernanceBanner (degradedCount): janela móvel de 7 dias ancorada por disciplina
+    // e suporte a categorias sinalizadas em calibrationOps mesmo sem linhas em calibrationHistoryByCategory.
     const calibrationSummary = useMemo(() => {
         const historyByCategory = data?.calibrationHistoryByCategory || {};
-        // Derive 'now' from the data itself: use the newest timestamp across all categories
-        let latestTs = 0;
-        for (const rawEntries of Object.values(historyByCategory)) {
-            const entries = Array.isArray(rawEntries)
-                ? rawEntries
-                : (rawEntries && typeof rawEntries === 'object' ? Object.values(rawEntries) : []);
-            for (const e of entries) {
-                const ts = toTimestampMs(e?.timestamp);
-                if (ts > latestTs) latestTs = ts;
-            }
-        }
-        const now = latestTs;
         const mergedByCanonical = new Map();
         Object.entries(historyByCategory)
             .filter(([categoryId]) => isActiveCategoryEntry(categoryId))
@@ -1257,6 +1367,34 @@ export function RaioXDashboard({ data }) {
                 mergedByCanonical.set(canonicalId, prev);
             });
 
+        // Inclui disciplinas ativas marcadas como degradadas em calibrationOps mesmo sem histórico em rows
+        Object.entries(ops)
+            .filter(([opKey, opVal]) => opVal?.degraded && isActiveCategoryEntry(opKey))
+            .forEach(([opKey, opVal]) => {
+                const safeOpKey = getSafeCategoryKey(opKey);
+                const calOpKey = getCalibrationKey(opKey);
+                const matchedCategory = categories.find(c => {
+                    if (!c) return false;
+                    const cid = getSafeCategoryKey(c.id);
+                    const cname = getSafeCategoryKey(c.name);
+                    return (cid && (cid === String(opKey) || cid === safeOpKey || getCalibrationKey(cid) === calOpKey)) ||
+                        (cname && (cname === String(opKey) || cname === safeOpKey || getCalibrationKey(cname) === calOpKey || isSubjectMatch(cname, opKey)));
+                });
+                const canonicalId = getSafeCategoryKey(matchedCategory?.id || matchedCategory?.name || opKey) || String(opKey);
+                if (!mergedByCanonical.has(canonicalId)) {
+                    mergedByCanonical.set(canonicalId, {
+                        categoryId: canonicalId,
+                        matchedCategory,
+                        rows: [{
+                            timestamp: toTimestampMs(opVal.updatedAt),
+                            avgBrier: opVal.avgBrier7d ?? null,
+                            degraded: true,
+                            categoryName: matchedCategory?.name || opVal.categoryName || canonicalId
+                        }]
+                    });
+                }
+            });
+
         const hasFiniteMetric = (v) => v !== null && v !== undefined && v !== '' && Number.isFinite(Number(v));
 
         return Array.from(mergedByCanonical.values())
@@ -1273,8 +1411,9 @@ export function RaioXDashboard({ data }) {
                     }
                 });
                 const rows = dedupedRows.sort((a, b) => toTimestampMs(a?.timestamp) - toTimestampMs(b?.timestamp));
-                const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
-                const recent = rows.filter(h => toTimestampMs(h?.timestamp) >= sevenDaysAgo);
+                const catMaxTs = rows.reduce((max, r) => Math.max(max, toTimestampMs(r?.timestamp)), 0);
+                const sevenDaysAgo = catMaxTs > 0 ? catMaxTs - 7 * 24 * 60 * 60 * 1000 : 0;
+                const recent = catMaxTs > 0 ? rows.filter(h => toTimestampMs(h?.timestamp) >= sevenDaysAgo) : rows;
                 const base = recent.length > 0 ? recent : rows;
                 const brierValues = base
                     .filter(h => hasFiniteMetric(h?.avgBrier))
@@ -1289,6 +1428,8 @@ export function RaioXDashboard({ data }) {
                 const avgBrier = brierValues.length > 0 ? brierValues.reduce((acc, val) => acc + val, 0) / brierValues.length : null;
                 const avgEce = eceValues.length > 0 ? eceValues.reduce((acc, val) => acc + val, 0) / eceValues.length : null;
                 const avgPenalty = penaltyValues.length > 0 ? penaltyValues.reduce((acc, val) => acc + val, 0) / penaltyValues.length : null;
+                const latestRow = rows[rows.length - 1] || null;
+                const latestDegraded = Boolean(latestRow?.degraded);
                 const validCount = base.filter(h =>
                     Boolean(h?.degraded) ||
                     hasFiniteMetric(h?.avgBrier) ||
@@ -1296,7 +1437,7 @@ export function RaioXDashboard({ data }) {
                     (hasFiniteMetric(h?.calibrationPenalty) && Number(h.calibrationPenalty) > 0)
                 ).length;
                 if (validCount === 0) return null;
-                const label = matchedCategory?.name || rows[rows.length - 1]?.categoryName || categoryId;
+                const label = matchedCategory?.name || latestRow?.categoryName || categoryId;
                 const safeCatKey = getSafeCategoryKey(categoryId);
                 const safeLabelKey = getSafeCategoryKey(label);
                 const calCatId = getCalibrationKey(categoryId);
@@ -1308,16 +1449,16 @@ export function RaioXDashboard({ data }) {
                     return (cid && (cid === String(categoryId) || cid === safeCatKey || getCalibrationKey(cid) === calCatId || (calSafeCatKey && getCalibrationKey(cid) === calSafeCatKey))) ||
                         (cname && (cname === String(label) || cname === safeLabelKey || isSubjectMatch(cname, label)));
                 });
-                const latestSampleSize = Number.isFinite(Number(rows[rows.length - 1]?.sampleSize))
-                    ? Number(rows[rows.length - 1].sampleSize)
+                const latestSampleSize = Number.isFinite(Number(latestRow?.sampleSize))
+                    ? Number(latestRow.sampleSize)
                     : null;
                 const simCount = (matchedSim && matchedSim.count > 0)
                     ? matchedSim.count
                     : (latestSampleSize !== null && latestSampleSize > 0 ? latestSampleSize : null);
-                return { categoryId, label, count: validCount, simCount, avgBrier, avgEce, avgPenalty };
+                return { categoryId, label, count: validCount, simCount, avgBrier, avgEce, avgPenalty, latestDegraded };
             })
             .filter(Boolean);
-    }, [data?.calibrationHistoryByCategory, isActiveCategoryEntry, categories, categorySimCounts]);
+    }, [data?.calibrationHistoryByCategory, ops, isActiveCategoryEntry, categories, categorySimCounts]);
 
     const calibratedCategoryKeys = useMemo(() => {
         const set = new Set();
@@ -1558,7 +1699,7 @@ export function RaioXDashboard({ data }) {
                             const hasBrier = row.avgBrier !== null && Number.isFinite(row.avgBrier);
                             const avgBrier = hasBrier ? Number(row.avgBrier) : null;
                             const penVal = toFiniteNumber(row.avgPenalty);
-                            const isDegraded = Boolean(op.degraded || (hasBrier && avgBrier >= CRITICAL_BRIER_THRESHOLD) || penVal >= HIGH_PENALTY_THRESHOLD);
+                            const isDegraded = Boolean(op.degraded || row.latestDegraded || (hasBrier && avgBrier >= CRITICAL_BRIER_THRESHOLD) || penVal >= HIGH_PENALTY_THRESHOLD);
 
                             const brierPct = hasBrier ? Math.max(0, Math.min(100, (avgBrier / 0.35) * 100)) : 0;
                             const radius = 14;

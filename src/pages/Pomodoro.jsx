@@ -67,6 +67,7 @@ const ActionsAndMentorView = React.memo(function ActionsAndMentorView({
     neuralQueue,
     studyLogs,
     simulados,
+    contestId = null,
     settings = EMPTY_OBJECT,
     isRunning = false,
     mode = 'work',
@@ -79,8 +80,8 @@ const ActionsAndMentorView = React.memo(function ActionsAndMentorView({
     const recommendedTask = useMemo(() => {
         const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
         if (!safeCats || safeCats.length === 0) return null;
-        return getBestTask(safeCats);
-    }, [categories]);
+        return getBestTask(safeCats, { contestId, studyLogs });
+    }, [categories, contestId, studyLogs]);
 
     const highPriorityTasks = useMemo(() => {
         const tasks = [];
@@ -454,6 +455,7 @@ const PomodoroSidePanel = React.memo(function PomodoroSidePanel({
     neuralQueue,
     studyLogs,
     simulados,
+    contestId = null,
     user,
     mode,
     isRunning,
@@ -546,7 +548,7 @@ const PomodoroSidePanel = React.memo(function PomodoroSidePanel({
     // Contagem de pendências para o badge do tab de ações (sincronizada com ActionsAndMentorView)
     const pendingCount = useMemo(() => {
         const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
-        const recTask = (!activeSubject && safeCats.length > 0) ? getBestTask(safeCats) : null;
+        const recTask = (!activeSubject && safeCats.length > 0) ? getBestTask(safeCats, { contestId, studyLogs }) : null;
         const recommendedId = recTask ? String(recTask.id || recTask.text || recTask.title || '') : null;
         const currentTaskId = activeSubject?.taskId ? String(activeSubject.taskId) : null;
 
@@ -572,7 +574,7 @@ const PomodoroSidePanel = React.memo(function PomodoroSidePanel({
             });
         });
         return highCount > 0 ? highCount : mediumCount;
-    }, [categories, activeSubject, neuralMode, neuralQueue]);
+    }, [categories, activeSubject, neuralMode, neuralQueue, contestId, studyLogs]);
 
     return (
         <Motion.div
@@ -695,6 +697,7 @@ const PomodoroSidePanel = React.memo(function PomodoroSidePanel({
                                 neuralQueue={neuralQueue}
                                 studyLogs={studyLogs}
                                 simulados={simulados}
+                                contestId={contestId}
                                 settings={settings}
                                 isRunning={isRunning}
                                 mode={mode}
@@ -925,8 +928,8 @@ export default function Pomodoro() {
     const recommendedTask = React.useMemo(() => {
         const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
         if (!safeCats || safeCats.length === 0) return null;
-        return getBestTask(safeCats);
-    }, [categories]);
+        return getBestTask(safeCats, { contestId: activeId, studyLogs });
+    }, [categories, activeId, studyLogs]);
 
     const scheduleAutoStart = useCallback(() => {
         const store = useAppStore.getState();
@@ -1590,6 +1593,7 @@ export default function Pomodoro() {
                             neuralQueue={neuralQueue}
                             studyLogs={studyLogs}
                             simulados={simulados}
+                            contestId={activeId}
                             user={user}
                             mode={liveTimerState?.mode || pomodoroState.mode || 'work'}
                             isRunning={liveTimerState !== null ? liveTimerState.isRunning : (pomodoroState.isRunning || false)}

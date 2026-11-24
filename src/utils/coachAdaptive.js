@@ -470,7 +470,8 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
               const d = Number(train[j].score || 0) - Number(train[j - 1].score || 0);
               sumDiffSq += d * d;
             }
-            const trainRmssd = Math.sqrt(sumDiffSq / Math.max(1, train.length - 1));
+            // Estimador de von Neumann consistente com calculateMSSD: E[(X_t - X_{t-1})^2] = 2*sigma^2
+            const trainRmssd = Math.sqrt(sumDiffSq / Math.max(1, 2 * (train.length - 1)));
             const causalZdp = trainMean + Math.max(trainRmssd, range * 0.05) + (range * 0.02);
             stepTarget = Math.max(trainMean, Math.min(causalZdp, nominalTarget));
           } else {
@@ -503,7 +504,11 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
 
           if (!bt || !Number.isFinite(bt.probability)) continue;
 
-          const p = Math.max(0, Math.min(1, bt.probability / 100));
+          const rawBtP = Math.max(0, Math.min(1, bt.probability / 100));
+          // Suavização de Jeffreys em simulações curtas de walk-forward evita probabilidades degeneradas 0/1
+          const p = btSimulations <= 300
+            ? ((rawBtP * btSimulations) + 0.5) / (btSimulations + 1)
+            : rawBtP;
           brierScores.push(computeBrierScore(p, observed));
           predObsPairs.push({ probability: p, observed });
           rawPreds.push(p);

@@ -160,7 +160,7 @@ function AICoachCard({ task, idx, onStartPomodoro, categories, maxScore = 100, m
                         <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3 flex flex-col gap-2 relative group/kpi transition-colors hover:bg-white/[0.04]">
                             <div className="flex items-center justify-between z-10 relative">
                                 <span className={`text-[9px] font-black tracking-widest uppercase ${highVol ? 'text-amber-400/80' : 'text-slate-400'}`}>Volatilidade</span>
-                                <span className={`font-mono text-xs font-bold ${highVol ? 'text-amber-300' : 'text-slate-300'}`}>±{mcVol > 0 && mcVol < 0.5 ? '<1' : Math.round(mcVol)}</span>
+                                <span className={`font-mono text-xs font-bold ${highVol ? 'text-amber-300' : 'text-slate-300'}`}>±{mcVol > 0 && mcVol < 0.5 ? '<1' : Math.round(mcVol)} pts</span>
                             </div>
                             <div className="h-1 w-full bg-black/40 rounded-full overflow-hidden z-10 relative">
                                 <div className={`h-full rounded-full transition-all duration-1000 ${highVol ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)]' : 'bg-slate-500'}`} style={{ width: `${Math.min(100, Math.max(0, (mcVolPct / 20) * 100))}%` }} />
@@ -232,6 +232,7 @@ export default function AICoachView({ suggestedFocus, onClearHistory, onRegenera
     const [isExporting, setIsExporting] = useState(false);
     const [viewMode, setViewMode] = useState('planner');
     const [showClearConfirm, setShowClearConfirm] = useState(false);
+    const activeId = useAppStore(state => state.appState?.activeId);
     const activeContest = useAppStore(state => state.appState?.contests?.[state.appState?.activeId] || null);
     const coachPlanner = useMemo(() => {
         const raw = activeContest?.coachPlanner || {};
@@ -310,7 +311,7 @@ export default function AICoachView({ suggestedFocus, onClearHistory, onRegenera
             navigate('/pomodoro', { state: { from: 'coach' } });
             return;
         }
-        const stripDupSuffix = (v) => String(v || '').replace(/-dup\d+-[a-zA-Z0-9_-]+$/, '');
+        const stripDupSuffix = (v) => String(v || '').replace(/(?:__q\d+|-dup\d+-[a-zA-Z0-9_-]+)+$/, '');
         const matchTask = (t) => {
             if (!t) return false;
             const taskSid = stripDupSuffix(getSafeId(ensureCoachTaskId(task)));
@@ -462,9 +463,11 @@ export default function AICoachView({ suggestedFocus, onClearHistory, onRegenera
 
             {/* Alertas táticos e alertas críticos do sistema sempre visíveis em ambas as abas (Planner e Pendências) */}
             <AdaptiveTacticalAlerts
+                contestId={activeId}
                 categories={activeContest?.categories}
                 studyLogs={activeContest?.studyLogs}
                 simuladoRows={activeContest?.simuladoRows}
+                simulados={activeContest?.simulados}
                 minScore={activeContest?.minScore ?? activeContest?.settings?.minScore ?? 0}
                 maxScore={activeContest?.maxScore ?? activeContest?.settings?.maxScore ?? 100}
             />

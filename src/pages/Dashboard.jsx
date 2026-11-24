@@ -57,7 +57,9 @@ export default function Dashboard() {
         pomodorosCompleted,
         flashcardDecks,
         settings,
-        studySessions
+        studySessions,
+        contestMaxScore,
+        contestMinScore
     } = useAppStore(useShallow(state => {
         const currentActiveId = state.appState?.activeId;
         const contest = state.appState?.contests?.[currentActiveId] || {};
@@ -70,7 +72,9 @@ export default function Dashboard() {
             pomodorosCompleted: contest.pomodorosCompleted,
             flashcardDecks: contest.flashcardDecks,
             settings: contest.settings,
-            studySessions: contest.studySessions
+            studySessions: contest.studySessions,
+            contestMaxScore: contest.maxScore,
+            contestMinScore: contest.minScore
         };
     }));
 
@@ -110,7 +114,9 @@ export default function Dashboard() {
         pomodorosCompleted,
         flashcardDecks: safeFlashcardDecks,
         settings: settings || {},
-        studySessions: safeStudySessions
+        studySessions: safeStudySessions,
+        maxScore: contestMaxScore,
+        minScore: contestMinScore
     }), [
         safeCategories,
         safeSimulados,
@@ -120,7 +126,9 @@ export default function Dashboard() {
         pomodorosCompleted,
         safeFlashcardDecks,
         settings,
-        safeStudySessions
+        safeStudySessions,
+        contestMaxScore,
+        contestMinScore
     ]);
 
         const setGoalDate = React.useCallback((d) => {
@@ -369,7 +377,7 @@ return (
                     : 0;
                 const rawDashMax = Number(data.maxScore ?? data.settings?.maxScore);
                 const dashMax = Number.isFinite(rawDashMax) && rawDashMax > dashMin ? rawDashMax : Math.max(dashMin + 1, 100);
-                const dashTarget = resolveUserTargetScorePoints(data.user, dashMin, dashMax, 0.8);
+                const dashTarget = resolveUserTargetScorePoints(data.user, dashMin, dashMax, 0.85);
                 return (
                     <AdaptivePulseStrip
                         categories={data.categories}
@@ -392,7 +400,10 @@ return (
                     <NextGoalCard
                         categories={data.categories}
                         simulados={data.simulados}
+                        simuladoRows={data.simuladoRows}
                         studyLogs={data.studyLogs}
+                        maxScore={data.maxScore ?? data.settings?.maxScore}
+                        minScore={data.minScore ?? data.settings?.minScore}
                         onStartStudying={handleStartStudying}
                     />
                 </div>

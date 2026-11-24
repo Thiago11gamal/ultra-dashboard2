@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Target, Play, Clock, Info, Sparkles } from 'lucide-react';
-import { getSuggestedFocus } from '../utils/coachLogic';
+import { getSuggestedFocus, getCombinedHistory } from '../utils/coachLogic';
 import { toArray } from '../utils/normalize';
 import { normalizePriority, getPriorityConfig } from '../utils/colorHelper';
 import { useAppStore } from '../store/useAppStore';
@@ -102,9 +102,15 @@ function NextGoalCard({
                     setSuggestion(null);
                     return;
                 }
+                const combinedSims = getCombinedHistory(
+                    toArray(effectiveSimuladoRows),
+                    toArray(simulados),
+                    effectiveMaxScore,
+                    effectiveMinScore
+                );
                 const suggestedCategory = getSuggestedFocus(
                     categoriesWithPending,
-                    toArray(simulados),
+                    combinedSims,
                     toArray(studyLogs),
                     {
                         contestId: effectiveContestId,

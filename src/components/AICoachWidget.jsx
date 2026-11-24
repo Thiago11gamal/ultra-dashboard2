@@ -98,14 +98,16 @@ function MonteCarloGauge({ mc, scaleMax = 100, scaleMin = 0 }) {
     };
     const rawVolatility = Number.isFinite(Number(mc.volatility)) ? Math.max(0, Number(mc.volatility)) : 0;
     const volatilityLabel = rawVolatility > 0 && rawVolatility < 0.5 ? '<1' : String(Math.round(rawVolatility));
-    const volHalfBand = Math.max(5, Math.min(22, (rawVolatility / Math.max(1, scaleMax - scaleMin)) * 100 * 1.5));
+    const p01 = prob / 100;
+    const nEff = Math.max(4, Number(mc.sampleSize) || Number(mc.diagnostics?.effectiveN) || 5);
+    const binomialHalfBand = Math.max(6, Math.min(24, 1.645 * Math.sqrt((p01 * (1 - p01) + 0.02) / nEff) * 100));
 
-    // FIX: Usar intervalo conformal de probabilidade (conformalLow / conformalHigh) ou banda probabilística ao redor de `prob`
-    // em vez de ci95Low/ci95High (que estão na escala de nota projetada e ficavam deslocados do marcador de probabilidade).
+    // FIX: Usar intervalo conformal de probabilidade (IC 90%, alpha=0.1) ou erro-padrão binomial suavizado (Jeffreys)
+    // em vez de somar desvio-padrão de NOTA diretamente em pontos percentuais de probabilidade.
     const hasConformalLow = mc.conformalLow !== null && mc.conformalLow !== undefined && mc.conformalLow !== '' && Number.isFinite(Number(mc.conformalLow));
     const hasConformalHigh = mc.conformalHigh !== null && mc.conformalHigh !== undefined && mc.conformalHigh !== '' && Number.isFinite(Number(mc.conformalHigh));
-    const rawProbLow = hasConformalLow ? Math.min(prob, Number(mc.conformalLow)) : (prob - volHalfBand);
-    const rawProbHigh = hasConformalHigh ? Math.max(prob, Number(mc.conformalHigh)) : (prob + volHalfBand);
+    const rawProbLow = hasConformalLow ? Math.min(prob, Number(mc.conformalLow)) : (prob - binomialHalfBand);
+    const rawProbHigh = hasConformalHigh ? Math.max(prob, Number(mc.conformalHigh)) : (prob + binomialHalfBand);
     const low = Math.min(prob, Math.max(0, rawProbLow));
     const high = Math.min(100, Math.max(prob, low, rawProbHigh));
 
@@ -375,8 +377,13 @@ export default function AICoachWidget({ suggestion }) {
                                                     </span>
                                                 </div>
                                                 <p className="text-xs sm:text-sm text-slate-200 leading-relaxed font-normal">
-                                                    {renderRecommendation(suggestion.urgency.recommendation)}
+                                                    {renderRecommendation(suggestion.urgency?.llmExplanation?.recommendation || suggestion.urgency.recommendation)}
                                                 </p>
+                                                {suggestion.urgency?.llmExplanation?.headline && (
+                                                    <p className="text-[11px] text-cyan-300/90 font-semibold mt-0.5">
+                                                        {suggestion.urgency.llmExplanation.headline}
+                                                    </p>
+                                                )}
                                             </div>
                                         </div>
                                     </div>

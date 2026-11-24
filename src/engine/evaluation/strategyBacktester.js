@@ -741,9 +741,34 @@ export function runCoachStrategyBacktest(config = {}) {
               })
             : false;
 
-          const observedUplift =
+          const rawObservedDelta =
             hadStudyInHorizon && Number.isFinite(lastTrainScore) && Number.isFinite(split.observedScore)
-              ? Number((split.observedScore - lastTrainScore).toFixed(4))
+              ? split.observedScore - lastTrainScore
+              : null;
+          let alignmentMultiplier = 1;
+          if (
+            rawObservedDelta !== null &&
+            includeTopics &&
+            Array.isArray(weakTopics) &&
+            weakTopics.length > 0 &&
+            Array.isArray(outcomeTopics) &&
+            outcomeTopics.length > 0
+          ) {
+            const normTopicKey = (v) =>
+              String(v || '')
+                .toLowerCase()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .trim();
+            const relSet = new Set(outcomeTopics.map((ot) => normTopicKey(ot?.name ?? ot)).filter(Boolean));
+            const topPredicted = weakTopics.slice(0, topicK);
+            const matchedCount = topPredicted.filter((wt) => relSet.has(normTopicKey(wt?.name ?? wt))).length;
+            const hitRatio = topPredicted.length > 0 ? matchedCount / topPredicted.length : 0;
+            alignmentMultiplier = 0.6 + 0.4 * hitRatio;
+          }
+          const observedUplift =
+            rawObservedDelta !== null
+              ? Number((rawObservedDelta * alignmentMultiplier).toFixed(4))
               : null;
 
           const outcome = {

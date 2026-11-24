@@ -18,6 +18,7 @@ import {
 } from '../engine/observability/driftMonitor.js';
 import { getSafeScore } from './scoreHelper.js';
 import { normalizeDate } from './dateHelper.js';
+import { isSubjectMatch } from './normalization.js';
 import { safeGetJSON } from './coachStorage.js';
 import { resolveCalibrationTelemetryKey } from './calibrationTelemetry.js';
 import { loadEvaluationResults } from '../engine/evaluation/coachEvaluator.js';
@@ -58,10 +59,35 @@ export function extractObservabilitySeries(simulados = [], options = {}) {
   const minScore = Number.isFinite(Number(options.minScore))
     ? Math.min(Number(options.minScore), maxScore)
     : 0;
+  const globalRange = Math.max(1e-6, maxScore - minScore);
+  const categoriesList = safeArray(options.categories);
   const windowSize = Math.max(3, Number(options.volatilityWindow) || 5);
 
+  const resolveSimuladoScoreOnGlobalScale = (simulado) => {
+    if (categoriesList.length > 0 && simulado && typeof simulado === 'object') {
+      const simSubj = simulado.subject || simulado.categoryName || simulado.materia || simulado.disciplina || '';
+      const matchedCat = categoriesList.find((cat) => {
+        if (!cat) return false;
+        if (cat.id != null && simulado.categoryId != null && String(cat.id) === String(simulado.categoryId)) return true;
+        return Boolean(cat.name && simSubj && isSubjectMatch(simSubj, cat.name));
+      });
+      if (matchedCat) {
+        const cMax = Number(matchedCat.maxScore) > 0 ? Number(matchedCat.maxScore) : maxScore;
+        const cMin = matchedCat.minScore != null && matchedCat.minScore !== '' && Number.isFinite(Number(matchedCat.minScore))
+          ? Math.min(Number(matchedCat.minScore), cMax)
+          : minScore;
+        const rawCatScore = getSafeScore(simulado, cMax, cMin);
+        if (!Number.isFinite(rawCatScore)) return NaN;
+        if (cMax === maxScore && cMin === minScore) return rawCatScore;
+        const cRange = Math.max(1e-6, cMax - cMin);
+        return minScore + ((rawCatScore - cMin) / cRange) * globalRange;
+      }
+    }
+    return getSafeScore(simulado, maxScore, minScore);
+  };
+
   const sorted = safeArray(simulados)
-    .filter((simulado) => simulado && simulado.valid !== false)
+    .filter((simulado) => simulado && simulado.valid !== false && simulado.validated !== false)
     // FIX (A6): preserva o índice original — o tiebreak do sort lia
     // `a._idx`, que nunca era criado (código morto).
     .map((simulado, _idx) => ({
@@ -79,7 +105,7 @@ export function extractObservabilitySeries(simulados = [], options = {}) {
         .trim()
         .toLowerCase(),
       time: toTime(simulado?.date ?? simulado?.createdAt),
-      score: getSafeScore(simulado, maxScore, minScore),
+      score: resolveSimuladoScoreOnGlobalScale(simulado),
       _idx,
     }))
     .filter((entry) => Number.isFinite(entry.score))

@@ -17,6 +17,7 @@ import {
   loadPersistedCoachFlags,
 } from './flagOptimizer.js';
 import { computeCalibrationDiagnostics } from '../../utils/calibration.js';
+import { bootstrapPromotionGate } from '../../utils/autoTunerGate.js';
 import { safeSetItem, safeGetJSON } from '../../utils/coachStorage.js';
 import { readFlags } from '../../utils/coachFeatureStore.js';
 import { getCoachFeature } from '../../utils/coachFeatures.js';
@@ -286,7 +287,7 @@ export function runAutoTunerCycle(options = {}) {
       ? options.allowRollback
       : getCoachFeature({ contestId, features: currentFeatures }, 'useAutoRollback', true);
 
-  const recommendation = recommendFlagConfig({
+  let recommendation = recommendFlagConfig({
     contestId,
     ranked,
     latestHealth,
@@ -296,6 +297,44 @@ export function runAutoTunerCycle(options = {}) {
     exploration: options.exploration === true,
     seed: options.seed,
   });
+
+  // Gate estatístico de promoção via Circular Block Bootstrap quando há folds pareados suficientes
+  let promotionGate = null;
+  if (
+    recommendation.action === 'promote' &&
+    options.forceApply !== true &&
+    backtestReport?.raw &&
+    typeof backtestReport.raw === 'object'
+  ) {
+    const baseEvals = Array.isArray(backtestReport.raw.baseline) ? backtestReport.raw.baseline : [];
+    const candKey = recommendation.strategyId === 'all-math-lots' && !backtestReport.raw['all-math-lots']
+      ? 'all-lots'
+      : recommendation.strategyId;
+    const candEvals = Array.isArray(backtestReport.raw[candKey]) ? backtestReport.raw[candKey] : [];
+    const pairLen = Math.min(baseEvals.length, candEvals.length);
+    if (pairLen >= 8) {
+      const pairedBrierDeltas = [];
+      for (let i = 0; i < pairLen; i++) {
+        const bBrier = baseEvals[i]?.probabilityEvaluation?.brier;
+        const cBrier = candEvals[i]?.probabilityEvaluation?.brier;
+        if (Number.isFinite(bBrier) && Number.isFinite(cBrier)) {
+          pairedBrierDeltas.push(cBrier - bBrier);
+        }
+      }
+      if (pairedBrierDeltas.length >= 8) {
+        promotionGate = bootstrapPromotionGate(pairedBrierDeltas, { minEffect: 0.003 });
+        // Se o erro de Brier da estratégia candidata degradou significativamente vs baseline, bloqueia promoção
+        if (promotionGate.ciLow !== null && promotionGate.ciLow > 0.005) {
+          recommendation = {
+            ...recommendation,
+            action: 'keep',
+            features: currentFeatures,
+            reason: 'Promoção retida pelo gate bootstrap: calibração Brier inferior ao baseline nos folds pareados.',
+          };
+        }
+      }
+    }
+  }
 
   let applied = false;
 
@@ -343,6 +382,7 @@ export function runAutoTunerCycle(options = {}) {
       features: recommendation.features,
       score: recommendation.score ?? null,
       baselineScore: recommendation.baselineScore ?? null,
+      promotionGate,
     },
     contestId: contestId || null,
     applied,

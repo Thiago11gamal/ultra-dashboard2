@@ -233,8 +233,8 @@ function OverviewPanel({ dashboard, orchestratorResult }) {
                   <p className="text-xs text-slate-500">{task.categoryName || '—'} • {task.topicName || '—'}</p>
                 </div>
                 <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${task.priority === 'high' ? 'bg-red-500/15 text-red-300'
-                    : task.priority === 'medium' ? 'bg-amber-500/15 text-amber-300'
-                      : 'bg-emerald-500/15 text-emerald-300'
+                  : task.priority === 'medium' ? 'bg-amber-500/15 text-amber-300'
+                    : 'bg-emerald-500/15 text-emerald-300'
                   }`}>
                   {task.priority}
                 </span>
@@ -489,8 +489,8 @@ function HealthPanel({ latestHealth, healthSnapshots, categories = [], calibrati
           <div className="space-y-2">
             {alerts.map((alert, idx) => (
               <div key={alert.id || idx} className={`flex items-start gap-3 rounded-lg p-3 ${alert.severity === 'high' ? 'bg-red-500/10 border border-red-500/20'
-                  : alert.severity === 'medium' ? 'bg-amber-500/10 border border-amber-500/20'
-                    : 'bg-slate-900/40 border border-slate-700/30'
+                : alert.severity === 'medium' ? 'bg-amber-500/10 border border-amber-500/20'
+                  : 'bg-slate-900/40 border border-slate-700/30'
                 }`}>
                 <span className={`text-lg ${alert.severity === 'high' ? 'text-red-400' : alert.severity === 'medium' ? 'text-amber-400' : 'text-slate-400'
                   }`}>
@@ -627,16 +627,16 @@ function AutoTunerPanel({ tunerResult, tunerHistory, runAutoTuner, applyRecommen
 
       {recommendation && (
         <div className={`border rounded-xl p-5 ${recommendation.action === 'promote' ? 'bg-emerald-500/5 border-emerald-500/30'
-            : recommendation.action === 'rollback' ? 'bg-red-500/5 border-red-500/30'
-              : recommendation.action === 'explore' ? 'bg-cyan-500/5 border-cyan-500/30'
-                : 'bg-slate-800/50 border-slate-700/50'
+          : recommendation.action === 'rollback' ? 'bg-red-500/5 border-red-500/30'
+            : recommendation.action === 'explore' ? 'bg-cyan-500/5 border-cyan-500/30'
+              : 'bg-slate-800/50 border-slate-700/50'
           }`}>
           <SectionTitle icon="🤖">Recomendação do AutoTuner</SectionTitle>
           <div className="flex items-center gap-3 mb-3">
             <span className={`px-3 py-1 rounded-full text-sm font-medium ${recommendation.action === 'promote' ? 'bg-emerald-500/20 text-emerald-300'
-                : recommendation.action === 'rollback' ? 'bg-red-500/20 text-red-300'
-                  : recommendation.action === 'explore' ? 'bg-cyan-500/20 text-cyan-300'
-                    : 'bg-slate-500/20 text-slate-300'
+              : recommendation.action === 'rollback' ? 'bg-red-500/20 text-red-300'
+                : recommendation.action === 'explore' ? 'bg-cyan-500/20 text-cyan-300'
+                  : 'bg-slate-500/20 text-slate-300'
               }`}>
               {String(recommendation.action || 'keep').toUpperCase()}
             </span>
@@ -711,8 +711,8 @@ function AutoTunerPanel({ tunerResult, tunerHistory, runAutoTuner, applyRecommen
                     {formatDateTime(entry?.generatedAt)}
                   </span>
                   <span className={`text-xs px-2 py-0.5 rounded-full ${entry?.recommendation?.action === 'promote' ? 'bg-emerald-500/15 text-emerald-300'
-                      : entry?.recommendation?.action === 'rollback' ? 'bg-red-500/15 text-red-300'
-                        : 'bg-slate-500/15 text-slate-300'
+                    : entry?.recommendation?.action === 'rollback' ? 'bg-red-500/15 text-red-300'
+                      : 'bg-slate-500/15 text-slate-300'
                     }`}>
                     {entry?.recommendation?.action || '—'}
                   </span>
@@ -731,312 +731,312 @@ function AutoTunerPanel({ tunerResult, tunerHistory, runAutoTuner, applyRecommen
 // ==========================================================
 // Painel: Backtest
 // ==========================================================
-  function BacktestPanel({ backtestReport, runBacktest, loading }) {
-    const summaries = backtestReport?.summaries || {};
-    const comparisons = backtestReport?.comparisons || {};
-    const strategyIds = Object.keys(summaries);
-    return (
-      <div className="space-y-6">
-          <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5 flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <SectionTitle icon="📈">Backtest Granular de Estratégias</SectionTitle>
-              <p className="text-xs text-slate-400">
-                Avalia precisão probabilística (Brier/ECE), erro de nota (MAE), ranking de tópicos (NDCG) e uplift por lote.
-              </p>
-            </div>
-            {typeof runBacktest === 'function' && (
-              <button
-                type="button"
-                onClick={() => runBacktest({ defer: true })}
-                disabled={loading}
-                className={`px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded-lg transition-colors ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                {loading ? 'Executando...' : '▶ Executar Backtest Granular'}
-              </button>
-            )}
+function BacktestPanel({ backtestReport, runBacktest, loading }) {
+  const summaries = backtestReport?.summaries || {};
+  const comparisons = backtestReport?.comparisons || {};
+  const strategyIds = Object.keys(summaries);
+  return (
+    <div className="space-y-6">
+      <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5 flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <SectionTitle icon="📈">Backtest Granular de Estratégias</SectionTitle>
+          <p className="text-xs text-slate-400">
+            Avalia precisão probabilística (Brier/ECE), erro de nota (MAE), ranking de tópicos (NDCG) e uplift por lote.
+          </p>
+        </div>
+        {typeof runBacktest === 'function' && (
+          <button
+            type="button"
+            onClick={() => runBacktest({ defer: true })}
+            disabled={loading}
+            className={`px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded-lg transition-colors ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            {loading ? 'Executando...' : '▶ Executar Backtest Granular'}
+          </button>
+        )}
+      </div>
+
+      {!backtestReport ? (
+        <EmptyState message="Nenhum relatório de backtest encontrado. Execute um backtest granular primeiro." />
+      ) : (
+        <>
+          <div className="text-xs text-slate-500">
+            Gerado em {formatDateTime(backtestReport?.generatedAt)}
           </div>
 
-          {!backtestReport ? (
-            <EmptyState message="Nenhum relatório de backtest encontrado. Execute um backtest granular primeiro." />
-          ) : (
-            <>
-              <div className="text-xs text-slate-500">
-                Gerado em {formatDateTime(backtestReport?.generatedAt)}
-              </div>
-
-              {strategyIds.length > 0 && (
-                <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5 overflow-hidden">
-                  <SectionTitle icon="📊">Métricas por Estratégia</SectionTitle>
-                  <div className="overflow-x-auto -mx-5 px-5">
-                    <table className="w-full text-sm min-w-[640px]">
-                      <thead>
-                        <tr className="text-left text-slate-400 border-b border-slate-700/50">
-                          <th className="pb-2 pr-4">Estratégia</th>
-                          <th className="pb-2 pr-4">Amostras</th>
-                          <th className="pb-2 pr-4">Brier</th>
-                          <th className="pb-2 pr-4">ECE</th>
-                          <th className="pb-2 pr-4">MAE</th>
-                          <th className="pb-2 pr-4">NDCG</th>
-                          <th className="pb-2">Uplift</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {strategyIds.map((id) => {
-                          const s = summaries[id];
-                          if (!s || typeof s !== 'object') return null;
-                          return (
-                            <tr key={id} className="border-b border-slate-700/30 last:border-0">
-                              <td className="py-2 pr-4 font-mono text-slate-200">{id}</td>
-                              <td className="py-2 pr-4 text-white">{s.count ?? '—'}</td>
-                              <td className="py-2 pr-4 font-mono text-white">{fmt(s.probability?.avgBrier, 4)}</td>
-                              <td className="py-2 pr-4 font-mono text-white">{fmt(s.probability?.ece, 4)}</td>
-                              <td className="py-2 pr-4 font-mono text-white">{fmt(s.score?.mae, 2)}</td>
-                              <td className="py-2 pr-4 font-mono text-white">{fmt(s.topics?.avgNdcg, 3)}</td>
-                              <td className="py-2 font-mono text-white">{fmt(s.tasks?.avgUplift, 2)}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              {Object.keys(comparisons).length > 0 && (
-                <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
-                  <SectionTitle icon="⚖️">Comparações</SectionTitle>
-                  <div className="grid md:grid-cols-2 gap-4">
-                    {Object.entries(comparisons).map(([key, comp]) => {
-                      if (!comp || typeof comp !== 'object') return null;
+          {strategyIds.length > 0 && (
+            <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5 overflow-hidden">
+              <SectionTitle icon="📊">Métricas por Estratégia</SectionTitle>
+              <div className="overflow-x-auto -mx-5 px-5">
+                <table className="w-full text-sm min-w-[640px]">
+                  <thead>
+                    <tr className="text-left text-slate-400 border-b border-slate-700/50">
+                      <th className="pb-2 pr-4">Estratégia</th>
+                      <th className="pb-2 pr-4">Amostras</th>
+                      <th className="pb-2 pr-4">Brier</th>
+                      <th className="pb-2 pr-4">ECE</th>
+                      <th className="pb-2 pr-4">MAE</th>
+                      <th className="pb-2 pr-4">NDCG</th>
+                      <th className="pb-2">Uplift</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {strategyIds.map((id) => {
+                      const s = summaries[id];
+                      if (!s || typeof s !== 'object') return null;
                       return (
-                        <div key={key} className="bg-slate-900/40 rounded-lg p-4">
-                          <p className="text-sm font-medium text-slate-200 font-mono mb-2">{key}</p>
-                          <div className="grid grid-cols-2 gap-2 text-xs">
-                            <div>
-                              <p className="text-slate-500">Δ Brier</p>
-                              <p className={`font-mono ${deltaColor(comp.delta?.brier, true)}`}>{fmt(comp.delta?.brier, 4)}</p>
-                            </div>
-                            <div>
-                              <p className="text-slate-500">Δ NDCG</p>
-                              <p className={`font-mono ${deltaColor(comp.delta?.ndcg, false)}`}>{fmt(comp.delta?.ndcg, 4)}</p>
-                            </div>
-                            <div>
-                              <p className="text-slate-500">Heurística</p>
-                              <p className="font-mono text-white">{fmt(comp.heuristicScore, 4)}</p>
-                            </div>
-                            <div>
-                              <p className="text-slate-500">Vencedor</p>
-                              <p className={`font-medium ${comp.winner === 'candidate' ? 'text-emerald-400' : comp.winner === 'baseline' ? 'text-amber-400' : 'text-slate-400'}`}>
-                                {comp.winner || '—'}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
+                        <tr key={id} className="border-b border-slate-700/30 last:border-0">
+                          <td className="py-2 pr-4 font-mono text-slate-200">{id}</td>
+                          <td className="py-2 pr-4 text-white">{s.count ?? '—'}</td>
+                          <td className="py-2 pr-4 font-mono text-white">{fmt(s.probability?.avgBrier, 4)}</td>
+                          <td className="py-2 pr-4 font-mono text-white">{fmt(s.probability?.ece, 4)}</td>
+                          <td className="py-2 pr-4 font-mono text-white">{fmt(s.score?.mae, 2)}</td>
+                          <td className="py-2 pr-4 font-mono text-white">{fmt(s.topics?.avgNdcg, 3)}</td>
+                          <td className="py-2 font-mono text-white">{fmt(s.tasks?.avgUplift, 2)}</td>
+                        </tr>
                       );
                     })}
-                  </div>
-                </div>
-              )}
-            </>
+                  </tbody>
+                </table>
+              </div>
+            </div>
           )}
-        </div>
-        );
+
+          {Object.keys(comparisons).length > 0 && (
+            <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
+              <SectionTitle icon="⚖️">Comparações</SectionTitle>
+              <div className="grid md:grid-cols-2 gap-4">
+                {Object.entries(comparisons).map(([key, comp]) => {
+                  if (!comp || typeof comp !== 'object') return null;
+                  return (
+                    <div key={key} className="bg-slate-900/40 rounded-lg p-4">
+                      <p className="text-sm font-medium text-slate-200 font-mono mb-2">{key}</p>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <p className="text-slate-500">Δ Brier</p>
+                          <p className={`font-mono ${deltaColor(comp.delta?.brier, true)}`}>{fmt(comp.delta?.brier, 4)}</p>
+                        </div>
+                        <div>
+                          <p className="text-slate-500">Δ NDCG</p>
+                          <p className={`font-mono ${deltaColor(comp.delta?.ndcg, false)}`}>{fmt(comp.delta?.ndcg, 4)}</p>
+                        </div>
+                        <div>
+                          <p className="text-slate-500">Heurística</p>
+                          <p className="font-mono text-white">{fmt(comp.heuristicScore, 4)}</p>
+                        </div>
+                        <div>
+                          <p className="text-slate-500">Vencedor</p>
+                          <p className={`font-medium ${comp.winner === 'candidate' ? 'text-emerald-400' : comp.winner === 'baseline' ? 'text-amber-400' : 'text-slate-400'}`}>
+                            {comp.winner || '—'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
 }
 
-        // ==========================================================
-        // Painel: Causal
-        // ==========================================================
-        function CausalPanel({causalModel, trainCausal, loading}) {
-  const actions = causalModel?.actions || { };
-        const actionEntries = Object.entries(actions);
-        return (
-        <div className="space-y-6">
-            <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5 flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <SectionTitle icon="🔬">Modelo de Inferência Causal</SectionTitle>
-                <p className="text-xs text-slate-400">
-                  Estima o impacto real (uplift) de sessões de estudo e tarefas concluídas sobre a evolução nos simulados.
-                </p>
-              </div>
-              {typeof trainCausal === 'function' && (
-                <button
-                  type="button"
-                  onClick={() => trainCausal({ defer: true })}
-                  disabled={loading}
-                  className={`px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded-lg transition-colors ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  {loading ? 'Treinando...' : '▶ Treinar Modelo Causal'}
-                </button>
-              )}
+// ==========================================================
+// Painel: Causal
+// ==========================================================
+function CausalPanel({ causalModel, trainCausal, loading }) {
+  const actions = causalModel?.actions || {};
+  const actionEntries = Object.entries(actions);
+  return (
+    <div className="space-y-6">
+      <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5 flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <SectionTitle icon="🔬">Modelo de Inferência Causal</SectionTitle>
+          <p className="text-xs text-slate-400">
+            Estima o impacto real (uplift) de sessões de estudo e tarefas concluídas sobre a evolução nos simulados.
+          </p>
+        </div>
+        {typeof trainCausal === 'function' && (
+          <button
+            type="button"
+            onClick={() => trainCausal({ defer: true })}
+            disabled={loading}
+            className={`px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded-lg transition-colors ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            {loading ? 'Treinando...' : '▶ Treinar Modelo Causal'}
+          </button>
+        )}
+      </div>
+
+      {!causalModel ? (
+        <EmptyState message="Nenhum modelo causal carregado. Ative as flags de causalidade e treine o modelo." />
+      ) : (
+        <>
+          <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
+            <SectionTitle icon="🌐">Uplift Global</SectionTitle>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <MetricCard label="Uplift" value={fmt(causalModel.global?.uplift, 3)} />
+              <MetricCard label="Método" value={causalModel.global?.method} />
+              <MetricCard label="Amostras" value={causalModel.global?.sampleSize} />
+              <MetricCard label="Tratados" value={causalModel.global?.treatedCount} />
             </div>
-
-            {!causalModel ? (
-              <EmptyState message="Nenhum modelo causal carregado. Ative as flags de causalidade e treine o modelo." />
-            ) : (
-              <>
-                <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
-                  <SectionTitle icon="🌐">Uplift Global</SectionTitle>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    <MetricCard label="Uplift" value={fmt(causalModel.global?.uplift, 3)} />
-                    <MetricCard label="Método" value={causalModel.global?.method} />
-                    <MetricCard label="Amostras" value={causalModel.global?.sampleSize} />
-                    <MetricCard label="Tratados" value={causalModel.global?.treatedCount} />
-                  </div>
-                  {causalModel.global?.ci && (
-                    <p className="text-xs text-slate-500 mt-3">
-                      IC 95%: [{fmt(causalModel.global.ci.low, 3)}, {fmt(causalModel.global.ci.high, 3)}]
-                    </p>
-                  )}
-                </div>
-
-                {actionEntries.length > 0 && (
-                  <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5 space-y-5">
-                    <SectionTitle icon="🎬">Uplift por Tipo de Ação ({actionEntries.length})</SectionTitle>
-                    <CausalUpliftChart causalModel={causalModel} />
-                    <div className="overflow-x-auto -mx-5 px-5">
-                      <table className="w-full text-sm min-w-[560px]">
-                        <thead>
-                          <tr className="text-left text-slate-400 border-b border-slate-700/50">
-                            <th className="pb-2 pr-4">Ação</th>
-                            <th className="pb-2 pr-4">Uplift</th>
-                            <th className="pb-2 pr-4">Método</th>
-                            <th className="pb-2 pr-4">Amostras</th>
-                            <th className="pb-2">IC 95%</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {actionEntries.map(([actionType, estimate]) => {
-                            if (!estimate || typeof estimate !== 'object') return null;
-                            const upliftNum = toStrictFinite(estimate.uplift);
-                            return (
-                              <tr key={actionType} className="border-b border-slate-700/30 last:border-0">
-                                <td className="py-2 pr-4 font-mono text-slate-200">{actionType}</td>
-                                <td className={`py-2 pr-4 font-mono ${upliftNum !== null && upliftNum > 0
-                                    ? 'text-emerald-400'
-                                    : upliftNum !== null && upliftNum < 0
-                                      ? 'text-red-400'
-                                      : 'text-slate-400'
-                                  }`}>
-                                  {fmt(estimate.uplift, 3)}
-                                </td>
-                                <td className="py-2 pr-4 text-slate-300">{estimate.method || '—'}</td>
-                                <td className="py-2 pr-4 text-white">{estimate.sampleSize ?? '—'}</td>
-                                <td className="py-2 text-xs text-slate-400">
-                                  {estimate.ci ? `[${fmt(estimate.ci.low, 2)}, ${fmt(estimate.ci.high, 2)}]` : '—'}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-
-                {causalModel.actionCounts && (
-                  <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
-                    <SectionTitle icon="🔢">Contagem de Eventos por Ação</SectionTitle>
-                    <div className="flex flex-wrap gap-2">
-                      {Object.entries(causalModel.actionCounts).map(([action, count]) => (
-                        <span key={action} className="px-3 py-1.5 bg-slate-900/40 rounded-lg text-sm">
-                          <span className="text-slate-300 font-mono">{action}</span>
-                          <span className="text-slate-500 ml-2">({count})</span>
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </>
+            {causalModel.global?.ci && (
+              <p className="text-xs text-slate-500 mt-3">
+                IC 95%: [{fmt(causalModel.global.ci.low, 3)}, {fmt(causalModel.global.ci.high, 3)}]
+              </p>
             )}
           </div>
-          );
+
+          {actionEntries.length > 0 && (
+            <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5 space-y-5">
+              <SectionTitle icon="🎬">Uplift por Tipo de Ação ({actionEntries.length})</SectionTitle>
+              <CausalUpliftChart causalModel={causalModel} />
+              <div className="overflow-x-auto -mx-5 px-5">
+                <table className="w-full text-sm min-w-[560px]">
+                  <thead>
+                    <tr className="text-left text-slate-400 border-b border-slate-700/50">
+                      <th className="pb-2 pr-4">Ação</th>
+                      <th className="pb-2 pr-4">Uplift</th>
+                      <th className="pb-2 pr-4">Método</th>
+                      <th className="pb-2 pr-4">Amostras</th>
+                      <th className="pb-2">IC 95%</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {actionEntries.map(([actionType, estimate]) => {
+                      if (!estimate || typeof estimate !== 'object') return null;
+                      const upliftNum = toStrictFinite(estimate.uplift);
+                      return (
+                        <tr key={actionType} className="border-b border-slate-700/30 last:border-0">
+                          <td className="py-2 pr-4 font-mono text-slate-200">{actionType}</td>
+                          <td className={`py-2 pr-4 font-mono ${upliftNum !== null && upliftNum > 0
+                            ? 'text-emerald-400'
+                            : upliftNum !== null && upliftNum < 0
+                              ? 'text-red-400'
+                              : 'text-slate-400'
+                            }`}>
+                            {fmt(estimate.uplift, 3)}
+                          </td>
+                          <td className="py-2 pr-4 text-slate-300">{estimate.method || '—'}</td>
+                          <td className="py-2 pr-4 text-white">{estimate.sampleSize ?? '—'}</td>
+                          <td className="py-2 text-xs text-slate-400">
+                            {estimate.ci ? `[${fmt(estimate.ci.low, 2)}, ${fmt(estimate.ci.high, 2)}]` : '—'}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {causalModel.actionCounts && (
+            <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
+              <SectionTitle icon="🔢">Contagem de Eventos por Ação</SectionTitle>
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(causalModel.actionCounts).map(([action, count]) => (
+                  <span key={action} className="px-3 py-1.5 bg-slate-900/40 rounded-lg text-sm">
+                    <span className="text-slate-300 font-mono">{action}</span>
+                    <span className="text-slate-500 ml-2">({count})</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
 }
 
-          // ==========================================================
-          // Painel: Explicação LLM
-          // ==========================================================
-          function LLMPanel({orchestratorResult, runOrchestrator, loading}) {
+// ==========================================================
+// Painel: Explicação LLM
+// ==========================================================
+function LLMPanel({ orchestratorResult, runOrchestrator, loading }) {
   const llm = orchestratorResult?.llmExplanation || orchestratorResult?.focus?.urgency?.llmExplanation || null;
   const numericConfidence = toStrictFinite(llm?.confidence);
 
-          return (
-          <div className="space-y-6">
-            <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5 flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <SectionTitle icon="💬">Explicação LLM do Foco</SectionTitle>
-                <p className="text-xs text-slate-400">
-                  Gera justificativa estratégica usando LLM quando disponível ou fallback determinístico auditável.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => runOrchestrator?.({
-                  force: true,
-                  runHealth: false,
-                  saveHealthSnapshots: false,
-                  runLLM: true,
-                  runAutoTuner: false,
-                  trainCausalModel: false,
-                  features: { useLLMExplanations: true, useOrchestratorLLM: true },
-                })}
-                disabled={loading}
-                className={`px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded-lg transition-colors ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                {loading ? 'Gerando...' : '▶ Gerar Explicação LLM'}
-              </button>
+  return (
+    <div className="space-y-6">
+      <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5 flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <SectionTitle icon="💬">Explicação LLM do Foco</SectionTitle>
+          <p className="text-xs text-slate-400">
+            Gera justificativa estratégica usando LLM quando disponível ou fallback determinístico auditável.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => runOrchestrator?.({
+            force: true,
+            runHealth: false,
+            saveHealthSnapshots: false,
+            runLLM: true,
+            runAutoTuner: false,
+            trainCausalModel: false,
+            features: { useLLMExplanations: true, useOrchestratorLLM: true },
+          })}
+          disabled={loading}
+          className={`px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded-lg transition-colors ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+        >
+          {loading ? 'Gerando...' : '▶ Gerar Explicação LLM'}
+        </button>
+      </div>
+
+      {!llm ? (
+        <EmptyState message="Nenhuma explicação LLM gerada ainda. Clique em 'Gerar Explicação LLM' para processar o foco atual." />
+      ) : (
+        <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h4 className="text-base font-semibold text-white">{llm.headline || 'Resumo da Análise'}</h4>
+            <div className="flex items-center gap-2 text-xs">
+              {llm.severity && (
+                <span className="px-2 py-0.5 rounded bg-slate-700/70 text-slate-200 uppercase font-mono">
+                  {llm.severity}
+                </span>
+              )}
+              {llm.source && (
+                <span className="px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-mono">
+                  {llm.source}{llm.provider ? ` (${llm.provider})` : ''}
+                </span>
+              )}
+              {numericConfidence !== null && (
+                <span className="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 font-mono">
+                  Confiança: {Math.round(numericConfidence * 100)}%
+                </span>
+              )}
             </div>
-
-            {!llm ? (
-              <EmptyState message="Nenhuma explicação LLM gerada ainda. Clique em 'Gerar Explicação LLM' para processar o foco atual." />
-            ) : (
-              <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5 space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h4 className="text-base font-semibold text-white">{llm.headline || 'Resumo da Análise'}</h4>
-                  <div className="flex items-center gap-2 text-xs">
-                    {llm.severity && (
-                      <span className="px-2 py-0.5 rounded bg-slate-700/70 text-slate-200 uppercase font-mono">
-                        {llm.severity}
-                      </span>
-                    )}
-                    {llm.source && (
-                      <span className="px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-mono">
-                        {llm.source}{llm.provider ? ` (${llm.provider})` : ''}
-                      </span>
-                    )}
-                    {numericConfidence !== null && (
-                      <span className="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 font-mono">
-                        Confiança: {Math.round(numericConfidence * 100)}%
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {llm.reason && (
-                  <div className="rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
-                    {LLM_FALLBACK_REASONS[llm.reason] || `Motivo do fallback: ${llm.reason}`}
-                  </div>
-                )}
-
-                {llm.recommendation && (
-                  <div className="p-3 rounded-lg bg-slate-900/50 border border-slate-700/40 text-sm text-slate-200">
-                    {llm.recommendation}
-                  </div>
-                )}
-
-                {Array.isArray(llm.causes) && llm.causes.length > 0 && (
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Fatores Identificados</p>
-                    <ul className="space-y-1.5 text-sm text-slate-300 list-disc list-inside">
-                      {llm.causes.map((cause, idx) => (
-                        <li key={`llm-cause-${idx}`}>{typeof cause === 'string' ? cause : JSON.stringify(cause)}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
-          );
+
+          {llm.reason && (
+            <div className="rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+              {LLM_FALLBACK_REASONS[llm.reason] || `Motivo do fallback: ${llm.reason}`}
+            </div>
+          )}
+
+          {llm.recommendation && (
+            <div className="p-3 rounded-lg bg-slate-900/50 border border-slate-700/40 text-sm text-slate-200">
+              {llm.recommendation}
+            </div>
+          )}
+
+          {Array.isArray(llm.causes) && llm.causes.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Fatores Identificados</p>
+              <ul className="space-y-1.5 text-sm text-slate-300 list-disc list-inside">
+                {llm.causes.map((cause, idx) => (
+                  <li key={`llm-cause-${idx}`}>{typeof cause === 'string' ? cause : JSON.stringify(cause)}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ==========================================================
@@ -1116,6 +1116,14 @@ function SciencePanel({
             maxScore = 100,
             minScore = 0,
             targetScore = 80,
+            user = null,
+            globalMcStats = null,
+            simuladoRows = [],
+            allSimulados = [],
+            flashcardDecks = [],
+            flashcardDue = 0,
+            coachPlan = [],
+            coachPlanner = {},
             calibrationAuditLog = [],
             calibrationHistoryByCategory = {},
             embedded = false,
@@ -1130,7 +1138,24 @@ function SciencePanel({
             strategySpace, runOrchestrator, runAutoTuner, runBacktest, trainCausal,
             applyRecommendation, applyStrategyPreset, rollbackToBaseline, toggleFlag,
             resetOverrides, clearError,
-  } = useCoachControlCenter({contestId, categories, simulados, studyLogs, maxScore, minScore, targetScore});
+  } = useCoachControlCenter({
+    contestId,
+    categories,
+    simulados,
+    studyLogs,
+    maxScore,
+    minScore,
+    targetScore,
+    user,
+    globalMcStats,
+    simuladoRows,
+    allSimulados,
+    flashcardDecks,
+    flashcardDue,
+    coachPlan,
+    coachPlanner,
+    calibrationHistoryByCategory,
+  });
 
   // Lote 13: respeita flags explícitas de visibilidade de painéis (oculta quando flag === false)
   const isPanelEnabled = (tabId) => {
@@ -1167,102 +1192,102 @@ function SciencePanel({
     tabButtonRefs.current[nextIdx]?.focus();
   };
 
-          return (
-          <div className={embedded
-            ? 'rounded-2xl border border-white/10 bg-slate-900/90 text-slate-200 p-4 sm:p-6 font-sans shadow-xl'
-            : 'bg-slate-900 min-h-screen text-slate-200 p-4 sm:p-6 font-sans'
-          }>
-            <div className="max-w-7xl mx-auto space-y-6">
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <div className="min-w-0">
-                  <h1 className="text-2xl font-bold text-white">Coach Control Center</h1>
-                  <p className="text-sm text-slate-400 mt-1">Centro de comando do ecossistema de predição e IA</p>
-                </div>
-                <div className="flex flex-wrap items-center gap-3">
-                  {lastRunTimestamp && (
-                    <span className="text-xs text-slate-400">Última execução: {new Date(lastRunTimestamp).toLocaleTimeString('pt-BR')}</span>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => runOrchestrator({ force: true, runHealth: true, runLLM: false, runAutoTuner: false, trainCausalModel: false })}
-                    disabled={loading}
-                    className={`px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-lg transition-colors ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  >
-                    {loading ? 'Executando...' : '▶ Executar Orquestrador'}
-                  </button>
-                </div>
-              </div>
-
-              {!embedded && <AdaptiveMaturityBadge />}
-
-              <nav aria-label="Painéis do Coach Control Center" className="flex gap-2 p-1 bg-slate-800/40 rounded-xl overflow-x-auto scrollbar-hide">
-                {visibleTabs.map((tab, idx) => (
-                  <TabButton
-                    key={tab.id}
-                    active={effectiveTab === tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    onKeyDown={(e) => handleTabNavKeyDown(e, idx)}
-                    buttonRef={(el) => { tabButtonRefs.current[idx] = el; }}
-                    icon={tab.icon}
-                  >
-                    {tab.label}
-                  </TabButton>
-                ))}
-              </nav>
-
-              {hasError && <ErrorAlert key={`${error}-${lastRunTimestamp || 0}`} message={error} onDismiss={clearError} />}
-              {loading && !dashboard && <LoadingSpinner />}
-              {loading && dashboard && (
-                <div className="flex items-center gap-2 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-4 py-2 text-xs text-indigo-200" role="status" aria-live="polite">
-                  <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-indigo-400 border-t-transparent" />
-                  <span>Processando operação no Control Center...</span>
-                </div>
-              )}
-
-              <div className="min-h-[400px]">
-                {effectiveTab === 'overview' && <OverviewPanel dashboard={dashboard} orchestratorResult={orchestratorResult} />}
-                {effectiveTab === 'science' && (
-                  <SciencePanel
-                    causalModel={causalModel}
-                    trainCausal={trainCausal}
-                    loading={loading}
-                    categories={categories}
-                    minScore={minScore}
-                    maxScore={maxScore}
-                    healthSnapshots={healthSnapshots}
-                    calibrationAuditLog={calibrationAuditLog}
-                    calibrationHistoryByCategory={calibrationHistoryByCategory}
-                  />
-                )}
-                {effectiveTab === 'flags' && (
-                  <FlagsPanel
-                    currentFlags={currentFlags}
-                    flagOverrides={flagOverrides}
-                    strategySpace={strategySpace}
-                    toggleFlag={toggleFlag}
-                    resetOverrides={resetOverrides}
-                    applyStrategyPreset={applyStrategyPreset}
-                    isAdmin={isAdmin}
-                  />
-                )}
-                {effectiveTab === 'health' && (
-                  <HealthPanel
-                    latestHealth={latestHealth}
-                    healthSnapshots={healthSnapshots}
-                    categories={categories}
-                    calibrationAuditLog={calibrationAuditLog}
-                    calibrationHistoryByCategory={calibrationHistoryByCategory}
-                  />
-                )}
-                {effectiveTab === 'causal' && <CausalPanel causalModel={causalModel} trainCausal={trainCausal} loading={loading} />}
-                {effectiveTab === 'autotuner' && (
-                  <AutoTunerPanel tunerResult={tunerResult} tunerHistory={tunerHistory} runAutoTuner={runAutoTuner} applyRecommendation={applyRecommendation} rollbackToBaseline={rollbackToBaseline} loading={loading} />
-                )}
-                {effectiveTab === 'backtest' && <BacktestPanel backtestReport={backtestReport} runBacktest={runBacktest} loading={loading} />}
-                {effectiveTab === 'llm' && <LLMPanel orchestratorResult={orchestratorResult} runOrchestrator={runOrchestrator} loading={loading} />}
-              </div>
-            </div>
+  return (
+    <div className={embedded
+      ? 'rounded-2xl border border-white/10 bg-slate-900/90 text-slate-200 p-4 sm:p-6 font-sans shadow-xl'
+      : 'bg-slate-900 min-h-screen text-slate-200 p-4 sm:p-6 font-sans'
+    }>
+      <div className="max-w-7xl mx-auto space-y-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="min-w-0">
+            <h1 className="text-2xl font-bold text-white">Coach Control Center</h1>
+            <p className="text-sm text-slate-400 mt-1">Centro de comando do ecossistema de predição e IA</p>
           </div>
-          );
+          <div className="flex flex-wrap items-center gap-3">
+            {lastRunTimestamp && (
+              <span className="text-xs text-slate-400">Última execução: {new Date(lastRunTimestamp).toLocaleTimeString('pt-BR')}</span>
+            )}
+            <button
+              type="button"
+              onClick={() => runOrchestrator({ force: true, runHealth: true, runLLM: false, runAutoTuner: false, trainCausalModel: false })}
+              disabled={loading}
+              className={`px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-lg transition-colors ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              {loading ? 'Executando...' : '▶ Executar Orquestrador'}
+            </button>
+          </div>
+        </div>
+
+        {!embedded && <AdaptiveMaturityBadge />}
+
+        <nav aria-label="Painéis do Coach Control Center" className="flex gap-2 p-1 bg-slate-800/40 rounded-xl overflow-x-auto scrollbar-hide">
+          {visibleTabs.map((tab, idx) => (
+            <TabButton
+              key={tab.id}
+              active={effectiveTab === tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              onKeyDown={(e) => handleTabNavKeyDown(e, idx)}
+              buttonRef={(el) => { tabButtonRefs.current[idx] = el; }}
+              icon={tab.icon}
+            >
+              {tab.label}
+            </TabButton>
+          ))}
+        </nav>
+
+        {hasError && <ErrorAlert key={`${error}-${lastRunTimestamp || 0}`} message={error} onDismiss={clearError} />}
+        {loading && !dashboard && <LoadingSpinner />}
+        {loading && dashboard && (
+          <div className="flex items-center gap-2 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-4 py-2 text-xs text-indigo-200" role="status" aria-live="polite">
+            <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-indigo-400 border-t-transparent" />
+            <span>Processando operação no Control Center...</span>
+          </div>
+        )}
+
+        <div className="min-h-[400px]">
+          {effectiveTab === 'overview' && <OverviewPanel dashboard={dashboard} orchestratorResult={orchestratorResult} />}
+          {effectiveTab === 'science' && (
+            <SciencePanel
+              causalModel={causalModel}
+              trainCausal={trainCausal}
+              loading={loading}
+              categories={categories}
+              minScore={minScore}
+              maxScore={maxScore}
+              healthSnapshots={healthSnapshots}
+              calibrationAuditLog={calibrationAuditLog}
+              calibrationHistoryByCategory={calibrationHistoryByCategory}
+            />
+          )}
+          {effectiveTab === 'flags' && (
+            <FlagsPanel
+              currentFlags={currentFlags}
+              flagOverrides={flagOverrides}
+              strategySpace={strategySpace}
+              toggleFlag={toggleFlag}
+              resetOverrides={resetOverrides}
+              applyStrategyPreset={applyStrategyPreset}
+              isAdmin={isAdmin}
+            />
+          )}
+          {effectiveTab === 'health' && (
+            <HealthPanel
+              latestHealth={latestHealth}
+              healthSnapshots={healthSnapshots}
+              categories={categories}
+              calibrationAuditLog={calibrationAuditLog}
+              calibrationHistoryByCategory={calibrationHistoryByCategory}
+            />
+          )}
+          {effectiveTab === 'causal' && <CausalPanel causalModel={causalModel} trainCausal={trainCausal} loading={loading} />}
+          {effectiveTab === 'autotuner' && (
+            <AutoTunerPanel tunerResult={tunerResult} tunerHistory={tunerHistory} runAutoTuner={runAutoTuner} applyRecommendation={applyRecommendation} rollbackToBaseline={rollbackToBaseline} loading={loading} />
+          )}
+          {effectiveTab === 'backtest' && <BacktestPanel backtestReport={backtestReport} runBacktest={runBacktest} loading={loading} />}
+          {effectiveTab === 'llm' && <LLMPanel orchestratorResult={orchestratorResult} runOrchestrator={runOrchestrator} loading={loading} />}
+        </div>
+      </div>
+    </div>
+  );
 }
 

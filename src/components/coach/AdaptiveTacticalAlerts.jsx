@@ -16,13 +16,17 @@ const ILLUSION_WINDOW_MS = 30 * 24 * 60 * 60 * 1000; // 30 dias
  * 4) Ilusão de competência (certeza + erro recorrente nos últimos 30 dias)
  */
 export const AdaptiveTacticalAlerts = React.memo(function AdaptiveTacticalAlerts({
+  contestId = 'default',
   categories = [],
   studyLogs = [],
   simuladoRows = [],
+  simulados = [],
   minScore = 0,
   maxScore = 100,
 }) {
-  const [dismissedIds, setDismissedIds] = useState(() => new Set());
+  const scopeKey = String(contestId || 'default');
+  const [dismissedByContest, setDismissedByContest] = useState(() => ({}));
+  const dismissedIds = dismissedByContest[scopeKey] || new Set();
 
   const alerts = useMemo(() => {
     const list = [];
@@ -52,9 +56,10 @@ export const AdaptiveTacticalAlerts = React.memo(function AdaptiveTacticalAlerts
       });
     }
 
-    // 3. TRI Pedagogical Incoherence (deduplicado entre simuladoRows e simuladoStats.history)
+    // 3. TRI Pedagogical Incoherence (deduplicado entre simuladoRows, simulados e simuladoStats.history)
     const rawEntries = [
       ...safeArr(simuladoRows),
+      ...safeArr(simulados),
       ...safeArr(categories).flatMap((c) =>
         safeArr(c?.simuladoStats?.history).map((h) => ({
           ...h,
@@ -91,13 +96,20 @@ export const AdaptiveTacticalAlerts = React.memo(function AdaptiveTacticalAlerts
 
     // 4. Illusion of Competence (certeza + erro efetivamente respondido na janela recente de 30 dias)
     const nowMs = Date.now();
-    const recentRows = safeArr(simuladoRows).filter((r) => {
+    const recentRows = allEntries.filter((r) => {
       if (!r || r.valid === false || r.validated === false) return false;
       const d = normalizeDate(r.date || r.createdAt);
       if (!d || !Number.isFinite(d.getTime())) return true; // preserva linhas sem data
       return (nowMs - d.getTime()) <= ILLUSION_WINDOW_MS;
     });
-    const allTelemetry = recentRows.flatMap((r) => safeArr(r?.questionTelemetry));
+    const seenTelIds = new Set();
+    const allTelemetry = recentRows.flatMap((r) => safeArr(r?.questionTelemetry)).filter((q, qIdx) => {
+      if (!q) return false;
+      const qKey = q.id ? `qid:${q.id}` : `qidx:${qIdx}:${q.questionNumber ?? ''}:${q.confidence ?? ''}:${q.correct ?? q.wasCorrect ?? ''}`;
+      if (seenTelIds.has(qKey)) return false;
+      seenTelIds.add(qKey);
+      return true;
+    });
     const illusionErrors = allTelemetry.filter((q) => {
       if (!q || q.confidence !== 'certeza') return false;
       if (q.wasAnswered === false) return false;
@@ -114,7 +126,7 @@ export const AdaptiveTacticalAlerts = React.memo(function AdaptiveTacticalAlerts
     }
 
     return list;
-  }, [categories, studyLogs, simuladoRows, minScore, maxScore]);
+  }, [categories, studyLogs, simuladoRows, simulados, minScore, maxScore]);
 
   const visibleAlerts = alerts.filter((a) => !dismissedIds.has(a.id));
 
@@ -144,7 +156,12 @@ export const AdaptiveTacticalAlerts = React.memo(function AdaptiveTacticalAlerts
             <button
               type="button"
               aria-label={`Dispensar alerta ${a.title}`}
-              onClick={() => setDismissedIds((prev) => new Set([...prev, a.id]))}
+              onClick={() =>
+                setDismissedByContest((prev) => ({
+                  ...prev,
+                  [scopeKey]: new Set([...(prev[scopeKey] || []), a.id]),
+                }))
+              }
               className="p-1 rounded-lg opacity-60 hover:opacity-100 hover:bg-white/10 transition-opacity shrink-0"
             >
               <X size={14} />
