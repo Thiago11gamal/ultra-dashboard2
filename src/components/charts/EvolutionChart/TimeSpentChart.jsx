@@ -347,6 +347,50 @@ const HalfMoonGauge = React.memo(function HalfMoonGauge({ data, referenceMaxSeco
     );
 });
 
+const parsePosFinite = (v) => {
+    if (v === null || v === undefined || typeof v === 'boolean' || String(v).trim() === '') return null;
+    const n = Number(v);
+    return Number.isFinite(n) && n > 0 ? n : null;
+};
+
+const extractEntryTiming = (entry, catMax) => {
+    const rootTs = parsePosFinite(entry?.timeSpent ?? entry?.durationSeconds);
+    const explicitRootTimedQ = parsePosFinite(entry?.timedQuestoes) || 0;
+    let topicsTs = 0;
+    let topicsTimedQ = 0;
+    let hasTopicWithTime = false;
+    let allTopicsHaveExplicitTimedQ = true;
+    const safeTopics = Array.isArray(entry?.topics) ? entry.topics : Object.values(entry?.topics || {});
+    for (const t of safeTopics) {
+        if (!t || typeof t !== 'object' || t.valid === false || t.validated === false) continue;
+        const tTs = parsePosFinite(t.timeSpent ?? t.durationSeconds);
+        const tExplicitTimedQ = parsePosFinite(t.timedQuestoes);
+        const tTot = tExplicitTimedQ ?? (parsePosFinite(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions) || 0);
+        if (tTs !== null && tTot > 0) {
+            topicsTs += tTs;
+            topicsTimedQ += tTot;
+            hasTopicWithTime = true;
+            if (tExplicitTimedQ === null) allTopicsHaveExplicitTimedQ = false;
+        }
+    }
+    const preferRoot = explicitRootTimedQ > 0 && rootTs !== null && (!allTopicsHaveExplicitTimedQ || rootTs > topicsTs + 0.5);
+    if (hasTopicWithTime && topicsTimedQ > 0 && !preferRoot) return { ts: topicsTs, tq: topicsTimedQ };
+    let tot = explicitRootTimedQ > 0
+        ? explicitRootTimedQ
+        : (parsePosFinite(entry?.total ?? entry?.questoes ?? entry?.totalQuestoes ?? entry?.questions) || 0);
+    if (tot === 0 && safeTopics.length > 0) {
+        tot = safeTopics.reduce((s, t) => {
+            if (!t || typeof t !== 'object' || t.valid === false || t.validated === false) return s;
+            return s + (parsePosFinite(t?.total ?? t?.questoes ?? t?.totalQuestoes ?? t?.questions) || 0);
+        }, 0);
+    }
+    if (tot === 0 && (entry?.score != null || entry?.scorePoints != null || entry?.scorePct != null)) {
+        tot = getSyntheticTotal(catMax);
+    }
+    if (tot > 0 && rootTs !== null) return { ts: rootTs, tq: tot };
+    return null;
+};
+
 export const TimeSpentChart = React.memo(function TimeSpentChart({
     subjectAggData,
     activeCategories = [],
@@ -370,50 +414,6 @@ export const TimeSpentChart = React.memo(function TimeSpentChart({
         }
         return null;
     }, [examDurationMinutes, examTotalQuestions]);
-
-    const parsePosFinite = (v) => {
-        if (v === null || v === undefined || typeof v === 'boolean' || String(v).trim() === '') return null;
-        const n = Number(v);
-        return Number.isFinite(n) && n > 0 ? n : null;
-    };
-
-    const extractEntryTiming = (entry, catMax) => {
-        const rootTs = parsePosFinite(entry?.timeSpent ?? entry?.durationSeconds);
-        const explicitRootTimedQ = parsePosFinite(entry?.timedQuestoes) || 0;
-        let topicsTs = 0;
-        let topicsTimedQ = 0;
-        let hasTopicWithTime = false;
-        let allTopicsHaveExplicitTimedQ = true;
-        const safeTopics = Array.isArray(entry?.topics) ? entry.topics : Object.values(entry?.topics || {});
-        for (const t of safeTopics) {
-            if (!t || typeof t !== 'object' || t.valid === false || t.validated === false) continue;
-            const tTs = parsePosFinite(t.timeSpent ?? t.durationSeconds);
-            const tExplicitTimedQ = parsePosFinite(t.timedQuestoes);
-            const tTot = tExplicitTimedQ ?? (parsePosFinite(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions) || 0);
-            if (tTs !== null && tTot > 0) {
-                topicsTs += tTs;
-                topicsTimedQ += tTot;
-                hasTopicWithTime = true;
-                if (tExplicitTimedQ === null) allTopicsHaveExplicitTimedQ = false;
-            }
-        }
-        const preferRoot = explicitRootTimedQ > 0 && rootTs !== null && (!allTopicsHaveExplicitTimedQ || rootTs > topicsTs + 0.5);
-        if (hasTopicWithTime && topicsTimedQ > 0 && !preferRoot) return { ts: topicsTs, tq: topicsTimedQ };
-        let tot = explicitRootTimedQ > 0
-            ? explicitRootTimedQ
-            : (parsePosFinite(entry?.total ?? entry?.questoes ?? entry?.totalQuestoes ?? entry?.questions) || 0);
-        if (tot === 0 && safeTopics.length > 0) {
-            tot = safeTopics.reduce((s, t) => {
-                if (!t || typeof t !== 'object' || t.valid === false || t.validated === false) return s;
-                return s + (parsePosFinite(t?.total ?? t?.questoes ?? t?.totalQuestoes ?? t?.questions) || 0);
-            }, 0);
-        }
-        if (tot === 0 && (entry?.score != null || entry?.scorePoints != null || entry?.scorePct != null)) {
-            tot = getSyntheticTotal(catMax);
-        }
-        if (tot > 0 && rootTs !== null) return { ts: rootTs, tq: tot };
-        return null;
-    };
 
     const chartData = useMemo(() => {
         const isSameId = (a, b) => a !== null && a !== undefined && b !== null && b !== undefined && String(a) === String(b);

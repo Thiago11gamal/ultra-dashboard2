@@ -78,20 +78,20 @@ export function aggregateHeatmap(filtered, granularity = 'daily', _maxScore = 10
       const pct = total > 0
         ? Math.max(0, Math.min(100, Number.isFinite(correct / total) ? (correct / total) * 100 : 0))
         : null;
-      const activeDays = samples.filter(c => Number(c?.total) > 0 && c?.pct !== null).length;
       const baseCell = {
         total,
         correct,
         pct,
-        activeDays,
       };
       if (hasSyntheticMeta) {
+        const activeDays = samples.filter(c => Number(c?.total) > 0 && c?.pct !== null).length;
         return {
           ...baseCell,
           realTotal,
           realCorrect,
           isSynthetic,
           hasMixedSynthetic,
+          activeDays,
         };
       }
       return baseCell;

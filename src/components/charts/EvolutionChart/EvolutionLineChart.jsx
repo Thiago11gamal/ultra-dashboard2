@@ -9,7 +9,7 @@ import { ChartTooltip } from "../ChartTooltip";
 import { ChartFrame } from "../ChartFrame";
 import { BenchmarkStrip } from "../../ui/BenchmarkStrip";
 import { normalizeDate, formatDisplayDate } from '../../../utils/dateHelper';
-import { formatValue, normalizeScoreDomain } from '../../../utils/scoreHelper';
+import { formatValue } from '../../../utils/scoreHelper';
 
 const CustomActiveDot = (props) => {
     const { cx, cy, fill, stroke, onClick, isDimmed } = props;
@@ -154,7 +154,7 @@ export const EvolutionLineChart = React.memo(function EvolutionLineChart({
             copy.displayDate = copy.displayDate || copy.date;
             return copy;
         });
-    }, [safeChartData, safeActiveCategories, showOnlyFocus, focusSubjectId, safeMinScore, safeMaxScore, safeRange]);
+    }, [safeChartData, safeActiveCategories, showOnlyFocus, hasFocusId, focusSubjectId, safeMinScore, safeMaxScore, safeRange]);
 
     const { finalPoints, lastValidIndexByCat } = useMemo(() => {
         if (!enhancedChartData.length) return { finalPoints: [], lastValidIndexByCat: {} };
@@ -179,7 +179,7 @@ export const EvolutionLineChart = React.memo(function EvolutionLineChart({
             }
         });
         return { finalPoints: pts.sort((a, b) => b.value - a.value), lastValidIndexByCat: idxMap };
-    }, [enhancedChartData, safeActiveCategories, showOnlyFocus, focusSubjectId, engine]);
+    }, [enhancedChartData, safeActiveCategories, showOnlyFocus, hasFocusId, focusSubjectId, engine]);
 
     const yAdjustedMap = useMemo(() => {
         if (!finalPoints.length) return {};

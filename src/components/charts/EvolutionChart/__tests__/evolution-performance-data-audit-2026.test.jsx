@@ -12,8 +12,8 @@ describe('Evolution Performance & Data Audit Tests', () => {
       // Optimistic bias: factor = +0.025 -> meanBias = +0.025 * 800 = +20
       const optimistic = applyScenarioAdjustments(data, 'optimistic', 1000, 200);
       expect(optimistic[0].mean).toBe(520); // 500 + 20
-      expect(optimistic[0].ciRange[0]).toBe(418); // 520 - ((520 - 400) * 0.85) = 418
-      expect(optimistic[0].ciRange[1]).toBe(588); // 520 + ((600 - 520) * 0.85) = 588
+      expect(optimistic[0].ciRange[0]).toBe(435); // 520 - (100 * 0.85) = 435
+      expect(optimistic[0].ciRange[1]).toBe(605); // 520 + (100 * 0.85) = 605
 
       // Conservative bias: factor = -0.015 -> meanBias = -0.015 * 800 = -12
       const conservative = applyScenarioAdjustments(data, 'conservative', 1000, 200);

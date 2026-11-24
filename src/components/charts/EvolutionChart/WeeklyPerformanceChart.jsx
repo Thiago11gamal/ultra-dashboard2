@@ -151,7 +151,7 @@ const WeeklyPerformanceChart = React.memo(function WeeklyPerformanceChart({
             });
         }
         return days;
-    }, [categories, studyLogs, showOnlyFocus, focusSubjectId, safeMaxScore, safeMinScore]);
+    }, [categories, studyLogs, showOnlyFocus, hasFocusId, focusSubjectId, safeMaxScore, safeMinScore]);
 
 
     const renderTooltip = useCallback(({ active, payload, label }) => {

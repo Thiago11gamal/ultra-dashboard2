@@ -1247,7 +1247,7 @@ export default React.memo(function EvolutionChart({
             accuracy: ((realC + synthC) / combinedQ) * 100,
             days,
         };
-    }, [timeWindow, categories, showOnlyFocus, focusCategory, maxScore, minScore]);
+    }, [timeWindow, categories, showOnlyFocus, focusCategory, maxScore, minScore, isSameId]);
 
     const { mcLoading, activeMcResult, activeMcProjectionSeries } = useEvolutionMC({
         focusCategory, categoryLevels, projectDays, targetScore, minScore, maxScore, activeEngine
@@ -1543,7 +1543,7 @@ export default React.memo(function EvolutionChart({
                 meta
             };
         });
-    }, [activeCategories, showOnlyFocus, focusCategory?.id, timeWindow, subjectAggData, targetScore, categoryLevels, minScore, maxScore]);
+    }, [activeCategories, showOnlyFocus, focusCategory?.id, timeWindow, subjectAggData, targetScore, categoryLevels, minScore, maxScore, isSameId]);
 
 const focusHistoricalCutoffs = useMemo(() => {
     if (!Array.isArray(historicalCutoffs) || historicalCutoffs.length === 0) return EMPTY_ARRAY;

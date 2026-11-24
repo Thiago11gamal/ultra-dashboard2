@@ -48,11 +48,12 @@ export function filterHistoryByTimeWindow(history, timeWindow) {
  * barras, radar e agilidade. Extraído do EvolutionChart.jsx (LOTE-05).
  */
 export function useSubjectAggData({ categories, showOnlyFocus, focusCategory, timeWindow, maxScore, minScore }) {
+  const focusId = focusCategory?.id;
   return useMemo(() => {
     if (!Array.isArray(categories) || !categories.length) return [];
-    const hasFocusId = focusCategory?.id !== null && focusCategory?.id !== undefined && String(focusCategory.id).trim() !== '';
+    const hasFocusId = focusId !== null && focusId !== undefined && String(focusId).trim() !== '';
     return categories
-      .filter((cat) => !showOnlyFocus || !hasFocusId || (cat?.id != null && String(cat.id) === String(focusCategory.id)))
+      .filter((cat) => !showOnlyFocus || !hasFocusId || (cat?.id != null && String(cat.id) === String(focusId)))
       .map((cat) => {
         const history = filterHistoryByTimeWindow(cat.simuladoStats?.history || [], timeWindow)
           .filter((h) => h && h.materia !== 'Simulado Personalizado');
@@ -193,5 +194,5 @@ export function useSubjectAggData({ categories, showOnlyFocus, focusCategory, ti
       })
       .filter((d) => d.questoes > 0)
       .sort((a, b) => b.questoes - a.questoes);
-  }, [categories, showOnlyFocus, focusCategory?.id, maxScore, minScore, timeWindow]);
+  }, [categories, showOnlyFocus, focusId, maxScore, minScore, timeWindow]);
 }
