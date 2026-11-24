@@ -1,10 +1,9 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Target, Play, Clock, Info, Sparkles } from 'lucide-react';
-import { getSuggestedFocus, getCombinedHistory } from '../utils/coachLogic';
+import { resolveCanonicalNextMission } from '../utils/canonicalNextMission';
 import { toArray } from '../utils/normalize';
 import { normalizePriority, getPriorityConfig } from '../utils/colorHelper';
 import { useAppStore } from '../store/useAppStore';
-import { getFlashcardDueTodayCount } from '../utils/analytics';
 import { resolveUserTargetScorePoints } from '../utils/scoreHelper';
 
 function renderBoldText(text) {
@@ -63,10 +62,9 @@ function NextGoalCard({
     const effectiveAllSimulados = storeContest?.simulados ?? simulados;
     const effectiveCalibHistory = propCalibrationHistory ?? storeContest?.calibrationHistoryByCategory;
     const effectiveFlashcardDecks = propFlashcardDecks ?? storeContest?.flashcardDecks;
-    const effectiveFlashcardDue = useMemo(
-        () => getFlashcardDueTodayCount(effectiveFlashcardDecks),
-        [effectiveFlashcardDecks]
-    );
+    const effectiveCoachPlan = storeContest?.coachPlan;
+    const effectiveCoachPlanner = storeContest?.coachPlanner;
+    const effectiveAgenda = storeContest?.agenda;
     const adaptiveCalibrationEnabled = storeContest?.settings?.adaptiveCalibrationEnabled !== false;
 
     const rawCategories = useMemo(() => toArray(categories), [categories]);
@@ -102,57 +100,29 @@ function NextGoalCard({
                     setSuggestion(null);
                     return;
                 }
-                const combinedSims = getCombinedHistory(
-                    toArray(effectiveSimuladoRows),
-                    toArray(simulados),
-                    effectiveMaxScore,
-                    effectiveMinScore
-                );
-                const suggestedCategory = getSuggestedFocus(
-                    categoriesWithPending,
-                    combinedSims,
-                    toArray(studyLogs),
-                    {
-                        contestId: effectiveContestId,
-                        user: effectiveUser,
-                        targetScore: effectiveTargetScore,
-                        maxScore: effectiveMaxScore,
-                        minScore: effectiveMinScore,
-                        calibrationHistoryByCategory: effectiveCalibHistory,
-                        flashcardDecks: effectiveFlashcardDecks,
-                        flashcardDue: effectiveFlashcardDue,
-                        simuladoRows: effectiveSimuladoRows,
-                        allSimulados: effectiveAllSimulados,
-                        allCategories: normalizedCategories,
-                        config: {
-                            contestId: effectiveContestId,
-                            MC_ENABLE_ADAPTIVE_CALIBRATION: adaptiveCalibrationEnabled
-                        }
-                    }
-                );
-                if (!suggestedCategory) {
+                const resolvedMission = resolveCanonicalNextMission({
+                    categories: normalizedCategories,
+                    simulados: effectiveAllSimulados,
+                    simuladoRows: effectiveSimuladoRows,
+                    studyLogs,
+                    coachPlan: effectiveCoachPlan,
+                    coachPlanner: effectiveCoachPlanner,
+                    agenda: effectiveAgenda,
+                    flashcardDecks: effectiveFlashcardDecks,
+                    user: effectiveUser,
+                    minScore: effectiveMinScore,
+                    maxScore: effectiveMaxScore,
+                    targetScore: effectiveTargetScore,
+                    calibrationHistoryByCategory: effectiveCalibHistory,
+                    contestId: effectiveContestId,
+                    adaptiveCalibrationEnabled
+                });
+                if (!resolvedMission || !resolvedMission.category || !resolvedMission.task) {
                     setSuggestion(null);
                     return;
                 }
-                const priorityOrder = { high: 0, medium: 1, low: 2 };
-                const sortedTasks = toArray(suggestedCategory.tasks)
-                    .filter(t => t && !t.completed && (t.title || t.text || t.id))
-                    .slice()
-                    .sort((a, b) => {
-                        const pA = normalizePriority(a?.priority);
-                        const pB = normalizePriority(b?.priority);
-                        const diff = (priorityOrder[pA] ?? 1) - (priorityOrder[pB] ?? 1);
-                        if (diff !== 0) return diff;
-                        // Em caso de mesma prioridade, prioriza tarefa já em andamento ("studying")
-                        if (a?.status === 'studying' && b?.status !== 'studying') return -1;
-                        if (b?.status === 'studying' && a?.status !== 'studying') return 1;
-                        return 0;
-                    });
-                const nextTask = sortedTasks[0];
-                if (!nextTask) {
-                    setSuggestion(null);
-                    return;
-                }
+                const suggestedCategory = resolvedMission.category;
+                const nextTask = resolvedMission.task;
                 const fullText = nextTask.title || nextTask.text || 'Estudo';
                 const parts = fullText.split(':');
                 const hasDetails = parts.length > 1;
@@ -170,7 +140,8 @@ function NextGoalCard({
                 setSuggestion({
                     category: suggestedCategory,
                     task: nextTask,
-                    urgency: suggestedCategory.urgency,
+                    urgency: resolvedMission.urgency ?? suggestedCategory.urgency,
+                    sourceBadge: resolvedMission.sourceBadge || null,
                     priorityConfig: getPriorityConfig(taskPriority),
                     display: {
                         assunto: actionPart.length > 80
@@ -200,7 +171,9 @@ function NextGoalCard({
         effectiveMinScore,
         effectiveCalibHistory,
         effectiveFlashcardDecks,
-        effectiveFlashcardDue,
+        effectiveCoachPlan,
+        effectiveCoachPlanner,
+        effectiveAgenda,
         effectiveSimuladoRows,
         effectiveAllSimulados,
         adaptiveCalibrationEnabled
@@ -247,7 +220,7 @@ function NextGoalCard({
         );
     }
 
-    const { category, task, urgency, display, priorityConfig } = suggestion || {};
+    const { category, task, urgency, display, priorityConfig, sourceBadge } = suggestion || {};
     if (!category || !task) return null;
 
     const rawUrgencyScore = urgency?.normalizedScore ?? urgency?.score ?? 0;
@@ -362,6 +335,11 @@ function NextGoalCard({
                             {priorityConfig && (
                                 <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[11px] font-semibold ${priorityConfig.color} ${priorityConfig.bg} ${priorityConfig.border}`}>
                                     Prioridade {priorityConfig.label}
+                                </span>
+                            )}
+                            {sourceBadge && (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border border-indigo-400/30 bg-indigo-500/10 text-indigo-200 text-[10px] font-bold uppercase tracking-wider">
+                                    {sourceBadge}
                                 </span>
                             )}
                         </div>

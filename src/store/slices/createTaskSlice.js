@@ -407,9 +407,27 @@ export const createTaskSlice = (set, get) => ({
                 if (activeSubject && matchesActiveSubjectTask(category, task, activeSubject, taskId)) {
                     clearPomodoroSession(state);
                 }
+                const nowIso = new Date().toISOString();
+                if (task) {
+                    if (!Array.isArray(state.appState.trash)) state.appState.trash = [];
+                    state.appState.trash = [
+                        ...state.appState.trash,
+                        {
+                            id: generateId('trash'),
+                            type: 'task',
+                            contestId: state.appState.activeId,
+                            deletedAt: nowIso,
+                            data: {
+                                task: { ...task },
+                                categoryId: category.id,
+                                categoryName: category.name,
+                                categoryIcon: category.icon || '📚'
+                            }
+                        }
+                    ].slice(-50);
+                }
                 category.tasks = category.tasks.filter(t => t && t.id !== taskId && t.text !== taskId && t.title !== taskId);
 
-                const nowIso = new Date().toISOString();
                 const tombstoneId = task?.id != null ? String(task.id) : (taskId != null ? String(taskId) : '');
                 const tombstoneText = normalize(String(task?.text || task?.title || ''));
                 if (tombstoneId || tombstoneText) {

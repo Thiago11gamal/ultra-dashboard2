@@ -29,7 +29,16 @@ export const ADAPTIVE_STAGES = [
     name: 'Calibração Inicial',
     shortLabel: 'Kalman + FSRS + ACWR',
     description: 'Ativa Filtro de Kalman, tópicos bayesianos, FSRS avançado e fadiga ACWR adaptativa.',
-    flags: ['useStateSpace', 'useBayesianTopics', 'useAdvancedFsrs', 'useFsrsForSrsBoost'],
+    flags: [
+      'useStateSpace',
+      'useStateSpaceAverage',
+      'useStateSpaceTrend',
+      'useBayesianTopics',
+      'useBayesianTopicsForUrgency',
+      'useAdvancedFsrs',
+      'useFsrsForSrsBoost',
+      'useFsrsTopicScheduling',
+    ],
   },
   {
     stage: 2,
@@ -37,7 +46,13 @@ export const ADAPTIVE_STAGES = [
     name: 'Dinâmica & Risco',
     shortLabel: 'Volatilidade + MC + Risco',
     description: 'Ativa volatilidade dinâmica, Posterior Monte Carlo, Decision Utility e decomposição de eliminação.',
-    flags: ['useDynamicVolatility', 'usePosteriorMonteCarlo', 'useDecisionUtility', 'useDecisionUtilityForTopics'],
+    flags: [
+      'useDynamicVolatility',
+      'useGarchVolatility',
+      'usePosteriorMonteCarlo',
+      'useDecisionUtility',
+      'useDecisionUtilityForTopics',
+    ],
   },
   {
     stage: 3,
@@ -45,7 +60,15 @@ export const ADAPTIVE_STAGES = [
     name: 'Regimes & Memória',
     shortLabel: 'Drift + Regimes + Retenção',
     description: 'Ativa telemetria de avaliação, Observability/Drift Guard, meia-vida empírica e grade ótima.',
-    flags: ['useEvaluationTelemetry', 'useObservability', 'useDriftGuard', 'useModelHealthTelemetry', 'useKnowledgeGraph'],
+    flags: [
+      'useEvaluationTelemetry',
+      'useObservability',
+      'useDriftGuard',
+      'useDriftAlerts',
+      'useModelHealthTelemetry',
+      'useKnowledgeGraph',
+      'useKnowledgeGraphForTopics',
+    ],
   },
   {
     stage: 4,
@@ -53,7 +76,13 @@ export const ADAPTIVE_STAGES = [
     name: 'Personalização Causal',
     shortLabel: 'Causal + IRT + Markowitz',
     description: 'Ativa Uplift Causal por ação/modalidade, política personalizada, Bandit Planner e TRI/IRT.',
-    flags: ['useCausalUplift', 'usePersonalizedPolicy', 'useBanditPlanner', 'useDecisionUtilityForBestTask'],
+    flags: [
+      'useCausalUplift',
+      'usePersonalizedPolicy',
+      'useCausalTaskSelection',
+      'useBanditPlanner',
+      'useDecisionUtilityForBestTask',
+    ],
   },
   {
     stage: 5,
@@ -61,7 +90,13 @@ export const ADAPTIVE_STAGES = [
     name: 'Auto-Otimização',
     shortLabel: 'AutoTuner + AutoRollback',
     description: 'Ativa AutoTuner com backtest contínuo e rollback automático caso o Drift Guard detecte degradação.',
-    flags: ['useMetaOptimizer', 'useAutoTuner', 'useAutoRollback', 'useCoachOrchestrator'],
+    flags: [
+      'useMetaOptimizer',
+      'useAutoTuner',
+      'useAutoRollback',
+      'useCoachOrchestrator',
+      'useOrchestratorHealth',
+    ],
   },
 ];
 

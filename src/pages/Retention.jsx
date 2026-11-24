@@ -218,8 +218,29 @@ export default function Retention() {
                             <div className="uppercase text-[10px] text-slate-500">A Revisar Hoje</div>
                             <div className={`text-2xl font-black ${srsIndicators.dueToday ? 'text-orange-400' : 'text-emerald-400'}`}>{srsIndicators.dueToday}</div>
                         </div>
-                        <div className="p-3 bg-black/30 rounded-xl border border-white/10 text-xs flex items-center">
-                            {srsIndicators.dueToday > 0 ? 'Use a Repetição Espaçada para combater o esquecimento ativo.' : 'Parabéns — sua curva de retenção SRS está saudável.'}
+                        <div className="p-3 bg-black/30 rounded-xl border border-white/10 text-xs flex flex-col justify-between gap-2">
+                            <span>
+                                {srsIndicators.dueToday > 0
+                                    ? 'Use a Repetição Espaçada para combater o esquecimento ativo.'
+                                    : 'Parabéns — sua curva de retenção SRS está saudável.'}
+                            </span>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const firstDeckWithDue = safeDecks.find(d => Array.isArray(d.cards) && d.cards.length > 0);
+                                    navigate('/flashcards', firstDeckWithDue ? {
+                                        state: {
+                                            focusSubject: firstDeckWithDue.subject || firstDeckWithDue.name,
+                                            focusCategoryId: firstDeckWithDue.categoryId || null,
+                                            autoStartReview: srsIndicators.dueToday > 0
+                                        }
+                                    } : undefined);
+                                }}
+                                className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/35 text-amber-200 font-bold text-[11px] transition-colors cursor-pointer"
+                            >
+                                <Play size={12} className="fill-current" />
+                                {srsIndicators.dueToday > 0 ? `Revisar ${srsIndicators.dueToday} Agora` : 'Abrir Decks FSRS'}
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -255,6 +276,28 @@ export default function Retention() {
                                     <span className={prof.profile === 'fast_decay' ? 'text-rose-400 font-bold' : prof.profile === 'high_retention' ? 'text-emerald-400 font-bold' : 'text-slate-400'}>
                                         {prof.profileLabel}
                                     </span>
+                                </div>
+                                <div className="pt-1.5 flex items-center gap-1.5">
+                                    <button
+                                        type="button"
+                                        onClick={() => handleSelectCategory({ id: prof.id, name: prof.name })}
+                                        className="flex-1 inline-flex items-center justify-center gap-1 px-2 py-1 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-400/30 text-indigo-200 text-[10px] font-bold transition-colors cursor-pointer"
+                                    >
+                                        <Play size={10} className="fill-current" /> Pomodoro
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => navigate('/flashcards', {
+                                            state: {
+                                                focusSubject: prof.name,
+                                                focusCategoryId: prof.id,
+                                                autoStartReview: true
+                                            }
+                                        })}
+                                        className="flex-1 inline-flex items-center justify-center gap-1 px-2 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-400/30 text-amber-200 text-[10px] font-bold transition-colors cursor-pointer"
+                                    >
+                                        <BookOpen size={10} /> Flashcards
+                                    </button>
                                 </div>
                             </div>
                         ))}

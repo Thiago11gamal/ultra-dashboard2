@@ -118,6 +118,12 @@ export const getCognitiveState = (studyLogs = [], options = {}) => {
 };
 
 export const getBestTask = (categories = [], excludeTaskId = null, options = {}) => {
+    let resolvedExcludeId = excludeTaskId;
+    let resolvedOptions = options && typeof options === 'object' ? options : {};
+    if (excludeTaskId && typeof excludeTaskId === 'object' && !Array.isArray(excludeTaskId)) {
+        resolvedOptions = excludeTaskId;
+        resolvedExcludeId = excludeTaskId.excludeTaskId ?? null;
+    }
     const safeCategories = safeArray(categories);
     const priorityWeight = { high: 3, medium: 2, low: 1 };
 
@@ -129,7 +135,7 @@ export const getBestTask = (categories = [], excludeTaskId = null, options = {})
             if (String(task.status || '').toLowerCase() === 'completed') return;
             const resolved = ensureCoachTaskId(task);
             const id = resolved?.id || task.id || task.text || '';
-            if (excludeTaskId && String(id) === String(excludeTaskId)) return;
+            if (resolvedExcludeId && String(id) === String(resolvedExcludeId)) return;
             const catId = cat?.id || task.categoryId || task.catId || '';
             const parsedWeight = sanitizeNum(cat?.weight);
             candidates.push({
@@ -148,10 +154,10 @@ export const getBestTask = (categories = [], excludeTaskId = null, options = {})
 
     if (candidates.length === 0) return null;
 
-    if (getCoachFeature(options, 'useDecisionUtilityForBestTask', false)) {
+    if (getCoachFeature(resolvedOptions, 'useDecisionUtilityForBestTask', false)) {
         try {
-            const cognitiveFatigue = options?.studyLogs
-                ? (getCognitiveState(options.studyLogs, { now: options.now })?.fatigue ?? 0)
+            const cognitiveFatigue = resolvedOptions?.studyLogs
+                ? (getCognitiveState(resolvedOptions.studyLogs, { now: resolvedOptions.now })?.fatigue ?? 0)
                 : 0;
             const decisionInputs = candidates.map((c) => ({
                 id: c.id || `task-${c._originalIndex}`,
@@ -167,11 +173,11 @@ export const getBestTask = (categories = [], excludeTaskId = null, options = {})
                 weight: c._catWeight,
                 _candidate: c
             }));
-            const useBandit = getCoachFeature(options, 'useBanditPlanner', false);
-            const refDateForSeed = options?.now ? (normalizeDate(options.now) || new Date()) : new Date();
+            const useBandit = getCoachFeature(resolvedOptions, 'useBanditPlanner', false);
+            const refDateForSeed = resolvedOptions?.now ? (normalizeDate(resolvedOptions.now) || new Date()) : new Date();
             const ranked = rankDecisionCandidates(decisionInputs, {
                 useBandit,
-                contestId: options?.contestId || options?.config?.contestId,
+                contestId: resolvedOptions?.contestId || resolvedOptions?.config?.contestId,
                 seed: useBandit
                     ? `best-task-${candidates.length}-${getDateKey(refDateForSeed)}`
                     : `best-task-${candidates.length}`

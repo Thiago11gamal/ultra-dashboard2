@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { AlertTriangle, BookOpen, Filter, RotateCcw, Sparkles, Clock } from 'lucide-react';
+import { AlertTriangle, BookOpen, Filter, RotateCcw, Sparkles, Clock, Plus, X } from 'lucide-react';
 import { getDateKey } from '../../utils/dateHelper';
 import { generateId } from '../../utils/idGenerator';
 import { normalize } from '../../utils/normalization';
@@ -31,12 +31,26 @@ const CONFIDENCE_LABELS = {
  */
 export default function ErrorNotebook({
   simuladoRows = [],
+  categories = [],
   onSendToFlashcards = null,
   onStartErrorDrill = null,
+  onAddManualError = null,
 }) {
   const [subjectFilter, setSubjectFilter] = useState('all');
   const [errorFilter, setErrorFilter] = useState('all');
   const [confidenceFilter, setConfidenceFilter] = useState('all');
+  const [showManualModal, setShowManualModal] = useState(false);
+  const [manualForm, setManualForm] = useState({
+    subject: '',
+    topic: '',
+    statement: '',
+    explanation: '',
+    correctAnswer: '',
+    errorType: 'teoria',
+    confidence: 'certeza',
+  });
+
+  const safeCategories = useMemo(() => safeArr(categories), [categories]);
 
   const allErrors = useMemo(() => {
     const list = [];
@@ -115,6 +129,8 @@ export default function ErrorNotebook({
 
       cardsBySubject[subj].push({
         id: generateId('card'),
+        sourceErrorUid: err.uid,
+        categoryId: err.categoryId || null,
         front: front.slice(0, 260),
         back: back.slice(0, 360),
         interval: 1,
@@ -132,14 +148,158 @@ export default function ErrorNotebook({
     onSendToFlashcards(cardsBySubject, normalize);
   };
 
+  const handleSaveManualError = () => {
+    if (typeof onAddManualError !== 'function' || !manualForm.statement.trim()) return;
+    const chosenSubject = manualForm.subject || safeCategories[0]?.name || 'Geral';
+    const matchedCat = safeCategories.find((c) => c && c.name === chosenSubject);
+    onAddManualError({
+      categoryId: matchedCat?.id || null,
+      subject: chosenSubject,
+      topic: manualForm.topic.trim() || 'Geral',
+      statement: manualForm.statement.trim(),
+      explanation: manualForm.explanation.trim(),
+      correctAnswer: manualForm.correctAnswer.trim(),
+      errorType: manualForm.errorType,
+      confidence: manualForm.confidence,
+    });
+    setManualForm({
+      subject: chosenSubject,
+      topic: '',
+      statement: '',
+      explanation: '',
+      correctAnswer: '',
+      errorType: 'teoria',
+      confidence: 'certeza',
+    });
+    setShowManualModal(false);
+  };
+
+  const manualModalNode = showManualModal && typeof onAddManualError === 'function' ? (
+    <div className="fixed inset-0 z-[220] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={() => setShowManualModal(false)}>
+      <div className="w-full max-w-lg rounded-3xl border border-white/10 bg-slate-900 p-6 space-y-4 shadow-2xl text-left" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <h4 className="text-base font-black text-white">Registrar Erro Manual (Prova / PDF)</h4>
+          <button type="button" onClick={() => setShowManualModal(false)} className="text-slate-400 hover:text-white p-1">
+            <X size={16} />
+          </button>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+          <div>
+            <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Matéria</label>
+            <select
+              value={manualForm.subject || safeCategories[0]?.name || 'Geral'}
+              onChange={(e) => setManualForm((p) => ({ ...p, subject: e.target.value }))}
+              className="w-full rounded-xl bg-slate-950 border border-white/10 px-3 py-2 text-white"
+            >
+              {safeCategories.map((c) => (
+                <option key={c.id || c.name} value={c.name}>{c.name}</option>
+              ))}
+              <option value="Geral">Geral</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Assunto / Tópico</label>
+            <input
+              value={manualForm.topic}
+              onChange={(e) => setManualForm((p) => ({ ...p, topic: e.target.value }))}
+              placeholder="Ex.: Controle de Constitucionalidade"
+              className="w-full rounded-xl bg-slate-950 border border-white/10 px-3 py-2 text-white"
+            />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3 text-xs">
+          <div>
+            <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Causa do Erro</label>
+            <select
+              value={manualForm.errorType}
+              onChange={(e) => setManualForm((p) => ({ ...p, errorType: e.target.value }))}
+              className="w-full rounded-xl bg-slate-950 border border-white/10 px-3 py-2 text-white"
+            >
+              <option value="teoria">Lacuna Teórica</option>
+              <option value="atencao">Desatenção</option>
+              <option value="esquecimento">Esquecimento</option>
+              <option value="tempo">Falta de Tempo</option>
+              <option value="banca">Pegadinha da Banca</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Confiança ao Responder</label>
+            <select
+              value={manualForm.confidence}
+              onChange={(e) => setManualForm((p) => ({ ...p, confidence: e.target.value }))}
+              className="w-full rounded-xl bg-slate-950 border border-white/10 px-3 py-2 text-white"
+            >
+              <option value="certeza">Certeza (Ilusão!)</option>
+              <option value="duvida">Dúvida</option>
+              <option value="chute">Chute</option>
+            </select>
+          </div>
+        </div>
+        <div className="text-xs">
+          <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Enunciado / Conceito que errou</label>
+          <textarea
+            rows={2}
+            value={manualForm.statement}
+            onChange={(e) => setManualForm((p) => ({ ...p, statement: e.target.value }))}
+            placeholder="Descreva a questão, pegadinha ou artigo que errou..."
+            className="w-full rounded-xl bg-slate-950 border border-white/10 p-3 text-white resize-y"
+          />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+          <div>
+            <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Gabarito (opc.)</label>
+            <input
+              value={manualForm.correctAnswer}
+              onChange={(e) => setManualForm((p) => ({ ...p, correctAnswer: e.target.value }))}
+              placeholder="Ex.: Certo / Letra C"
+              className="w-full rounded-xl bg-slate-950 border border-white/10 px-3 py-2 text-white"
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Explicação / Regra Correta</label>
+            <input
+              value={manualForm.explanation}
+              onChange={(e) => setManualForm((p) => ({ ...p, explanation: e.target.value }))}
+              placeholder="Regra ou súmula que resolve a questão..."
+              className="w-full rounded-xl bg-slate-950 border border-white/10 px-3 py-2 text-white"
+            />
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 pt-2">
+          <button type="button" onClick={() => setShowManualModal(false)} className="px-4 py-2 rounded-xl bg-white/5 text-xs font-bold text-slate-300 hover:text-white">
+            Cancelar
+          </button>
+          <button
+            type="button"
+            disabled={!manualForm.statement.trim()}
+            onClick={handleSaveManualError}
+            className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-xs font-black text-white"
+          >
+            Salvar no Caderno
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
   if (allErrors.length === 0) {
     return (
       <div className="rounded-3xl border border-white/10 bg-slate-900/50 p-10 text-center space-y-3">
         <AlertTriangle size={36} className="mx-auto text-amber-400/50" />
         <h3 className="text-lg font-black text-white">Seu Caderno de Erros está limpo</h3>
         <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
-          Ao finalizar Simulados IA, cada questão errada é catalogada aqui automaticamente com seu nível de confiança, tempo gasto e causa do erro para revisão direcionada.
+          Ao finalizar Simulados IA, cada questão errada é catalogada aqui automaticamente com seu nível de confiança, tempo gasto e causa do erro — ou registre erros de provas externas manualmente.
         </p>
+        {typeof onAddManualError === 'function' && (
+          <button
+            type="button"
+            onClick={() => setShowManualModal(true)}
+            className="mt-2 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-400/40 text-indigo-200 text-xs font-black transition-colors"
+          >
+            <Plus size={14} /> Registrar Erro Manual
+          </button>
+        )}
+        {manualModalNode}
       </div>
     );
   }
@@ -166,6 +326,16 @@ export default function ErrorNotebook({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {typeof onAddManualError === 'function' && (
+            <button
+              type="button"
+              onClick={() => setShowManualModal(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/15 text-slate-200 text-xs font-bold transition-colors"
+            >
+              <Plus size={14} />
+              Erro Manual
+            </button>
+          )}
           {typeof onSendToFlashcards === 'function' && (
             <button
               type="button"
@@ -304,6 +474,7 @@ export default function ErrorNotebook({
           );
         })}
       </div>
+      {manualModalNode}
     </div>
   );
 }

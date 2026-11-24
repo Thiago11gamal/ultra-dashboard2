@@ -95,7 +95,7 @@ export const AdaptivePulseStrip = React.memo(function AdaptivePulseStrip({
         {acwr.totalValidLogs > 0 && (
           <button
             type="button"
-            onClick={() => navigate('/activity')}
+            onClick={() => navigate('/heatmap')}
             className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-bold transition-all hover:brightness-110 ${acwrChipCls}`}
             title={acwr.advice}
           >

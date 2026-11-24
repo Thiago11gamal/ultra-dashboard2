@@ -443,6 +443,7 @@ function MainLayout() {
             <Route path="/history" element={<History />} />
             <Route path="/sessions" element={<Sessions />} />
             <Route path="/heatmap" element={<Activity />} />
+            <Route path="/activity" element={<Navigate to="/heatmap" replace />} />
             <Route path="/retention" element={<Retention />} />
             <Route path="/notes" element={<Notes />} />
             <Route path="/flashcards" element={<Flashcards />} />

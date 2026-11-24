@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { PageErrorBoundary } from '../components/ErrorBoundary';
 import { useAppStore } from '../store/useAppStore';
 import { useToast } from '../hooks/useToast';
@@ -7,6 +8,7 @@ import { generateId } from '../utils/idGenerator';
 import { format } from 'date-fns';
 import { getFlashcardTodayKey, getFlashcardNextDueKey, isFlashcardDue, parseNoonLocal, normalizeDate } from '../utils/dateHelper';
 import { scheduleFlashcardFsrs, computeFlashcardRetrievability } from '../engine/probabilistic/fsrs';
+import { isSubjectMatch } from '../utils/normalization';
 import DueForecast from '../components/DueForecast';
 
 import ConfirmModal from '../components/ConfirmModal';
@@ -59,9 +61,18 @@ function parseDelimitedRow(line, sep) {
 }
 
 export default function Flashcards() {
+  const location = useLocation();
   const activeId = useAppStore(state => state.appState?.activeId || 'default');
   const rawDecks = useAppStore(state => getActiveContest(state).flashcardDecks || EMPTY_ARRAY);
-  const decks = (Array.isArray(rawDecks) ? rawDecks : Object.values(rawDecks || {})).filter(Boolean);
+  const rawCategories = useAppStore(state => getActiveContest(state).categories || EMPTY_ARRAY);
+  const categories = useMemo(
+    () => (Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories || {})).filter(Boolean),
+    [rawCategories]
+  );
+  const decks = useMemo(
+    () => (Array.isArray(rawDecks) ? rawDecks : Object.values(rawDecks || {})).filter(Boolean),
+    [rawDecks]
+  );
   const setData = useAppStore(state => state.setData);
   const showToast = useToast();
   const logFlashcardReview = useAppStore(state => state.logFlashcardReview);
@@ -72,6 +83,7 @@ export default function Flashcards() {
   const [deckToDelete, setDeckToDelete] = useState(null);
   const [showCreateDeck, setShowCreateDeck] = useState(false);
   const [newDeckName, setNewDeckName] = useState('');
+  const [newDeckCategoryId, setNewDeckCategoryId] = useState('');
   const [newDeckSubject, setNewDeckSubject] = useState('');
 
   const [showAddCard, setShowAddCard] = useState(false);
@@ -160,10 +172,17 @@ export default function Flashcards() {
       return;
     }
     const nowIso = new Date().toISOString();
+    const matchedCat = newDeckCategoryId && newDeckCategoryId !== '__custom__'
+      ? categories.find(c => c && String(c.id) === String(newDeckCategoryId))
+      : categories.find(c => c && newDeckSubject.trim() && isSubjectMatch(newDeckSubject.trim(), c.name));
+    const resolvedSubject = matchedCat
+      ? matchedCat.name
+      : (newDeckSubject.trim() || 'Geral');
     const newDeck = {
       id: generateId('deck'),
       name: newDeckName.trim(),
-      subject: newDeckSubject.trim() || 'Geral',
+      subject: resolvedSubject,
+      ...(matchedCat?.id ? { categoryId: matchedCat.id } : {}),
       createdAt: nowIso,
       lastUpdated: nowIso,
       cards: [],
@@ -172,6 +191,7 @@ export default function Flashcards() {
     persistDecks(currentDecks => [...currentDecks, newDeck]);
     setSelectedDeckId(newDeck.id);
     setNewDeckName('');
+    setNewDeckCategoryId('');
     setNewDeckSubject('');
     setShowCreateDeck(false);
     showToast('Deck criado! 📚', 'success');
@@ -185,8 +205,14 @@ export default function Flashcards() {
 
   const handleConfirmDeleteDeck = () => {
     if (!deckToDelete) return;
+    const deletedDeckSnapshot = { ...deckToDelete };
     const deletedId = deckToDelete.id;
     const nowIso = new Date().toISOString();
+    useAppStore.getState().archiveToTrash?.({
+      type: 'flashcard_deck',
+      contestId: activeId,
+      data: deletedDeckSnapshot,
+    });
     setData(contest => {
       if (!contest || typeof contest !== 'object') return contest;
       const currentDecks = (Array.isArray(contest.flashcardDecks)
@@ -203,7 +229,7 @@ export default function Flashcards() {
       };
     });
     if (selectedDeckId === deletedId) setSelectedDeckId(null);
-    showToast('Deck removido', 'info');
+    showToast('Deck movido para a Lixeira', 'info');
     setDeckToDelete(null);
   };
 
@@ -454,7 +480,14 @@ export default function Flashcards() {
 
     // Integrate as measure: log review for stats, activity, gamification, coach
     if (typeof logFlashcardReview === 'function' && studyDeck) {
-      logFlashcardReview(studyDeck.id, currentCard.id, rating, studyDeck.subject || studyDeck.name);
+      logFlashcardReview(
+        studyDeck.id,
+        currentCard.id,
+        rating,
+        studyDeck.subject || studyDeck.name,
+        0.5,
+        studyDeck.categoryId || null
+      );
     }
 
     // Update local study session copy
@@ -506,6 +539,58 @@ export default function Flashcards() {
 
   const currentStudyCard = studyDeck?.cardsToStudy?.[studyIndex];
 
+  // Auto-open or start deck when navigated from Retenção, Pareto ou Notas
+  useEffect(() => {
+    const navState = location?.state;
+    if (!navState) return;
+    const { focusSubject, focusCategoryId, autoStartReview, prefillCard } = navState;
+    if (!focusSubject && !focusCategoryId && !prefillCard) return;
+
+    const matchingDeck = decks.find(d => {
+      if (!d) return false;
+      if (focusCategoryId && d.categoryId && String(d.categoryId) === String(focusCategoryId)) return true;
+      if (focusSubject && (isSubjectMatch(d.subject || '', focusSubject) || isSubjectMatch(d.name || '', focusSubject))) return true;
+      return false;
+    });
+
+    if (matchingDeck) {
+      setSelectedDeckId(matchingDeck.id);
+      if (prefillCard) {
+        setFront(prefillCard.front || '');
+        setBack(prefillCard.back || '');
+        setShowAddCard(true);
+      } else if (autoStartReview) {
+        const due = getDueCardsForDeck(matchingDeck);
+        if (due.length > 0) {
+          setStudyDeck({ ...matchingDeck, cardsToStudy: due });
+          setStudyIndex(0);
+          setIsFlipped(false);
+          setStudyStats({ reviewed: 0, known: 0 });
+          setIsStudying(true);
+        }
+      }
+    } else if (focusSubject) {
+      setNewDeckName(prefillCard?.deckName || `Revisão — ${focusSubject}`);
+      if (focusCategoryId && categories.some(c => c && String(c.id) === String(focusCategoryId))) {
+        setNewDeckCategoryId(String(focusCategoryId));
+        setNewDeckSubject(focusSubject);
+      } else {
+        const foundCat = categories.find(c => c && isSubjectMatch(focusSubject, c.name));
+        setNewDeckCategoryId(foundCat ? String(foundCat.id) : '__custom__');
+        setNewDeckSubject(foundCat ? foundCat.name : focusSubject);
+      }
+      if (prefillCard) {
+        setFront(prefillCard.front || '');
+        setBack(prefillCard.back || '');
+      }
+      setShowCreateDeck(true);
+    }
+    try {
+      window.history.replaceState({}, document.title);
+    } catch { /* ignore */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location?.state]);
+
   const pageTitle = studyDeck?.name || "Flashcards";
 
   return (
@@ -552,13 +637,46 @@ export default function Flashcards() {
                   />
                 </div>
                 <div>
-                  <label className="micro-label block mb-1">Disciplina (opcional)</label>
-                  <input
-                    value={newDeckSubject}
-                    onChange={e => setNewDeckSubject(e.target.value)}
-                    className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-white placeholder:text-slate-500 focus:border-amber-500/60 focus:outline-none"
-                    placeholder="Direito"
-                  />
+                  <label className="micro-label block mb-1">Disciplina do Edital</label>
+                  {categories.length > 0 ? (
+                    <div className="space-y-2">
+                      <select
+                        value={newDeckCategoryId}
+                        onChange={e => {
+                          const val = e.target.value;
+                          setNewDeckCategoryId(val);
+                          if (val && val !== '__custom__') {
+                            const cat = categories.find(c => c && String(c.id) === String(val));
+                            if (cat) setNewDeckSubject(cat.name);
+                          } else if (!val) {
+                            setNewDeckSubject('');
+                          }
+                        }}
+                        className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-white focus:border-amber-500/60 focus:outline-none"
+                      >
+                        <option value="">Geral (sem vínculo específico)</option>
+                        {categories.map(c => (
+                          <option key={c.id} value={String(c.id)}>{c.name}</option>
+                        ))}
+                        <option value="__custom__">Outra disciplina (digitar manualmente)...</option>
+                      </select>
+                      {newDeckCategoryId === '__custom__' && (
+                        <input
+                          value={newDeckSubject}
+                          onChange={e => setNewDeckSubject(e.target.value)}
+                          className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-white placeholder:text-slate-500 focus:border-amber-500/60 focus:outline-none text-sm"
+                          placeholder="Digite o nome da disciplina"
+                        />
+                      )}
+                    </div>
+                  ) : (
+                    <input
+                      value={newDeckSubject}
+                      onChange={e => setNewDeckSubject(e.target.value)}
+                      className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-white placeholder:text-slate-500 focus:border-amber-500/60 focus:outline-none"
+                      placeholder="Direito"
+                    />
+                  )}
                 </div>
               </div>
               <div className="flex gap-3 mt-6">

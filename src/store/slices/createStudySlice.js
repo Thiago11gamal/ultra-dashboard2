@@ -3,6 +3,7 @@ import { XP_CONFIG } from '../../config/gamification.js';
 import { SYNC_LOG_CAP } from '../../config.js';
 import { markStorageDirty } from '../../utils/storageSafe.js';
 import { resolveHumanTaskTitle, cleanTaskTitle } from '../../utils/taskTitleHelper.js';
+import { isSubjectMatch } from '../../utils/normalization.js';
 
 const LOG_CAP = SYNC_LOG_CAP;
 const SESSION_CAP = SYNC_LOG_CAP;
@@ -117,6 +118,23 @@ export const createStudySlice = (set, get) => ({
         }
       }
 
+      // Auto-concluir bloco correspondente do dia na Agenda de Estudos quando sessão real é registrada
+      if (activeData.agenda) {
+        const todayIsoDate = now.slice(0, 10);
+        const agendaList = Array.isArray(activeData.agenda) ? activeData.agenda : Object.values(activeData.agenda || {});
+        const matchingBlock = agendaList.find(ev => {
+          if (!ev || ev.completed || ev.date !== todayIsoDate) return false;
+          if (metadata?.agendaEventId && String(ev.id) === String(metadata.agendaEventId)) return true;
+          if (category?.id && ev.categoryId && String(ev.categoryId) === String(category.id)) return true;
+          return Boolean(ev.subject && resolvedSubject && isSubjectMatch(ev.subject, resolvedSubject));
+        });
+        if (matchingBlock) {
+          matchingBlock.completed = true;
+          matchingBlock.completedAt = now;
+        }
+        activeData.agenda = agendaList;
+      }
+
       const startHour = new Date(now).getHours();
       if (activeData.user) {
         if (startHour >= 4 && startHour < 7) activeData.user.studiedEarly = true;
@@ -197,7 +215,7 @@ export const createStudySlice = (set, get) => ({
     }
   },
 
-  logFlashcardReview: (deckId, cardId, rating, subject, minutes = 0.5) => {
+  logFlashcardReview: (deckId, cardId, rating, subject, minutes = 0.5, explicitCategoryId = null) => {
     set((state) => {
       const activeData = state.appState.contests[state.appState.activeId];
       if (!activeData) return;
@@ -205,25 +223,36 @@ export const createStudySlice = (set, get) => ({
       const now = new Date().toISOString();
       const logId = generateId('flashlog');
 
-      let categoryId = null;
+      let categoryId = explicitCategoryId || null;
+      const cleanedSubject = String(subject || '').replace(/^erros\s+ia\s*[—-]\s*/i, '').trim();
       const normCatName = (name) => (name || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-      const normSubject = normCatName(subject);
+      const normSubject = normCatName(cleanedSubject || subject);
 
       const catsArray = Array.isArray(activeData.categories)
         ? activeData.categories
         : Object.values(activeData.categories || {});
 
-      if (catsArray.length > 0 && normSubject) {
+      if (!categoryId && deckId) {
+        const decksList = Array.isArray(activeData.flashcardDecks)
+          ? activeData.flashcardDecks
+          : Object.values(activeData.flashcardDecks || {});
+        const deckObj = decksList.find(d => d && d.id === deckId);
+        if (deckObj?.categoryId && catsArray.some(c => c && String(c.id) === String(deckObj.categoryId))) {
+          categoryId = deckObj.categoryId;
+        }
+      }
+
+      if (!categoryId && catsArray.length > 0 && normSubject) {
         const exactMatch = catsArray.find(c =>
           c && normCatName(c.name) === normSubject
         );
-        const match = exactMatch || catsArray.find(c => {
-          if (!c) return false;
+        const fuzzyMatch = exactMatch || catsArray.find(c => {
+          if (!c || !c.name) return false;
           const catNorm = normCatName(c.name);
-          return catNorm.startsWith(normSubject);
+          return catNorm.startsWith(normSubject) || catNorm.includes(normSubject) || isSubjectMatch(cleanedSubject || subject, c.name);
         });
 
-        if (match) categoryId = match.id;
+        if (fuzzyMatch) categoryId = fuzzyMatch.id;
       }
 
       const isCorrect = rating >= 2;

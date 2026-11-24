@@ -11,6 +11,40 @@ const getTrashItemMeta = (item) => {
     const isContest = item?.type === 'contest';
     const isCategory = item?.type === 'category';
 
+    if (item?.type === 'task') {
+        const taskObj = item?.data?.task || item?.data || {};
+        return {
+            title: taskObj.title || taskObj.text || 'Tarefa sem nome',
+            icon: item?.data?.categoryIcon || '✅',
+            subtitle: `Tarefa · ${item?.data?.categoryName || 'Edital'}`,
+            isContest: false,
+        };
+    }
+    if (item?.type === 'flashcard_deck') {
+        return {
+            title: item?.data?.name || 'Deck sem nome',
+            icon: '🃏',
+            subtitle: `Deck Flashcards · ${item?.data?.subject || 'Geral'}`,
+            isContest: false,
+        };
+    }
+    if (item?.type === 'agenda_event') {
+        return {
+            title: item?.data?.title || 'Bloco de estudo',
+            icon: '📅',
+            subtitle: `Agenda · ${item?.data?.date || ''} ${item?.data?.time || ''}`.trim(),
+            isContest: false,
+        };
+    }
+    if (item?.type === 'simulado') {
+        return {
+            title: item?.data?.title || 'Simulado excluído',
+            icon: '🧠',
+            subtitle: 'Registro de Simulado',
+            isContest: false,
+        };
+    }
+
     const title = isContest
         ? (item?.data?.contestName || item?.data?.name || 'Painel sem nome')
         : (item?.data?.category?.name || item?.data?.name || 'Matéria sem nome');

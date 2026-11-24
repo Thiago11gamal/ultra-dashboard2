@@ -1,5 +1,6 @@
 import { PageErrorBoundary } from '../components/ErrorBoundary';
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import SimuladoAnalysis from '../components/SimuladoAnalysis';
 import AIGeneratedSimulado from '../components/ai/AIGeneratedSimulado';
 import { useAppStore } from '../store/useAppStore';
@@ -236,6 +237,7 @@ function DailySummaryCards({ simuladoRows }) {
    PÁGINA PRINCIPAL: Simulados
    ───────────────────────────────────────────── */
 export default function Simulados() {
+  const location = useLocation();
   const { categories, simuladoRows, studySessions } = useAppStore(useShallow(state => {
     const contest = state.appState?.contests?.[state.appState?.activeId] || {};
     return {
@@ -248,6 +250,8 @@ export default function Simulados() {
   const showToast = useToast();
   const deleteSession = useAppStore((state) => state.deleteSession);
   const deleteSimulado = useAppStore((state) => state.deleteSimulado);
+  const todayDefaultKey = useMemo(() => getDateKey(normalizeDate(new Date())), []);
+  const [manualDate, setManualDate] = useState(() => getDateKey(normalizeDate(new Date())));
 
   // P05 PERF FIX: Granular dependencies directly referencing destructured state
   const categoriesArray = useMemo(
@@ -263,16 +267,16 @@ export default function Simulados() {
     [studySessions]
   );
 
-  /* ── Rows do formulário manual (apenas matérias/assuntos cadastrados) ── */
+  /* ── Rows do formulário manual (suporta data de hoje ou retroativa) ── */
   const displayRows = useMemo(() => {
     if (!categoriesArray.length || !categories) return [];
-    const todayKey = getDateKey(normalizeDate(new Date()));
-    const rawTodayRows = simuladoRowsArray.filter(
-      r => r && getDateKey(normalizeDate(r.date || r.createdAt)) === todayKey
+    const targetDayKey = (manualDate && /^\d{4}-\d{2}-\d{2}$/.test(manualDate)) ? manualDate : todayDefaultKey;
+    const rawDayRows = simuladoRowsArray.filter(
+      r => r && getDateKey(normalizeDate(r.date || r.createdAt)) === targetDayKey
     );
     const rows = [];
     const savedManualRows = {};
-    rawTodayRows.forEach(r => {
+    rawDayRows.forEach(r => {
       if (!r.isAuto && r.source !== 'ai-generated') {
         if (r.categoryId && r.topicId) {
           savedManualRows[`${r.categoryId}-${r.topicId}`] = r;
@@ -321,7 +325,7 @@ export default function Simulados() {
       }
     });
     return rows;
-  }, [categoriesArray, simuladoRowsArray, categories]);
+  }, [categoriesArray, simuladoRowsArray, categories, manualDate, todayDefaultKey]);
 
   /* ── FIX: Último simulado — lógica corrigida e robusta ── */
   const lastSimuladoData = useMemo(() => {
@@ -406,7 +410,10 @@ export default function Simulados() {
         showToast('Nenhuma linha válida para processar.', 'warning');
         return;
       }
-      const todayKey = getDateKey(normalizeDate(new Date()));
+      const realTodayKey = getDateKey(normalizeDate(new Date()));
+      const todayKey = (manualDate && /^\d{4}-\d{2}-\d{2}$/.test(manualDate) && manualDate <= realTodayKey)
+        ? manualDate
+        : realTodayKey;
       const nowIso = new Date().toISOString();
       const batchId = generateId('batch');
 
@@ -719,27 +726,93 @@ export default function Simulados() {
       console.error('FATAL ERROR IN handleSimuladoAnalysis:', err);
       showToast('Erro fatal ao salvar simulado. Verifique os logs.', 'error');
     }
-  }, [setData, showToast]);
+  }, [setData, showToast, manualDate]);
 
   /* ── Configuração das tabs ── */
   const [drillErrors, setDrillErrors] = useState(null);
 
+  // Recebe foco direto da Matriz de Pareto ou Rendimento por Assunto
+  useEffect(() => {
+    const focusDrill = location?.state?.focusDrill;
+    if (!focusDrill || (!focusDrill.subject && !focusDrill.topic)) return;
+    setDrillErrors({
+      id: Date.now(),
+      items: [{
+        categoryId: focusDrill.categoryId || null,
+        subject: focusDrill.subject || 'Geral',
+        topic: focusDrill.topic || 'Geral',
+      }]
+    });
+    setSubMode('ia');
+    setMode('ai-generator');
+    try {
+      window.history.replaceState({}, document.title);
+    } catch { /* ignore */ }
+  }, [location?.state]);
+
+  const handleAddManualError = useCallback((errPayload) => {
+    if (!errPayload || !errPayload.statement) return;
+    const nowIso = new Date().toISOString();
+    const todayKey = getDateKey(normalizeDate(new Date()));
+    setData((contest) => {
+      if (!contest) return contest;
+      const rows = Array.isArray(contest.simuladoRows) ? [...contest.simuladoRows] : Object.values(contest.simuladoRows || {});
+      const matchedCat = categoriesArray.find((c) =>
+        c && ((errPayload.categoryId && String(c.id) === String(errPayload.categoryId)) || isSubjectMatch(errPayload.subject, c.name))
+      );
+      rows.push({
+        id: generateId('errrow'),
+        batchId: generateId('errbatch'),
+        categoryId: matchedCat?.id || errPayload.categoryId || null,
+        subject: matchedCat?.name || errPayload.subject || 'Geral',
+        topic: errPayload.topic || 'Geral',
+        date: todayKey,
+        createdAt: nowIso,
+        lastUpdated: nowIso,
+        correct: 0,
+        total: 1,
+        score: 0,
+        scorePct: 0,
+        isPercentage: true,
+        scoreUnit: 'pct',
+        validated: true,
+        source: 'manual-error-notebook',
+        questionTelemetry: [{
+          id: generateId('qerr'),
+          correct: false,
+          wasAnswered: true,
+          confidence: errPayload.confidence || 'certeza',
+          errorType: errPayload.errorType || 'teoria',
+          statement: errPayload.statement,
+          explanation: errPayload.explanation || '',
+          correctAnswer: errPayload.correctAnswer || '',
+          timeSec: 0,
+        }],
+      });
+      return { ...contest, simuladoRows: rows.slice(-300), lastUpdated: nowIso };
+    });
+    showToast('Erro registrado no Caderno de Erros!', 'success');
+  }, [setData, categoriesArray, showToast]);
+
   const handleSendNotebookErrorsToFlashcards = useCallback((cardsBySubject, normFn) => {
     const nowIso = new Date().toISOString();
     let totalCreated = 0;
+    let totalSkipped = 0;
     setData((contest) => {
       if (!contest) return contest;
       const decks = Array.isArray(contest.flashcardDecks) ? [...contest.flashcardDecks] : [];
       Object.entries(cardsBySubject || {}).forEach(([subj, cards]) => {
         if (!Array.isArray(cards) || !cards.length) return;
-        totalCreated += cards.length;
-        const deckName = `Erros IA — ${subj}`;
+        const matchedCat = categoriesArray.find((c) => c && isSubjectMatch(subj, c.name));
+        const deckName = `Erros IA — ${matchedCat?.name || subj}`;
         const idx = decks.findIndex((d) => d && normFn(d.name) === normFn(deckName));
         if (idx === -1) {
+          totalCreated += cards.length;
           decks.push({
             id: generateId('deck'),
             name: deckName,
-            subject: subj,
+            subject: matchedCat?.name || subj,
+            ...(matchedCat?.id ? { categoryId: matchedCat.id } : {}),
             cards,
             createdAt: nowIso,
             lastUpdated: nowIso,
@@ -747,9 +820,26 @@ export default function Simulados() {
           });
         } else {
           const existingCards = Array.isArray(decks[idx].cards) ? decks[idx].cards : [];
+          const seenUids = new Set(existingCards.map((c) => c?.sourceErrorUid).filter(Boolean));
+          const seenFronts = new Set(existingCards.map((c) => normFn(c?.front || '')).filter(Boolean));
+          const dedupedNew = [];
+          cards.forEach((c) => {
+            const uidMatch = c?.sourceErrorUid && seenUids.has(c.sourceErrorUid);
+            const frontNorm = normFn(c?.front || '');
+            const frontMatch = frontNorm && seenFronts.has(frontNorm);
+            if (uidMatch || frontMatch) {
+              totalSkipped += 1;
+              return;
+            }
+            if (c?.sourceErrorUid) seenUids.add(c.sourceErrorUid);
+            if (frontNorm) seenFronts.add(frontNorm);
+            dedupedNew.push(c);
+          });
+          totalCreated += dedupedNew.length;
           decks[idx] = {
             ...decks[idx],
-            cards: [...existingCards, ...cards],
+            ...(matchedCat?.id && !decks[idx].categoryId ? { categoryId: matchedCat.id } : {}),
+            cards: [...existingCards, ...dedupedNew],
             lastUpdated: nowIso,
           };
         }
@@ -757,9 +847,14 @@ export default function Simulados() {
       return { ...contest, flashcardDecks: decks, lastUpdated: nowIso };
     });
     if (totalCreated > 0) {
-      showToast(`${totalCreated} flashcard(s) FSRS criado(s) a partir do Caderno de Erros!`, 'success');
+      showToast(
+        `${totalCreated} flashcard(s) FSRS criado(s)${totalSkipped > 0 ? ` (${totalSkipped} duplicado(s) ignorado(s))` : ''}!`,
+        'success'
+      );
+    } else if (totalSkipped > 0) {
+      showToast('Todos esses erros já estão nos seus Flashcards FSRS!', 'info');
     }
-  }, [setData, showToast]);
+  }, [setData, categoriesArray, showToast]);
 
   const handleStartErrorDrill = useCallback((filteredErrors) => {
     if (!Array.isArray(filteredErrors) || filteredErrors.length === 0) return;
@@ -886,19 +981,51 @@ export default function Simulados() {
               onDrillConsumed={() => setDrillErrors(null)}
             />
           ) : (
-            <SimuladoAnalysis
-              rows={displayRows}
-              onAnalysisComplete={handleSimuladoAnalysis}
-              categories={categoriesArray}
-              viewMode="form"
-            />
+            <div className="space-y-4">
+              <div className="glass p-3.5 rounded-2xl border border-white/10 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-xs text-slate-300">
+                  <CalendarDays size={15} className="text-blue-400" />
+                  <span className="font-bold">Data de Referência do Simulado Manual:</span>
+                  <span className="text-slate-400 hidden sm:inline">
+                    (escolha uma data passada para lançar simulados retroativos)
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="date"
+                    aria-label="Data do simulado manual"
+                    value={manualDate || todayDefaultKey}
+                    max={todayDefaultKey}
+                    onChange={(e) => setManualDate(e.target.value || todayDefaultKey)}
+                    className="rounded-xl bg-slate-900 border border-white/15 px-3 py-1.5 text-xs font-mono font-bold text-white focus:border-blue-400 focus:outline-none"
+                  />
+                  {manualDate && manualDate !== todayDefaultKey && (
+                    <button
+                      type="button"
+                      onClick={() => setManualDate(todayDefaultKey)}
+                      className="px-2.5 py-1.5 rounded-xl bg-blue-500/15 hover:bg-blue-500/25 border border-blue-400/30 text-blue-200 text-[11px] font-bold transition-colors"
+                    >
+                      Hoje
+                    </button>
+                  )}
+                </div>
+              </div>
+              <SimuladoAnalysis
+                rows={displayRows}
+                onAnalysisComplete={handleSimuladoAnalysis}
+                categories={categoriesArray}
+                viewMode="form"
+              />
+            </div>
           )}
         </div>
       ) : mode === 'errors' ? (
         <ErrorNotebook
           simuladoRows={simuladoRowsArray}
+          categories={categoriesArray}
           onSendToFlashcards={handleSendNotebookErrorsToFlashcards}
           onStartErrorDrill={handleStartErrorDrill}
+          onAddManualError={handleAddManualError}
         />
       ) : (
         /* ── MODO HISTÓRICO ── */

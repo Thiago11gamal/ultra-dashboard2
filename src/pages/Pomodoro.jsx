@@ -14,6 +14,7 @@ import {
     AlertCircle, Clock, BookOpen, Activity
 } from 'lucide-react';
 import { getBestTask } from '../utils/coachLogic';
+import { resolveCanonicalNextMission } from '../utils/canonicalNextMission';
 import { DataTriviaPanel, AICoachPanel } from '../components/pomodoro/PomodoroMetaPanels';
 import { countPomodorosToday } from '../utils/analytics';
 import { parseTaskDisplay, cleanTaskTitle } from '../utils/taskTitleHelper';
@@ -37,7 +38,7 @@ const EMPTY_OBJECT = Object.freeze({});
 const ALLOWED_RETURN_PATHS = [
     '/', '/dashboard', '/pomodoro', '/tasks', '/simulados', '/stats', '/evolution',
     '/coach', '/history', '/sessions', '/heatmap', '/retention', '/notes',
-    '/flashcards', '/agenda', '/revisao', '/desempenho', '/calendario', '/configuracoes'
+    '/flashcards', '/agenda'
 ];
 
 const resolveReturnPath = (source, forceDashboard = false) => {
@@ -48,6 +49,9 @@ const resolveReturnPath = (source, forceDashboard = false) => {
     }
     if (normalized === 'dashboard' || normalized === 'dashboard_selector') {
         return '/';
+    }
+    if (normalized === 'activity') {
+        return '/heatmap';
     }
     const candidate = `/${normalized}`;
     return ALLOWED_RETURN_PATHS.includes(candidate) ? candidate : '/pomodoro';
@@ -74,14 +78,16 @@ const ActionsAndMentorView = React.memo(function ActionsAndMentorView({
     timeLeft = 0,
     _targetCycles = 1,
     _completedCycles = 0,
-    speed = 1
+    speed = 1,
+    recommendedTask: propRecommendedTask = undefined
 }) {
     const liveTimeLeft = useLivePomodoroTimeLeft(timeLeft, isRunning);
     const recommendedTask = useMemo(() => {
+        if (propRecommendedTask !== undefined) return propRecommendedTask;
         const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
         if (!safeCats || safeCats.length === 0) return null;
-        return getBestTask(safeCats, { contestId, studyLogs });
-    }, [categories, contestId, studyLogs]);
+        return getBestTask(safeCats, null, { contestId, studyLogs });
+    }, [propRecommendedTask, categories, contestId, studyLogs]);
 
     const highPriorityTasks = useMemo(() => {
         const tasks = [];
@@ -466,7 +472,8 @@ const PomodoroSidePanel = React.memo(function PomodoroSidePanel({
     isLayoutLocked,
     onToggleLock,
     settings,
-    speed = 1
+    speed = 1,
+    recommendedTask: propRecommendedTask = undefined
 }) {
     const [uiPosition, setUiPosition] = useState(() => {
         try {
@@ -548,7 +555,9 @@ const PomodoroSidePanel = React.memo(function PomodoroSidePanel({
     // Contagem de pendências para o badge do tab de ações (sincronizada com ActionsAndMentorView)
     const pendingCount = useMemo(() => {
         const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
-        const recTask = (!activeSubject && safeCats.length > 0) ? getBestTask(safeCats, { contestId, studyLogs }) : null;
+        const recTask = (!activeSubject && safeCats.length > 0)
+            ? (propRecommendedTask !== undefined ? propRecommendedTask : getBestTask(safeCats, null, { contestId, studyLogs }))
+            : null;
         const recommendedId = recTask ? String(recTask.id || recTask.text || recTask.title || '') : null;
         const currentTaskId = activeSubject?.taskId ? String(activeSubject.taskId) : null;
 
@@ -574,7 +583,7 @@ const PomodoroSidePanel = React.memo(function PomodoroSidePanel({
             });
         });
         return highCount > 0 ? highCount : mediumCount;
-    }, [categories, activeSubject, neuralMode, neuralQueue, contestId, studyLogs]);
+    }, [categories, activeSubject, neuralMode, neuralQueue, contestId, studyLogs, propRecommendedTask]);
 
     return (
         <Motion.div
@@ -705,6 +714,7 @@ const PomodoroSidePanel = React.memo(function PomodoroSidePanel({
                                 targetCycles={targetCycles}
                                 completedCycles={completedCycles}
                                 speed={speed}
+                                recommendedTask={propRecommendedTask}
                             />
                         </Motion.div>
                     ) : (
@@ -928,8 +938,41 @@ export default function Pomodoro() {
     const recommendedTask = React.useMemo(() => {
         const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
         if (!safeCats || safeCats.length === 0) return null;
-        return getBestTask(safeCats, { contestId: activeId, studyLogs });
-    }, [categories, activeId, studyLogs]);
+        const canonical = resolveCanonicalNextMission({
+            categories: safeCats,
+            simulados,
+            simuladoRows: contest.simuladoRows,
+            studyLogs,
+            coachPlan: contest.coachPlan,
+            coachPlanner: contest.coachPlanner,
+            agenda: contest.agenda,
+            flashcardDecks: contest.flashcardDecks,
+            user,
+            minScore: contest.minScore ?? settings?.minScore ?? 0,
+            maxScore: contest.maxScore ?? settings?.maxScore ?? 100,
+            calibrationHistoryByCategory: contest.calibrationHistoryByCategory,
+            contestId: activeId,
+            adaptiveCalibrationEnabled: settings?.adaptiveCalibrationEnabled !== false
+        });
+        return canonical?.task || getBestTask(safeCats, null, { contestId: activeId, studyLogs });
+    }, [
+        categories,
+        activeId,
+        studyLogs,
+        simulados,
+        contest.simuladoRows,
+        contest.coachPlan,
+        contest.coachPlanner,
+        contest.agenda,
+        contest.flashcardDecks,
+        contest.minScore,
+        contest.maxScore,
+        contest.calibrationHistoryByCategory,
+        settings?.minScore,
+        settings?.maxScore,
+        settings?.adaptiveCalibrationEnabled,
+        user
+    ]);
 
     const scheduleAutoStart = useCallback(() => {
         const store = useAppStore.getState();
@@ -1611,6 +1654,7 @@ export default function Pomodoro() {
                             onToggleLock={toggleLayoutLock}
                             settings={settings}
                             speed={liveTimerState?.speed || pomodoroState.speed || 1}
+                            recommendedTask={recommendedTask}
                         />
                     </div>
                 </div>

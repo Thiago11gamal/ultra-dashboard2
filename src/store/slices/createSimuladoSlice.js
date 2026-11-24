@@ -10,7 +10,8 @@ import { markStorageDirty } from '../../utils/storageSafe.js';
 import { getDateKey, normalizeDate } from '../../utils/dateHelper.js';
 import { isSubjectMatch, normalize } from '../../utils/normalization.js';
 import { getCalibrationKey } from '../../utils/coachSafe.js';
-import { getSafeId } from '../../utils/idGenerator.js';
+import { getSafeId, generateId } from '../../utils/idGenerator.js';
+import { safeClone } from '../../utils/safeClone.js';
 
 export const createSimuladoSlice = (set) => ({
   resetSimuladoStats: () => set((state) => {
@@ -103,6 +104,26 @@ export const createSimuladoSlice = (set) => ({
 
     const removedRows = safeRows.filter(matchesItem);
     const removedSimulados = safeSimulados.filter(matchesItem);
+    if (removedRows.length > 0 || removedSimulados.length > 0) {
+      if (!Array.isArray(state.appState.trash)) state.appState.trash = [];
+      const firstRef = removedRows[0] || removedSimulados[0] || {};
+      const dateLabel = getDateKey(normalizeDate(firstRef.date || firstRef.createdAt)) || normalizedInput;
+      const subjLabel = firstRef.subject || firstRef.categoryName || 'Simulado';
+      state.appState.trash = [
+        ...state.appState.trash,
+        {
+          id: generateId('trash'),
+          type: 'simulado',
+          contestId: state.appState.activeId,
+          deletedAt: new Date().toISOString(),
+          data: {
+            title: `${subjLabel} (${dateLabel})`,
+            rows: safeClone(removedRows),
+            simulados: safeClone(removedSimulados),
+          }
+        }
+      ].slice(-50);
+    }
     const remainingRows = safeRows.filter(r => !matchesItem(r));
     activeData.simuladoRows = remainingRows;
     activeData.simulados = safeSimulados.filter(s => !matchesItem(s));

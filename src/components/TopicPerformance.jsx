@@ -1,11 +1,17 @@
 import React, { useState, useMemo } from 'react';
 import { getSafeScore, formatValue, formatPercent, getSyntheticTotal, resolveEffectiveCorrect } from '../utils/scoreHelper';
-import { BarChart2, Filter, ChevronDown, Trophy, AlertCircle } from 'lucide-react';
+import { BarChart2, Filter, ChevronDown, Trophy, AlertCircle, Play, Brain } from 'lucide-react';
 
 const hasValidNum = (v) =>
     v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
 
-export default function TopicPerformance({ categories = [], maxScore: globalMaxScore = 100, minScore: globalMinScore = 0 }) {
+export default function TopicPerformance({
+    categories = [],
+    maxScore: globalMaxScore = 100,
+    minScore: globalMinScore = 0,
+    onStartStudy = null,
+    onStartSimulado = null
+}) {
     // FIX T-01: Normalizar categories e tasks de objeto Firebase para array.
     const safeCategories = useMemo(() => {
         const raw = Array.isArray(categories) ? categories : Object.values(categories || {});
@@ -213,9 +219,37 @@ export default function TopicPerformance({ categories = [], maxScore: globalMaxS
                                             Saldo: {topic.balance > 0 ? '+' : ''}{topic.balance}
                                         </span>
                                     </div>
-                                    <span className={`text-[10px] font-bold px-2 py-1 rounded-none border flex items-center gap-1 leading-snug shrink-0 whitespace-nowrap ${badgeColor}`}>
-                                        {icon} {label}
-                                    </span>
+                                    <div className="flex items-center gap-1.5 shrink-0">
+                                        {topic.percentage < 80 && typeof onStartStudy === 'function' && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const catName = safeCategories.find(c => c.id === effectiveCategoryId)?.name || 'Geral';
+                                                    onStartStudy(catName, topic.name);
+                                                }}
+                                                title="Estudar este tópico no Pomodoro"
+                                                className="px-2 py-1 rounded bg-indigo-500/15 hover:bg-indigo-500/30 border border-indigo-400/30 text-indigo-200 text-[10px] font-bold inline-flex items-center gap-1 transition-colors cursor-pointer"
+                                            >
+                                                <Play size={10} className="fill-current" /> Focar
+                                            </button>
+                                        )}
+                                        {topic.percentage < 80 && typeof onStartSimulado === 'function' && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const catName = safeCategories.find(c => c.id === effectiveCategoryId)?.name || 'Geral';
+                                                    onStartSimulado(catName, topic.name);
+                                                }}
+                                                title="Gerar Simulado IA neste assunto"
+                                                className="px-2 py-1 rounded bg-purple-500/15 hover:bg-purple-500/30 border border-purple-400/30 text-purple-200 text-[10px] font-bold inline-flex items-center gap-1 transition-colors cursor-pointer"
+                                            >
+                                                <Brain size={10} /> IA
+                                            </button>
+                                        )}
+                                        <span className={`text-[10px] font-bold px-2 py-1 rounded-none border flex items-center gap-1 leading-snug shrink-0 whitespace-nowrap ${badgeColor}`}>
+                                            {icon} {label}
+                                        </span>
+                                    </div>
                                 </div>
 
                                 <div className="flex items-center gap-4">

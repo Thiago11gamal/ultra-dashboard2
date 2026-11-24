@@ -1,11 +1,14 @@
 import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { useToast } from '../hooks/useToast';
-import { Calendar, Plus, Trash2, Clock, Target, ChevronLeft, ChevronRight, Sparkles, RefreshCw } from 'lucide-react';
-import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday } from 'date-fns';
+import { Calendar, Plus, Trash2, Clock, Target, ChevronLeft, ChevronRight, Sparkles, RefreshCw, Play, CheckCircle2, BrainCircuit } from 'lucide-react';
+import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { generateId } from '../utils/idGenerator';
 import { getDateKey, parseNoonLocal, normalizeDate } from '../utils/dateHelper';
+import { isSubjectMatch, normalize } from '../utils/normalization';
+import { parseCoachTask, isSystemAlertTask } from '../utils/coachText';
 import { PageErrorBoundary } from '../components/ErrorBoundary';
 import ConfirmModal from '../components/ConfirmModal';
 import { generateOptimalWeeklySchedule, rebalanceRemainingWeekSchedule } from '../engine/adaptive/allocationOptimizer';
@@ -18,8 +21,11 @@ function getActiveContest(state) {
 }
 
 export default function Agenda() {
+  const navigate = useNavigate();
+  const activeId = useAppStore(state => state.appState?.activeId || 'default');
   const rawAgenda = useAppStore(state => getActiveContest(state).agenda || EMPTY_ARRAY);
   const agenda = useMemo(() => (Array.isArray(rawAgenda) ? rawAgenda : Object.values(rawAgenda || {})).filter(Boolean), [rawAgenda]);
+  const rawCoachPlanner = useAppStore(state => getActiveContest(state).coachPlanner || null);
   const rawCategories = useAppStore(state => getActiveContest(state).categories || EMPTY_ARRAY);
   const categories = useMemo(() => (Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories || {})).filter(Boolean), [rawCategories]);
   const rawStudyLogs = useAppStore(state => getActiveContest(state).studyLogs || EMPTY_ARRAY);
@@ -29,6 +35,7 @@ export default function Agenda() {
   const rawSimuladoRows = useAppStore(state => getActiveContest(state).simuladoRows || EMPTY_ARRAY);
   const simuladoRows = useMemo(() => (Array.isArray(rawSimuladoRows) ? rawSimuladoRows : Object.values(rawSimuladoRows || {})).filter(Boolean), [rawSimuladoRows]);
   const setData = useAppStore(state => state.setData);
+  const startPomodoroSession = useAppStore(state => state.startPomodoroSession);
   const showToast = useToast();
 
   const [eventToDelete, setEventToDelete] = useState(null);
@@ -69,6 +76,132 @@ export default function Agenda() {
       `Semana rebalanceada: ${res.addedCount} blocos redistribuídos nos próximos ${res.daysRemaining} dia(s)${res.missedBlocksDetected > 0 ? ` (${res.missedBlocksDetected} perdido(s) compensado(s))` : ''}!`,
       'success'
     );
+  };
+
+  // Sincronização Coach IA -> Agenda: importa os cards das colunas mon..sun do Kanban do Coach para os dias da semana atual
+  const handleSyncFromCoachPlanner = () => {
+    if (!rawCoachPlanner || typeof rawCoachPlanner !== 'object') {
+      showToast('Abra o Coach IA primeiro para gerar ou organizar seu Planner semanal.', 'info');
+      return;
+    }
+    const dayKeyByJsDay = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+    const baseToday = getTodayAlignedDate();
+    const currentJsDay = baseToday.getDay();
+    const mondayOffset = currentJsDay === 0 ? -6 : 1 - currentJsDay;
+    const weekMonday = addDays(baseToday, mondayOffset);
+
+    const existingCoachSigs = new Set(
+      agenda.map((ev) => `${ev?.date || ''}|${normalize(ev?.title || '')}|${normalize(ev?.subject || '')}`)
+    );
+    const imported = [];
+    const orderedKeys = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+
+    orderedKeys.forEach((colKey, colIdx) => {
+      const targetDate = addDays(weekMonday, colIdx);
+      const dateStr = format(targetDate, 'yyyy-MM-dd');
+      const rawTasks = Array.isArray(rawCoachPlanner[colKey])
+        ? rawCoachPlanner[colKey]
+        : Object.values(rawCoachPlanner[colKey] || {});
+      rawTasks.filter((t) => t && !isSystemAlertTask(t)).forEach((task, idx) => {
+        const parsed = parseCoachTask(task, categories);
+        const subjectName = parsed.subjectRaw || task.category || task.catName || categories[0]?.name || 'Geral';
+        const matchedCat = categories.find((c) => c && isSubjectMatch(subjectName, c.name));
+        const title = parsed.topic || task.topicName || task.title || task.text || 'Missão do Coach';
+        const sig = `${dateStr}|${normalize(title)}|${normalize(matchedCat?.name || subjectName)}`;
+        if (existingCoachSigs.has(sig)) return;
+        existingCoachSigs.add(sig);
+        const slotHour = String(Math.min(21, 8 + idx * 2)).padStart(2, '0');
+        imported.push({
+          id: generateId('agenda'),
+          date: dateStr,
+          time: `${slotHour}:00`,
+          title,
+          subject: matchedCat?.name || subjectName,
+          ...(matchedCat?.id ? { categoryId: matchedCat.id } : {}),
+          ...(task.sourceTaskId ? { taskId: task.sourceTaskId } : {}),
+          duration: Number(task.estimatedMinutes || task.minutes) || 60,
+          completed: Boolean(task.completed),
+          coachSynced: true,
+          notes: parsed.action || 'Sincronizado do Kanban Semanal do Coach IA',
+          createdAt: new Date().toISOString(),
+        });
+      });
+    });
+
+    if (imported.length === 0) {
+      const hasAnyInPlanner = dayKeyByJsDay.some((k) => {
+        const list = Array.isArray(rawCoachPlanner[k]) ? rawCoachPlanner[k] : Object.values(rawCoachPlanner[k] || {});
+        return list.some((t) => t && !isSystemAlertTask(t));
+      });
+      showToast(
+        hasAnyInPlanner
+          ? 'Todos os cards do Planner do Coach já estão sincronizados na Agenda!'
+          : 'Arraste tarefas para os dias da semana no Coach IA para importá-las aqui.',
+        'info'
+      );
+      return;
+    }
+
+    persistAgenda([...agenda, ...imported]);
+    showToast(`${imported.length} missão(ões) do Coach IA sincronizada(s) na Agenda!`, 'success');
+  };
+
+  const handleToggleEventCompleted = (eventId) => {
+    const nowIso = new Date().toISOString();
+    const next = agenda.map((ev) => {
+      if (!ev || ev.id !== eventId) return ev;
+      const nextCompleted = !ev.completed;
+      return {
+        ...ev,
+        completed: nextCompleted,
+        completedAt: nextCompleted ? nowIso : null,
+      };
+    });
+    persistAgenda(next);
+  };
+
+  const handleStartAgendaPomodoro = (ev) => {
+    if (!ev) return;
+    const matchedCat = categories.find((c) =>
+      c && (
+        (ev.categoryId && String(c.id) === String(ev.categoryId)) ||
+        (ev.subject && isSubjectMatch(ev.subject, c.name))
+      )
+    );
+    const catTasks = matchedCat
+      ? (Array.isArray(matchedCat.tasks) ? matchedCat.tasks : Object.values(matchedCat.tasks || {})).filter(Boolean)
+      : [];
+    const normTitle = normalize(ev.title || '');
+    const matchedTask = catTasks.find((t) =>
+      (ev.taskId && String(t.id) === String(ev.taskId)) ||
+      (normTitle && normalize(t.title || t.text || '').includes(normTitle))
+    ) || catTasks.find((t) => !t.completed);
+
+    if (typeof startPomodoroSession === 'function') {
+      startPomodoroSession({
+        categoryId: matchedCat?.id || ev.categoryId || 'geral',
+        taskId: matchedTask?.id || ev.taskId || ev.id,
+        category: matchedCat?.name || ev.subject || 'Geral',
+        task: matchedTask ? (matchedTask.title || matchedTask.text) : (ev.title || 'Bloco da Agenda'),
+        priority: matchedTask?.priority || 'high',
+        agendaEventId: ev.id,
+        source: 'agenda',
+      });
+      showToast(`Iniciando bloco da Agenda: ${ev.title}`, 'success');
+      navigate('/pomodoro');
+    }
+  };
+
+  const isEventFulfilledBySession = (ev) => {
+    if (!ev) return false;
+    if (ev.completed) return true;
+    return studySessions.some((s) => {
+      if (!s) return false;
+      const sDate = getDateKey(s.startTime || s.date || s.createdAt);
+      if (sDate !== ev.date) return false;
+      if (ev.categoryId && s.categoryId && String(ev.categoryId) === String(s.categoryId)) return true;
+      return Boolean(ev.subject && (s.subject || s.categoryName) && isSubjectMatch(ev.subject, s.subject || s.categoryName));
+    });
   };
 
   const getTodayAlignedDate = () => {
@@ -187,8 +320,14 @@ export default function Agenda() {
 
   const handleConfirmDeleteEvent = () => {
     if (!eventToDelete) return;
+    const deletedSnapshot = { ...eventToDelete };
     const deletedId = eventToDelete.id;
     const nowIso = new Date().toISOString();
+    useAppStore.getState().archiveToTrash?.({
+      type: 'agenda_event',
+      contestId: activeId,
+      data: deletedSnapshot,
+    });
     setData(contest => {
       const currentAgenda = (Array.isArray(contest?.agenda) ? contest.agenda : Object.values(contest?.agenda || {})).filter(Boolean);
       const prevDeleted = Array.isArray(contest?.deletedAgendaIds) ? contest.deletedAgendaIds : [];
@@ -201,7 +340,7 @@ export default function Agenda() {
         ].slice(-100)
       };
     });
-    showToast('Removido da agenda', 'info');
+    showToast('Bloco movido para a Lixeira', 'info');
     setEventToDelete(null);
   };
 
@@ -227,6 +366,14 @@ export default function Agenda() {
           </div>
 
           <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={handleSyncFromCoachPlanner}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider bg-violet-500/15 hover:bg-violet-500/25 border border-violet-400/35 text-violet-200 transition-colors"
+              title="Importa os cards alocados nos dias da semana do Kanban do Coach IA"
+            >
+              <BrainCircuit size={14} /> Sincronizar Coach IA
+            </button>
             <button
               type="button"
               onClick={handleRebalanceRemainingWeek}
@@ -331,24 +478,46 @@ export default function Agenda() {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {eventsForSelected.map(ev => (
-                    <div key={ev.id} className="agenda-event flex justify-between items-center gap-3 group">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 font-medium leading-tight">
-                          {ev.time && <span className="font-mono text-teal-300/90 tabular-nums text-xs tracking-wider">{ev.time}</span>}
-                          <span>{ev.title}</span>
+                  {eventsForSelected.map(ev => {
+                    const isDone = isEventFulfilledBySession(ev);
+                    return (
+                      <div key={ev.id} className={`agenda-event flex justify-between items-center gap-3 group ${isDone ? 'opacity-75 border-emerald-500/30 bg-emerald-950/10' : ''}`}>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleEventCompleted(ev.id)}
+                          title={isDone ? 'Marcar como pendente' : 'Marcar bloco como concluído'}
+                          className={`shrink-0 p-1 rounded-lg transition-colors ${isDone ? 'text-emerald-400' : 'text-slate-500 hover:text-emerald-300'}`}
+                        >
+                          <CheckCircle2 size={16} />
+                        </button>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 font-medium leading-tight">
+                            {ev.time && <span className="font-mono text-teal-300/90 tabular-nums text-xs tracking-wider">{ev.time}</span>}
+                            <span className={isDone ? 'line-through text-slate-400' : ''}>{ev.title}</span>
+                          </div>
+                          <div className="text-[11px] text-slate-400 mt-0.5 flex flex-wrap items-center gap-2 leading-none">
+                            <span>{ev.subject}</span>
+                            <span>• {ev.duration} min</span>
+                            {isDone && <span className="text-[10px] font-bold text-emerald-400 uppercase">• Concluído</span>}
+                          </div>
+                          {ev.notes && <div className="text-xs text-slate-400 mt-0.5 line-clamp-1 leading-snug">{ev.notes}</div>}
                         </div>
-                        <div className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-2 leading-none">
-                          <span>{ev.subject}</span>
-                          <span>• {ev.duration} min</span>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleStartAgendaPomodoro(ev)}
+                            title="Iniciar este bloco no Cronômetro Pomodoro"
+                            className="px-2.5 py-1.5 rounded-lg bg-teal-500/15 hover:bg-teal-500/30 border border-teal-400/30 text-teal-200 text-xs font-bold inline-flex items-center gap-1 transition-colors"
+                          >
+                            <Play size={12} className="fill-current" /> Focar
+                          </button>
+                          <button onClick={() => deleteEvent(ev.id)} className="opacity-60 group-hover:opacity-100 text-rose-400 p-1.5" title="Remover bloco">
+                            <Trash2 size={15} />
+                          </button>
                         </div>
-                        {ev.notes && <div className="text-xs text-slate-400 mt-0.5 line-clamp-1 leading-snug">{ev.notes}</div>}
                       </div>
-                      <button onClick={() => deleteEvent(ev.id)} className="opacity-60 group-hover:opacity-100 text-rose-400 p-1.5">
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -363,24 +532,38 @@ export default function Agenda() {
                 <div className="text-xs text-slate-400 py-2">Sem compromissos futuros. Adicione blocos para se manter no trilho.</div>
               )}
               <div className="space-y-2">
-                {upcomingEvents.map(ev => (
-                  <div key={ev.id} className="flex items-start justify-between rounded-xl bg-white/[0.025] px-3 py-2 text-sm border border-white/5">
-                    <div>
-                      <div className="font-medium leading-tight">{ev.title}</div>
-                      <div className="text-[11px] text-teal-300/90">
-                        {(() => {
-                          const parsed = ev.date ? (parseNoonLocal(ev.date) || normalizeDate(ev.date)) : null;
-                          return parsed && Number.isFinite(parsed.getTime()) ? format(parsed, 'dd/MM') : '--';
-                        })()}
-                        {ev.time ? ` • ${ev.time}` : ''}
-                        {ev.duration ? ` • ${ev.duration}min` : ''}
+                {upcomingEvents.map(ev => {
+                  const isDone = isEventFulfilledBySession(ev);
+                  return (
+                    <div key={ev.id} className="flex items-center justify-between gap-2 rounded-xl bg-white/[0.025] px-3 py-2 text-sm border border-white/5">
+                      <div className="min-w-0 flex-1">
+                        <div className={`font-medium leading-tight truncate ${isDone ? 'line-through text-slate-400' : ''}`}>{ev.title}</div>
+                        <div className="text-[11px] text-teal-300/90">
+                          {(() => {
+                            const parsed = ev.date ? (parseNoonLocal(ev.date) || normalizeDate(ev.date)) : null;
+                            return parsed && Number.isFinite(parsed.getTime()) ? format(parsed, 'dd/MM') : '--';
+                          })()}
+                          {ev.time ? ` • ${ev.time}` : ''}
+                          {ev.duration ? ` • ${ev.duration}min` : ''}
+                          {isDone ? ' • ✓' : ''}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleStartAgendaPomodoro(ev)}
+                          title="Iniciar no Pomodoro"
+                          className="p-1.5 rounded-lg bg-teal-500/10 hover:bg-teal-500/25 text-teal-300 transition-colors"
+                        >
+                          <Play size={13} className="fill-current" />
+                        </button>
+                        <button onClick={() => deleteEvent(ev.id)} className="text-rose-400/70 hover:text-rose-400 p-1">
+                          <Trash2 size={15} />
+                        </button>
                       </div>
                     </div>
-                    <button onClick={() => deleteEvent(ev.id)} className="text-rose-400/70 hover:text-rose-400">
-                      <Trash2 size={15} />
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>

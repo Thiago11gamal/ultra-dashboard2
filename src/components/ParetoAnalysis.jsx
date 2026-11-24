@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Target, CheckCircle2, Zap } from 'lucide-react';
+import { Target, CheckCircle2, Zap, Play, Brain, BookOpen } from 'lucide-react';
 import { getSafeScore, getSyntheticTotal, resolveEffectiveCorrect } from '../utils/scoreHelper';
 import { normalizeDate, toDateMs } from '../utils/dateHelper';
 import { normalize } from '../utils/normalization';
@@ -8,7 +8,14 @@ const hasValidNum = (v) =>
     v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
 
 // Pareto Analysis Component - Patched Version (Logic + UI)
-export default function ParetoAnalysis({ categories = [], maxScore: globalMaxScore = 100, minScore: globalMinScore = 0 }) {
+export default function ParetoAnalysis({
+    categories = [],
+    maxScore: globalMaxScore = 100,
+    minScore: globalMinScore = 0,
+    onStartStudy = null,
+    onStartSimulado = null,
+    onCreateFlashcard = null
+}) {
     // FIX P-02: Normalizar categories de objeto Firebase para array.
     const safeCategories = useMemo(() => {
         const raw = Array.isArray(categories) ? categories : Object.values(categories || {});
@@ -215,6 +222,40 @@ export default function ParetoAnalysis({ categories = [], maxScore: globalMaxSco
                                             <h4 className="font-black text-white text-sm sm:text-base leading-snug group-hover:text-red-50 transition-colors">
                                                 {item.topic}
                                             </h4>
+                                            {(onStartStudy || onStartSimulado || onCreateFlashcard) && (
+                                                <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
+                                                    {typeof onStartStudy === 'function' && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => onStartStudy(item.category, item.topic)}
+                                                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-500/15 hover:bg-rose-500/30 border border-rose-500/30 text-rose-200 text-[10px] font-bold transition-colors cursor-pointer"
+                                                            title="Iniciar sessão focada no Pomodoro"
+                                                        >
+                                                            <Play size={10} className="fill-current" /> Focar agora
+                                                        </button>
+                                                    )}
+                                                    {typeof onStartSimulado === 'function' && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => onStartSimulado(item.category, item.topic)}
+                                                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/30 border border-indigo-500/30 text-indigo-200 text-[10px] font-bold transition-colors cursor-pointer"
+                                                            title="Gerar bateria de questões IA sobre este assunto"
+                                                        >
+                                                            <Brain size={10} /> Simulado IA
+                                                        </button>
+                                                    )}
+                                                    {typeof onCreateFlashcard === 'function' && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => onCreateFlashcard(item.category, item.topic)}
+                                                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/30 border border-amber-500/30 text-amber-200 text-[10px] font-bold transition-colors cursor-pointer"
+                                                            title="Criar Flashcard FSRS para este ponto cego"
+                                                        >
+                                                            <BookOpen size={10} /> Flashcard
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
 
                                         <div className="text-right flex flex-col items-end shrink-0 pl-4 border-l border-white/5">

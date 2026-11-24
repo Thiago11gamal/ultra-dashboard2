@@ -2,8 +2,26 @@ import { generateId } from '../../utils/idGenerator.js';
 import { safeClone } from '../../utils/safeClone.js';
 import { markStorageDirty } from '../../utils/storageSafe.js';
 import { addCategoryTombstones, removeCategoryTombstone } from '../../utils/tombstones.js';
+import { normalize } from '../../utils/normalization.js';
+import { reconcileContestCategoriesHistory } from '../../utils/simuladoReconciler.js';
 
 export const createTrashSlice = (set) => ({
+    archiveToTrash: (entry) => set((state) => {
+        if (!entry || typeof entry !== 'object' || !entry.type || !entry.data) return;
+        const nowIso = new Date().toISOString();
+        if (!Array.isArray(state.appState.trash)) state.appState.trash = [];
+        state.appState.trash = [
+            ...state.appState.trash,
+            {
+                id: entry.id || generateId('trash'),
+                type: entry.type,
+                contestId: entry.contestId || state.appState.activeId || 'default',
+                deletedAt: entry.deletedAt || nowIso,
+                data: safeClone(entry.data),
+            }
+        ].slice(-50);
+    }),
+
     restoreFromTrash: (trashId) => set((state) => {
         if (!state.appState.trash) return;
         const index = state.appState.trash.findIndex(t => t.id === trashId);
@@ -126,6 +144,80 @@ export const createTrashSlice = (set) => ({
                     return cid !== item.contestId && cid !== newId;
                 });
             }
+        } else if (item.type === 'task') {
+            const targetContestId = state.appState.contests[item.contestId] ? item.contestId : state.appState.activeId;
+            const contest = state.appState.contests[targetContestId];
+            if (!contest) return;
+            const cats = Array.isArray(contest.categories) ? contest.categories : Object.values(contest.categories || {});
+            const taskData = safeClone(item.data?.task || item.data);
+            if (!taskData) return;
+            const cat = cats.find(c => c && (String(c.id) === String(item.data?.categoryId) || c.name === item.data?.categoryName)) || cats[0];
+            if (cat) {
+                const tasks = Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {});
+                const normText = normalize(String(taskData.text || taskData.title || ''));
+                if (!tasks.some(t => t && (t.id === taskData.id || normalize(String(t.text || t.title || '')) === normText))) {
+                    tasks.push({ ...taskData, updatedAt: new Date().toISOString() });
+                }
+                cat.tasks = tasks;
+                if (Array.isArray(cat.deletedTaskIds)) {
+                    cat.deletedTaskIds = cat.deletedTaskIds.filter(e => e && e.id !== String(taskData.id) && e.text !== normText);
+                }
+                contest.categories = cats;
+                contest.lastUpdated = new Date().toISOString();
+            }
+        } else if (item.type === 'flashcard_deck') {
+            const targetContestId = state.appState.contests[item.contestId] ? item.contestId : state.appState.activeId;
+            const contest = state.appState.contests[targetContestId];
+            if (!contest) return;
+            const deckData = safeClone(item.data);
+            if (!deckData) return;
+            const decks = Array.isArray(contest.flashcardDecks) ? contest.flashcardDecks : Object.values(contest.flashcardDecks || {});
+            if (decks.some(d => d && d.id === deckData.id)) {
+                deckData.id = generateId('deck');
+            }
+            deckData.lastUpdated = new Date().toISOString();
+            contest.flashcardDecks = [...decks, deckData];
+            if (Array.isArray(contest.deletedFlashcardDeckIds)) {
+                contest.deletedFlashcardDeckIds = contest.deletedFlashcardDeckIds.filter(e => e && e.id !== item.data?.id);
+            }
+            contest.lastUpdated = new Date().toISOString();
+        } else if (item.type === 'agenda_event') {
+            const targetContestId = state.appState.contests[item.contestId] ? item.contestId : state.appState.activeId;
+            const contest = state.appState.contests[targetContestId];
+            if (!contest) return;
+            const evData = safeClone(item.data);
+            if (!evData) return;
+            const agenda = Array.isArray(contest.agenda) ? contest.agenda : Object.values(contest.agenda || {});
+            if (agenda.some(e => e && e.id === evData.id)) {
+                evData.id = generateId('agenda');
+            }
+            contest.agenda = [...agenda, evData];
+            if (Array.isArray(contest.deletedAgendaIds)) {
+                contest.deletedAgendaIds = contest.deletedAgendaIds.filter(e => e && e.id !== item.data?.id);
+            }
+            contest.lastUpdated = new Date().toISOString();
+        } else if (item.type === 'simulado') {
+            const targetContestId = state.appState.contests[item.contestId] ? item.contestId : state.appState.activeId;
+            const contest = state.appState.contests[targetContestId];
+            if (!contest) return;
+            const restoredRows = safeClone(item.data?.rows || []);
+            const restoredSims = safeClone(item.data?.simulados || []);
+            const currentRows = Array.isArray(contest.simuladoRows) ? contest.simuladoRows : Object.values(contest.simuladoRows || {});
+            const currentSims = Array.isArray(contest.simulados) ? contest.simulados : Object.values(contest.simulados || {});
+            const rowIds = new Set(currentRows.map(r => r?.id).filter(Boolean));
+            const simIds = new Set(currentSims.map(s => s?.id).filter(Boolean));
+            contest.simuladoRows = [...currentRows, ...restoredRows.filter(r => r && (!r.id || !rowIds.has(r.id)))];
+            contest.simulados = [...currentSims, ...restoredSims.filter(s => s && (!s.id || !simIds.has(s.id)))];
+            if (contest.categories) {
+                contest.categories = reconcileContestCategoriesHistory(
+                    contest.categories,
+                    contest.simuladoRows,
+                    contest.maxScore,
+                    contest.minScore,
+                    { penaltyPerWrong: contest.penaltyPerWrong }
+                );
+            }
+            contest.lastUpdated = new Date().toISOString();
         }
         state.appState.trash.splice(index, 1);
         state.appState.version = (state.appState.version || 0) + 1;
