@@ -218,6 +218,21 @@ export const createTrashSlice = (set) => ({
                 );
             }
             contest.lastUpdated = new Date().toISOString();
+        } else if (item.type === 'study_note') {
+            const targetContestId = state.appState.contests[item.contestId] ? item.contestId : state.appState.activeId;
+            const contest = state.appState.contests[targetContestId];
+            if (!contest) return;
+            const noteData = safeClone(item.data);
+            if (!noteData) return;
+            const notes = Array.isArray(contest.studyNotes) ? contest.studyNotes : Object.values(contest.studyNotes || {});
+            if (notes.some(n => n && n.id === noteData.id)) {
+                noteData.id = generateId('note');
+            }
+            contest.studyNotes = [noteData, ...notes];
+            if (Array.isArray(contest.deletedStudyNoteIds)) {
+                contest.deletedStudyNoteIds = contest.deletedStudyNoteIds.filter(e => e && e.id !== item.data?.id);
+            }
+            contest.lastUpdated = new Date().toISOString();
         }
         state.appState.trash.splice(index, 1);
         state.appState.version = (state.appState.version || 0) + 1;

@@ -70,7 +70,7 @@ const SECTIONS = [
         items: [
             { path: '/flashcards', label: 'Flashcards', icon: BookOpen, color: '#f59e0b' },
             { path: '/agenda', label: 'Agenda de Estudos', icon: Calendar, color: '#14b8a6' },
-            { path: '/notes', label: 'Notas', icon: FileText, color: '#fca5a5' },
+            { path: '/notes', label: 'Notas & Pareto', icon: FileText, color: '#fca5a5' },
         ]
     }
 ];

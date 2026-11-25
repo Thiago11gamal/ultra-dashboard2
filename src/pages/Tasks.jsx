@@ -1,15 +1,17 @@
 import { PageErrorBoundary } from '../components/ErrorBoundary';
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PersonalRanking from '../components/PersonalRanking';
 import VolumeRanking from '../components/VolumeRanking';
 import PerformanceTable from '../components/PerformanceTable';
 import SubtopicsTable from '../components/SubtopicsTable';
+import Checklist from '../components/Checklist';
 import { useAppStore } from '../store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
-import { RotateCcw, CheckSquare, Target, Hash, Wallet, PlusCircle, Trophy, BarChart3 } from 'lucide-react';
+import { RotateCcw, CheckSquare, Target, Hash, Wallet, PlusCircle, Trophy, BarChart3, ListChecks } from 'lucide-react';
 import { useToast } from '../hooks/useToast';
 import ConfirmModal from '../components/ConfirmModal';
+import { normalizePriority } from '../utils/colorHelper';
 import {
   toSafeArray,
   resolveContestScoreDomain,
@@ -39,6 +41,21 @@ export default function Tasks() {
   }, [activePanel]);
 
   const resetSimuladoStats = useAppStore(state => state.resetSimuladoStats);
+  const storeActions = useAppStore(useShallow(state => ({
+    toggleTask: state.toggleTask,
+    updateTask: state.updateTask,
+    deleteTask: state.deleteTask,
+    addCategory: state.addCategory,
+    deleteCategory: state.deleteCategory,
+    addTask: state.addTask,
+    togglePriority: state.togglePriority,
+    startPomodoroSession: state.startPomodoroSession,
+    setDashboardFilter: state.setDashboardFilter,
+    importCategory: state.importCategory,
+    dashboardFilter: state.appState?.dashboardFilter || 'all',
+    activeId: state.appState?.activeId || 'default',
+    contests: state.appState?.contests || {}
+  })));
 
   const { rawCategories, contestMaxScore, contestMinScore, hasContestSimulados } = useAppStore(useShallow(state => {
     const currentActiveId = state.appState?.activeId || 'default';
@@ -59,6 +76,22 @@ export default function Tasks() {
       tasks: toSafeArray(c?.tasks)
     }));
   }, [rawCategories]);
+
+  const handleStartStudyingFromTasks = useCallback((categoryId, taskId) => {
+    const cat = categories.find(c => c && (c.id === categoryId || c.name === categoryId));
+    const tsk = toSafeArray(cat?.tasks).find(t => t && (t.id === taskId || t.text === taskId || t.title === taskId));
+    if (!cat || !tsk || typeof storeActions.startPomodoroSession !== 'function') return;
+    storeActions.startPomodoroSession({
+      categoryId: cat.id || cat.name,
+      taskId: tsk.id || taskId,
+      category: cat.name,
+      task: tsk.title || tsk.text || 'Estudo',
+      priority: normalizePriority(tsk.priority),
+      source: 'tasks'
+    });
+    showToast(`Iniciando estudos: ${cat.name} - ${tsk.title || tsk.text || 'Estudo'}`, 'success');
+    navigate('/pomodoro');
+  }, [categories, storeActions, showToast, navigate]);
 
   const { maxScore, minScore } = useMemo(() => {
     return resolveContestScoreDomain(
@@ -136,6 +169,12 @@ export default function Tasks() {
       label: 'Quadro de Performance',
       icon: BarChart3,
       badge: `${overviewStats.totalTasks} Tópicos`
+    },
+    {
+      id: 'checklist',
+      label: 'Checklist do Edital',
+      icon: ListChecks,
+      badge: `${Math.max(0, overviewStats.totalTasks - overviewStats.completedTasks)} Pendentes`
     }
   ];
 
@@ -461,7 +500,7 @@ export default function Tasks() {
               </div>
             </div>
           </div>
-        ) : (
+        ) : activePanel === 'performance' ? (
           /* ═══ PAINEL 2: Quadro de Performance ═══ */
           <div className="space-y-8 animate-fade-in">
             {/* Sub-header Painel 2 */}
@@ -516,6 +555,28 @@ export default function Tasks() {
               <PerformanceTable categories={categories} maxScore={maxScore} minScore={minScore} />
               <SubtopicsTable categories={categories} maxScore={maxScore} minScore={minScore} />
             </div>
+          </div>
+        ) : null}
+
+        {activePanel === 'checklist' && (
+          <div className="space-y-6 animate-fade-in">
+            <Checklist
+              categories={categories}
+              onToggleTask={storeActions.toggleTask}
+              onUpdateTask={storeActions.updateTask}
+              onDeleteTask={storeActions.deleteTask}
+              onAddCategory={storeActions.addCategory}
+              onDeleteCategory={storeActions.deleteCategory}
+              onAddTask={storeActions.addTask}
+              onTogglePriority={storeActions.togglePriority}
+              onPlayContext={handleStartStudyingFromTasks}
+              showSimuladoStats
+              filter={storeActions.dashboardFilter}
+              setFilter={storeActions.setDashboardFilter}
+              contests={storeActions.contests}
+              activeId={storeActions.activeId}
+              onImportCategory={storeActions.importCategory}
+            />
           </div>
         )}
       </div>

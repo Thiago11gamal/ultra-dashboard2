@@ -44,6 +44,14 @@ const getTrashItemMeta = (item) => {
             isContest: false,
         };
     }
+    if (item?.type === 'study_note') {
+        return {
+            title: item?.data?.title || 'Resumo sem título',
+            icon: '📝',
+            subtitle: `Resumo · ${item?.data?.subject || 'Geral'}`,
+            isContest: false,
+        };
+    }
 
     const title = isContest
         ? (item?.data?.contestName || item?.data?.name || 'Painel sem nome')

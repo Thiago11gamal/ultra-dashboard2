@@ -569,11 +569,15 @@ export const sanitizeContest = (data, contestId = '') => {
     // NEW TOOLS
     flashcardDecks: Array.isArray(source.flashcardDecks) ? source.flashcardDecks : [],
     agenda: Array.isArray(source.agenda) ? source.agenda : [],
+    studyNotes: Array.isArray(source.studyNotes) ? source.studyNotes : [],
     ...(Array.isArray(source.deletedFlashcardDeckIds) && source.deletedFlashcardDeckIds.length > 0
       ? { deletedFlashcardDeckIds: source.deletedFlashcardDeckIds.slice(-100) }
       : {}),
     ...(Array.isArray(source.deletedAgendaIds) && source.deletedAgendaIds.length > 0
       ? { deletedAgendaIds: source.deletedAgendaIds.slice(-100) }
+      : {}),
+    ...(Array.isArray(source.deletedStudyNoteIds) && source.deletedStudyNoteIds.length > 0
+      ? { deletedStudyNoteIds: source.deletedStudyNoteIds.slice(-100) }
       : {}),
     // Math / Calibration history (lightweight for continuous calibration)
     calibrationEvents: Array.isArray(source.calibrationEvents) ? source.calibrationEvents.slice(-200) : [], // keep last 200 for walk-forward

@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from "react";
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { evaluateContestMaturity } from "../engine/adaptive/adaptiveMaturityEngine";
 import { useChartData } from "../hooks/useChartData";
 import { useEvolutionMC } from "../hooks/useEvolutionMC";
 import { useCategoryLevels } from "../hooks/useCategoryLevels";
@@ -776,13 +777,21 @@ const ENGINE_ICONS = {
     metacognition_fatigue: Flame,
 };
 
-const ENGINE_GROUPS = [
+const BASE_ENGINE_GROUPS = [
     { id: 'all', label: 'Todos', ids: null },
+    { id: 'recommended', label: '★ Recomendados', ids: ['raw_weekly', 'subtopics', 'compare', 'tornado_whatif'] },
     { id: 'performance', label: 'Desempenho', ids: ['raw_weekly', 'raw', 'stats', 'subtopics', 'weekly_diff', 'today_vs_general', 'consistency_boxplot'] },
     { id: 'speed', label: 'Tempo & Ritmo', ids: ['time_spent', 'speed_accuracy', 'exam_pacing'] },
     { id: 'projection', label: 'Projeção & Risco', ids: ['compare', 'mc_density', 'projection_fan', 'kalman_latent', 'tornado_whatif'] },
     { id: 'psychometrics', label: 'Psicometria & Erros', ids: ['correlation_regimes', 'irt_psychometric', 'metacognition_fatigue'] },
 ];
+
+function getRecommendedEngineIdsForStage(stage = 0) {
+    if (stage <= 0) return ['raw_weekly', 'raw', 'subtopics', 'today_vs_general'];
+    if (stage === 1) return ['raw_weekly', 'subtopics', 'kalman_latent', 'weekly_diff', 'consistency_boxplot'];
+    if (stage === 2) return ['compare', 'tornado_whatif', 'subtopics', 'kalman_latent', 'projection_fan', 'speed_accuracy'];
+    return ['compare', 'tornado_whatif', 'projection_fan', 'correlation_regimes', 'irt_psychometric', 'metacognition_fatigue', 'exam_pacing'];
+}
 
 const containerVariants = {
     hidden: { opacity: 0 },
@@ -806,6 +815,7 @@ export default React.memo(function EvolutionChart({
     persistUiPrefs = !(typeof import.meta !== 'undefined' && import.meta.env?.MODE === 'test'),
 }) {
     const navigate = useNavigate();
+    const location = useLocation();
     const rawCategories = useAppStore(useShallow(state => {
         const contest = state.appState?.contests?.[state.appState?.activeId];
         return contest?.categories ?? EMPTY_ARRAY;
@@ -961,11 +971,40 @@ export default React.memo(function EvolutionChart({
         });
     }, []);
 
+    const maturityStage = useMemo(() => {
+        try {
+            return evaluateContestMaturity({
+                categories,
+                studyLogs: studyLogsArray,
+                simuladoRows: simuladoRowsArray,
+            })?.stage ?? 0;
+        } catch {
+            return 0;
+        }
+    }, [categories, studyLogsArray, simuladoRowsArray]);
+
+    const ENGINE_GROUPS = useMemo(() => {
+        const recIds = getRecommendedEngineIdsForStage(maturityStage);
+        return BASE_ENGINE_GROUPS.map((g) =>
+            g.id === 'recommended' ? { ...g, label: `★ Recomendados (N${maturityStage})`, ids: recIds } : g
+        );
+    }, [maturityStage]);
+
+    useEffect(() => {
+        if (!location?.search) return;
+        const params = new URLSearchParams(location.search);
+        const requestedEngine = params.get('engine');
+        if (requestedEngine && SECONDARY_ENGINES.some((e) => e.id === requestedEngine)) {
+            setEngineGroup('all');
+            setActiveEngine(requestedEngine);
+        }
+    }, [location?.search]);
+
     const visibleSecondaryEngines = useMemo(() => {
         const group = ENGINE_GROUPS.find((g) => g.id === engineGroup);
         if (!group || !group.ids) return SECONDARY_ENGINES;
         return SECONDARY_ENGINES.filter((eng) => group.ids.includes(eng.id));
-    }, [engineGroup]);
+    }, [engineGroup, ENGINE_GROUPS]);
 
     const engineTabRefs = useRef(new Map());
 

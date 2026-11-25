@@ -2,7 +2,7 @@ const STORAGE_PREFIX = 'evolution_ui_prefs_v1:';
 
 export const VALID_TIME_WINDOWS = new Set(['30', '60', '90', 'all']);
 export const VALID_STATUS_MODES = new Set(['compact', 'guide']);
-export const VALID_ENGINE_GROUPS = new Set(['all', 'performance', 'speed', 'projection', 'psychometrics']);
+export const VALID_ENGINE_GROUPS = new Set(['all', 'recommended', 'performance', 'speed', 'projection', 'psychometrics']);
 export const VALID_SECONDARY_ENGINES = new Set([
   'raw',
   'raw_weekly',
@@ -26,6 +26,7 @@ export const VALID_SECONDARY_ENGINES = new Set([
 
 export const GROUP_ENGINE_MAP = {
   all: null,
+  recommended: null,
   performance: ['raw_weekly', 'raw', 'stats', 'subtopics', 'weekly_diff', 'today_vs_general', 'consistency_boxplot'],
   speed: ['time_spent', 'speed_accuracy', 'exam_pacing'],
   projection: ['compare', 'mc_density', 'projection_fan', 'kalman_latent', 'tornado_whatif'],

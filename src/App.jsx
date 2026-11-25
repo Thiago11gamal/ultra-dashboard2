@@ -14,6 +14,7 @@ const LevelUpToast = lazyWithRetry(() => import('./components/LevelUpToast'));
 const OnboardingTour = lazyWithRetry(() => import('./components/OnboardingTour'));
 const TrashModal = lazyWithRetry(() => import('./components/TrashModal'));
 const HelpGuide = lazyWithRetry(() => import('./components/HelpGuide'));
+const CommandPaletteModal = lazyWithRetry(() => import('./components/CommandPaletteModal'));
 // WelcomeScreen não pode ser lazy porque precisa bloquear a interface no primeiro render
 import WelcomeScreen from './components/WelcomeScreen';
 
@@ -154,6 +155,7 @@ function MainLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [trashOpen, setTrashOpen] = useState(false);
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const rescueAttemptsRef = useRef(0);
 
   // P12 PERF FIX: Stable callbacks to avoid invalidating React.memo on Sidebar/Header
@@ -162,7 +164,20 @@ function MainLayout() {
   const handleToggleSidebar = useCallback(() => setIsSidebarOpen(prev => !prev), []);
   const handleOpenTrash = useCallback(() => setTrashOpen(true), []);
   const handleCloseTrash = useCallback(() => setTrashOpen(false), []);
+  const handleOpenCommandPalette = useCallback(() => setCommandPaletteOpen(true), []);
+  const handleCloseCommandPalette = useCallback(() => setCommandPaletteOpen(false), []);
   const handleCloseMobile = useCallback(() => setIsSidebarOpen(false), []);
+
+  useEffect(() => {
+    const onGlobalKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && String(e.key || '').toLowerCase() === 'k') {
+        e.preventDefault();
+        setCommandPaletteOpen(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', onGlobalKeyDown);
+    return () => window.removeEventListener('keydown', onGlobalKeyDown);
+  }, []);
 
   // Controle da tela de Boas-Vindas (Premium) - Aparece 1x por sessão (login)
   // ── ESTADO DA TELA DE BOAS-VINDAS ──
@@ -537,7 +552,14 @@ function MainLayout() {
                   sidebarCollapsed={sidebarCollapsed}
                   setSidebarCollapsed={setSidebarCollapsed}
                   onOpenTrash={handleOpenTrash}
+                  onOpenCommandPalette={handleOpenCommandPalette}
                 />
+
+                {commandPaletteOpen && (
+                  <Suspense fallback={null}>
+                    <CommandPaletteModal isOpen={commandPaletteOpen} onClose={handleCloseCommandPalette} />
+                  </Suspense>
+                )}
 
                 {trashOpen && (
                   <Suspense fallback={null}>

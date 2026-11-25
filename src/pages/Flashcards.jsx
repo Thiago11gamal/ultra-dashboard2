@@ -540,56 +540,70 @@ export default function Flashcards() {
   const currentStudyCard = studyDeck?.cardsToStudy?.[studyIndex];
 
   // Auto-open or start deck when navigated from Retenção, Pareto ou Notas
-  useEffect(() => {
-    const navState = location?.state;
-    if (!navState) return;
-    const { focusSubject, focusCategoryId, autoStartReview, prefillCard } = navState;
-    if (!focusSubject && !focusCategoryId && !prefillCard) return;
+  const [prevNavState, setPrevNavState] = useState(null);
+  const incomingNavState = location?.state || null;
 
-    const matchingDeck = decks.find(d => {
-      if (!d) return false;
-      if (focusCategoryId && d.categoryId && String(d.categoryId) === String(focusCategoryId)) return true;
-      if (focusSubject && (isSubjectMatch(d.subject || '', focusSubject) || isSubjectMatch(d.name || '', focusSubject))) return true;
-      return false;
-    });
+  if (incomingNavState && incomingNavState !== prevNavState) {
+    setPrevNavState(incomingNavState);
+    const { focusSubject, focusCategoryId, autoStartReview, prefillCard } = incomingNavState;
+    if (focusSubject || focusCategoryId || prefillCard) {
+      const matchingDeck = decks.find(d => {
+        if (!d) return false;
+        if (focusCategoryId && d.categoryId && String(d.categoryId) === String(focusCategoryId)) return true;
+        if (focusSubject && (isSubjectMatch(d.subject || '', focusSubject) || isSubjectMatch(d.name || '', focusSubject))) return true;
+        return false;
+      });
 
-    if (matchingDeck) {
-      setSelectedDeckId(matchingDeck.id);
-      if (prefillCard) {
-        setFront(prefillCard.front || '');
-        setBack(prefillCard.back || '');
-        setShowAddCard(true);
-      } else if (autoStartReview) {
-        const due = getDueCardsForDeck(matchingDeck);
-        if (due.length > 0) {
-          setStudyDeck({ ...matchingDeck, cardsToStudy: due });
-          setStudyIndex(0);
-          setIsFlipped(false);
-          setStudyStats({ reviewed: 0, known: 0 });
-          setIsStudying(true);
+      if (matchingDeck) {
+        setSelectedDeckId(matchingDeck.id);
+        if (prefillCard) {
+          setFront(prefillCard.front || '');
+          setBack(prefillCard.back || '');
+          setShowAddCard(true);
+        } else if (autoStartReview) {
+          const due = getSafeDeckCards(matchingDeck)
+            .filter(c => isFlashcardDue(c.due))
+            .sort((a, b) => {
+              const aCrit = (a?.priority === 'critical' || a?.confidence === 'certeza') ? 1 : 0;
+              const bCrit = (b?.priority === 'critical' || b?.confidence === 'certeza') ? 1 : 0;
+              if (bCrit !== aCrit) return bCrit - aCrit;
+              return String(a?.due || '').localeCompare(String(b?.due || ''));
+            });
+          if (due.length > 0) {
+            setStudyDeck({ ...matchingDeck, cardsToStudy: due });
+            setStudyIndex(0);
+            setIsFlipped(false);
+            setStudyStats({ reviewed: 0, known: 0 });
+            setIsStudying(true);
+          }
         }
+      } else if (focusSubject) {
+        setNewDeckName(prefillCard?.deckName || `Revisão — ${focusSubject}`);
+        if (focusCategoryId && categories.some(c => c && String(c.id) === String(focusCategoryId))) {
+          setNewDeckCategoryId(String(focusCategoryId));
+          setNewDeckSubject(focusSubject);
+        } else {
+          const foundCat = categories.find(c => c && isSubjectMatch(focusSubject, c.name));
+          setNewDeckCategoryId(foundCat ? String(foundCat.id) : '__custom__');
+          setNewDeckSubject(foundCat ? foundCat.name : focusSubject);
+        }
+        if (prefillCard) {
+          setFront(prefillCard.front || '');
+          setBack(prefillCard.back || '');
+        }
+        setShowCreateDeck(true);
       }
-    } else if (focusSubject) {
-      setNewDeckName(prefillCard?.deckName || `Revisão — ${focusSubject}`);
-      if (focusCategoryId && categories.some(c => c && String(c.id) === String(focusCategoryId))) {
-        setNewDeckCategoryId(String(focusCategoryId));
-        setNewDeckSubject(focusSubject);
-      } else {
-        const foundCat = categories.find(c => c && isSubjectMatch(focusSubject, c.name));
-        setNewDeckCategoryId(foundCat ? String(foundCat.id) : '__custom__');
-        setNewDeckSubject(foundCat ? foundCat.name : focusSubject);
-      }
-      if (prefillCard) {
-        setFront(prefillCard.front || '');
-        setBack(prefillCard.back || '');
-      }
-      setShowCreateDeck(true);
     }
+  }
+
+  useEffect(() => {
+    if (!incomingNavState) return;
+    const { focusSubject, focusCategoryId, prefillCard } = incomingNavState;
+    if (!focusSubject && !focusCategoryId && !prefillCard) return;
     try {
       window.history.replaceState({}, document.title);
     } catch { /* ignore */ }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location?.state]);
+  }, [incomingNavState]);
 
   const pageTitle = studyDeck?.name || "Flashcards";
 

@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { RotateCcw, CloudDownload, Menu, PanelLeftClose, PanelLeftOpen, WifiOff } from 'lucide-react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { RotateCcw, CloudDownload, Menu, PanelLeftClose, PanelLeftOpen, WifiOff, Search, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import useClock, { useClockDate } from '../hooks/useClock';
+import { getDateKey, parseNoonLocal } from '../utils/dateHelper';
 
 /* ─────────────────────────────────────────────────────────
    Helper Components
@@ -44,14 +45,33 @@ const MobileClockDisplay = React.memo(function MobileClockDisplay() {
  ───────────────────────────────────────────────────────── */
 const Header = React.memo(function Header({
     user = { name: 'Visitante', avatar: '👤', xp: 0, level: 1 },
+    contests = null,
+    activeContestId = null,
     onUpdateName,
     onUndo,
+    onOpenCommandPalette = null,
     cloudStatus = { status: 'idle', syncing: false },
     onToggleSidebar,
     sidebarCollapsed,
     setSidebarCollapsed
 }) {
     const displayName = user?.name ?? 'Estudante';
+    const activeContestLabel = useMemo(() => {
+        if (!contests || !activeContestId) return null;
+        const raw = contests[activeContestId];
+        return typeof raw === 'string' && raw.trim() ? raw.trim() : null;
+    }, [contests, activeContestId]);
+
+    const daysToGoal = useMemo(() => {
+        if (!user?.goalDate) return null;
+        const todayKey = getDateKey(new Date());
+        const goalKey = getDateKey(user.goalDate);
+        if (!todayKey || !goalKey) return null;
+        const tNoon = parseNoonLocal(todayKey);
+        const gNoon = parseNoonLocal(goalKey);
+        if (!tNoon || !gNoon) return null;
+        return Math.round((gNoon.getTime() - tNoon.getTime()) / 86400000);
+    }, [user?.goalDate]);
     const [localName, setLocalName] = useState(displayName);
     const [isOffline, setIsOffline] = useState(() => (typeof navigator !== 'undefined' ? navigator.onLine === false : false));
     const prevDisplayNameRef = useRef(displayName);
@@ -133,6 +153,16 @@ const Header = React.memo(function Header({
                         <MobileClockDisplay />
                     </div>
                     <div className="flex items-center gap-2">
+                        {typeof onOpenCommandPalette === 'function' && (
+                            <button
+                                type="button"
+                                onClick={onOpenCommandPalette}
+                                className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/[0.05] border border-white/[0.1] text-slate-400 hover:text-white transition-all active:scale-95"
+                                aria-label="Busca rápida global"
+                            >
+                                <Search size={16} aria-hidden="true" />
+                            </button>
+                        )}
                         <button
                             onClick={onUndo}
                             className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/[0.05] border border-white/[0.1] text-slate-400 hover:text-white transition-all active:scale-95"
@@ -254,7 +284,45 @@ const Header = React.memo(function Header({
                     </div>
 
                     {/* ─── RIGHT SIDE ─── */}
-                    <div className="flex items-center gap-3 flex-1 justify-end min-w-0">
+                    <div className="flex items-center gap-2.5 flex-1 justify-end min-w-0">
+                        {activeContestLabel && (
+                            <span
+                                className="hidden xl:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-[10px] font-bold text-indigo-200 max-w-[160px] truncate"
+                                title={`Concurso ativo: ${activeContestLabel}`}
+                            >
+                                {activeContestLabel}
+                            </span>
+                        )}
+                        {daysToGoal !== null && (
+                            <span
+                                className={`hidden xl:inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-[10px] font-mono font-bold shrink-0 ${
+                                    daysToGoal < 0
+                                        ? 'bg-slate-800/60 border-white/10 text-slate-400'
+                                        : daysToGoal <= 30
+                                            ? 'bg-rose-500/15 border-rose-500/30 text-rose-300'
+                                            : 'bg-teal-500/10 border-teal-500/25 text-teal-300'
+                                }`}
+                                title="Contagem regressiva até a data da prova"
+                            >
+                                <Calendar size={11} />
+                                {daysToGoal === 0 ? 'Prova Hoje!' : daysToGoal > 0 ? `Faltam ${daysToGoal}d` : `Há ${Math.abs(daysToGoal)}d`}
+                            </span>
+                        )}
+                        {typeof onOpenCommandPalette === 'function' && (
+                            <button
+                                type="button"
+                                onClick={onOpenCommandPalette}
+                                className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-white/[0.03] border border-white/[0.07] hover:bg-white/[0.08] text-slate-400 hover:text-white text-xs transition-all shrink-0 cursor-pointer"
+                                title="Busca rápida entre menus, gráficos e tópicos (Ctrl+K)"
+                                aria-label="Abrir busca rápida global"
+                            >
+                                <Search size={14} />
+                                <span className="hidden 2xl:inline text-[11px] font-semibold">Buscar</span>
+                                <kbd className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-black/40 border border-white/10 text-slate-400">
+                                    Ctrl+K
+                                </kbd>
+                            </button>
+                        )}
                         <button
                             onClick={onUndo}
                             className="p-1.5 rounded-xl bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.08] transition-all text-slate-500 hover:text-white group relative flex-shrink-0"

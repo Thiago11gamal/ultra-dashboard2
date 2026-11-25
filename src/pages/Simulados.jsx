@@ -730,25 +730,32 @@ export default function Simulados() {
 
   /* ── Configuração das tabs ── */
   const [drillErrors, setDrillErrors] = useState(null);
+  const [prevFocusDrill, setPrevFocusDrill] = useState(null);
+  const incomingFocusDrill = location?.state?.focusDrill || null;
 
-  // Recebe foco direto da Matriz de Pareto ou Rendimento por Assunto
+  if (incomingFocusDrill && incomingFocusDrill !== prevFocusDrill) {
+    setPrevFocusDrill(incomingFocusDrill);
+    if (incomingFocusDrill.subject || incomingFocusDrill.topic) {
+      setDrillErrors({
+        id: location?.key || `${incomingFocusDrill.subject || ''}-${incomingFocusDrill.topic || ''}`,
+        items: [{
+          categoryId: incomingFocusDrill.categoryId || null,
+          subject: incomingFocusDrill.subject || 'Geral',
+          topic: incomingFocusDrill.topic || 'Geral',
+        }]
+      });
+      setSubMode('ia');
+      setMode('ai-generator');
+    }
+  }
+
+  // Limpa location.state no histórico do navegador após consumir focusDrill
   useEffect(() => {
-    const focusDrill = location?.state?.focusDrill;
-    if (!focusDrill || (!focusDrill.subject && !focusDrill.topic)) return;
-    setDrillErrors({
-      id: Date.now(),
-      items: [{
-        categoryId: focusDrill.categoryId || null,
-        subject: focusDrill.subject || 'Geral',
-        topic: focusDrill.topic || 'Geral',
-      }]
-    });
-    setSubMode('ia');
-    setMode('ai-generator');
+    if (!incomingFocusDrill) return;
     try {
       window.history.replaceState({}, document.title);
     } catch { /* ignore */ }
-  }, [location?.state]);
+  }, [incomingFocusDrill]);
 
   const handleAddManualError = useCallback((errPayload) => {
     if (!errPayload || !errPayload.statement) return;
