@@ -1,6 +1,6 @@
 import { PageErrorBoundary } from '../components/ErrorBoundary';
 import React, { useMemo, useCallback, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useInRouterContext, useNavigate } from 'react-router-dom';
 import { Target, FileText, Plus, Search, Trash2, Edit2, BookOpen, Check, X } from 'lucide-react';
 import TopicPerformance from '../components/TopicPerformance';
 import ParetoAnalysis from '../components/ParetoAnalysis';
@@ -10,8 +10,17 @@ import { reconcileContestCategoriesHistory } from '../utils/simuladoReconciler';
 import { isSubjectMatch, normalize } from '../utils/normalization';
 import { generateId } from '../utils/idGenerator';
 
-export default function Notes() {
+function NotesWithRouter() {
     const navigate = useNavigate();
+    return <NotesContent navigate={navigate} />;
+}
+
+export default function Notes() {
+    const inRouter = useInRouterContext();
+    return inRouter ? <NotesWithRouter /> : <NotesContent navigate={null} />;
+}
+
+function NotesContent({ navigate }) {
     const showToast = useToast();
     const activeId = useAppStore(state => state.appState?.activeId || 'default');
     const activeContest = useAppStore(state => state.appState?.contests?.[state.appState?.activeId] || null);
@@ -88,13 +97,13 @@ export default function Notes() {
                 source: 'notes'
             });
             showToast(`Foco iniciado: ${categoryName} — ${topicName}`, 'success');
-            navigate('/pomodoro');
+            navigate?.('/pomodoro');
         }
     }, [enhancedCategories, startPomodoroSession, showToast, navigate]);
 
     const handleStartFocusedSimulado = useCallback((categoryName, topicName) => {
         const matchedCat = enhancedCategories.find(c => c && isSubjectMatch(categoryName, c.name));
-        navigate('/simulados', {
+        navigate?.('/simulados', {
             state: {
                 focusDrill: {
                     categoryId: matchedCat?.id || null,
@@ -107,7 +116,7 @@ export default function Notes() {
 
     const handleCreateTopicFlashcard = useCallback((categoryName, topicName) => {
         const matchedCat = enhancedCategories.find(c => c && isSubjectMatch(categoryName, c.name));
-        navigate('/flashcards', {
+        navigate?.('/flashcards', {
             state: {
                 focusSubject: matchedCat?.name || categoryName || 'Geral',
                 focusCategoryId: matchedCat?.id || null,
@@ -393,7 +402,7 @@ export default function Notes() {
                                         </span>
                                         <button
                                             type="button"
-                                            onClick={() => navigate('/flashcards', {
+                                            onClick={() => navigate?.('/flashcards', {
                                                 state: {
                                                     focusSubject: note.subject || 'Geral',
                                                     focusCategoryId: note.categoryId || null,

@@ -284,8 +284,11 @@ describe('Cross-Menu Architectural & UX Improvements (2026)', () => {
       const get = () => state;
       const studySlice = createStudySlice(set, get);
 
-      studySlice.logFlashcardReview({ deckId: 'deck-1', subject: 'Constitucional', quality: 4, durationSeconds: 20 });
+      studySlice.logFlashcardReview('deck-1', 'card-1', 3, 'Constitucional', 0.5, null);
       expect(state.appState.contests.c1.studyLogs[0].categoryId).toBe('cat-dir');
+
+      studySlice.logFlashcardReview({ deckId: 'deck-1', subject: 'Constitucional', quality: 4, durationSeconds: 20 });
+      expect(state.appState.contests.c1.studyLogs[1].categoryId).toBe('cat-dir');
 
       studySlice.handleUpdateStudyTime('cat-dir', 25, null, 'pomodoro', { studyMode: 'teoria' });
       expect(state.appState.contests.c1.agenda[0].completed).toBe(true);

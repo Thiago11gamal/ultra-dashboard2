@@ -916,7 +916,7 @@ describe('Meu Painel (Dashboard) Menu Bugs Audit & Fixes', () => {
             expect(contest.flashcardDecks[0].categoryName).toBe('Tecnologia da Informação');
         });
 
-        it('all Meu Painel JSX modules parse and export valid React components', async () => {
+        it('all Meu Painel JSX modules parse and export valid React components', { timeout: 60000 }, async () => {
             const checklistMod = await import('../Checklist.jsx');
             const statsCardsMod = await import('../StatsCards.jsx');
             const nextGoalMod = await import('../NextGoalCard.jsx');

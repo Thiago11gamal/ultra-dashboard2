@@ -131,6 +131,7 @@ export const createStudySlice = (set, get) => ({
         if (matchingBlock) {
           matchingBlock.completed = true;
           matchingBlock.completedAt = now;
+          matchingBlock.autoCompletedBySession = true;
         }
         activeData.agenda = agendaList;
       }
@@ -215,7 +216,23 @@ export const createStudySlice = (set, get) => ({
     }
   },
 
-  logFlashcardReview: (deckId, cardId, rating, subject, minutes = 0.5, explicitCategoryId = null) => {
+  logFlashcardReview: (deckIdOrObj, cardIdArg, ratingArg, subjectArg, minutesArg = 0.5, explicitCategoryIdArg = null) => {
+    const isObjPayload = deckIdOrObj && typeof deckIdOrObj === 'object' && !Array.isArray(deckIdOrObj);
+    const deckId = isObjPayload ? (deckIdOrObj.deckId || null) : deckIdOrObj;
+    const cardId = isObjPayload ? (deckIdOrObj.cardId || null) : cardIdArg;
+    const rating = isObjPayload
+      ? Number(deckIdOrObj.rating ?? deckIdOrObj.quality ?? 3)
+      : ratingArg;
+    const subject = isObjPayload ? (deckIdOrObj.subject || '') : subjectArg;
+    const minutes = isObjPayload
+      ? (Number.isFinite(Number(deckIdOrObj.minutes))
+          ? Number(deckIdOrObj.minutes)
+          : (Number.isFinite(Number(deckIdOrObj.durationSeconds)) ? Math.max(0.1, Number(deckIdOrObj.durationSeconds) / 60) : 0.5))
+      : minutesArg;
+    const explicitCategoryId = isObjPayload
+      ? (deckIdOrObj.explicitCategoryId || deckIdOrObj.categoryId || null)
+      : explicitCategoryIdArg;
+
     set((state) => {
       const activeData = state.appState.contests[state.appState.activeId];
       if (!activeData) return;

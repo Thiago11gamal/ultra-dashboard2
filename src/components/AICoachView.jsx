@@ -160,7 +160,10 @@ function AICoachCard({ task, idx, onStartPomodoro, categories, maxScore = 100, m
                         <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3 flex flex-col gap-2 relative group/kpi transition-colors hover:bg-white/[0.04]">
                             <div className="flex items-center justify-between z-10 relative">
                                 <span className={`text-[9px] font-black tracking-widest uppercase ${highVol ? 'text-amber-400/80' : 'text-slate-400'}`}>Volatilidade</span>
-                                <span className={`font-mono text-xs font-bold ${highVol ? 'text-amber-300' : 'text-slate-300'}`}>±{mcVol > 0 && mcVol < 0.5 ? '<1' : Math.round(mcVol)} pts</span>
+                                <span className={`font-mono text-xs font-bold ${highVol ? 'text-amber-300' : 'text-slate-300'}`}>
+                                    <span className={highVol ? 'text-amber-300' : 'text-slate-300'}>±{mcVol > 0 && mcVol < 0.5 ? '<1' : Math.round(mcVol)}</span>
+                                    <span className="ml-1 text-[10px] opacity-80">pts</span>
+                                </span>
                             </div>
                             <div className="h-1 w-full bg-black/40 rounded-full overflow-hidden z-10 relative">
                                 <div className={`h-full rounded-full transition-all duration-1000 ${highVol ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)]' : 'bg-slate-500'}`} style={{ width: `${Math.min(100, Math.max(0, (mcVolPct / 20) * 100))}%` }} />
