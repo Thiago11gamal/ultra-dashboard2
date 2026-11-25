@@ -4,6 +4,7 @@ import { SYNC_LOG_CAP } from '../../config.js';
 import { markStorageDirty } from '../../utils/storageSafe.js';
 import { resolveHumanTaskTitle, cleanTaskTitle } from '../../utils/taskTitleHelper.js';
 import { isSubjectMatch } from '../../utils/normalization.js';
+import { getDateKey } from '../../utils/dateHelper.js';
 
 const LOG_CAP = SYNC_LOG_CAP;
 const SESSION_CAP = SYNC_LOG_CAP;
@@ -120,7 +121,7 @@ export const createStudySlice = (set, get) => ({
 
       // Auto-concluir bloco correspondente do dia na Agenda de Estudos quando sessão real é registrada
       if (activeData.agenda) {
-        const todayIsoDate = now.slice(0, 10);
+        const todayIsoDate = getDateKey(now) || now.slice(0, 10);
         const agendaList = Array.isArray(activeData.agenda) ? activeData.agenda : Object.values(activeData.agenda || {});
         const matchingBlock = agendaList.find(ev => {
           if (!ev || ev.completed || ev.date !== todayIsoDate) return false;

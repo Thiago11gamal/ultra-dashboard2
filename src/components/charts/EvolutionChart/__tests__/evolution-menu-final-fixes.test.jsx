@@ -3,6 +3,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { computeEvolutionStatuses } from '../../../../utils/evolutionStatus';
 import { getDateKey } from '../../../../utils/dateHelper';
+import { addDaysNoon } from '../../../../utils/parseNoonLocal';
 import { SubtopicsPerformanceChart } from '../SubtopicsPerformanceChart';
 
 vi.mock('recharts', async () => {
@@ -18,15 +19,14 @@ vi.mock('recharts', async () => {
 
 describe('Evolution Menu Comprehensive Fixes Audit', () => {
   it('Fix 1: evolutionStatus reconhece heatmapData.dates contendo objetos com chave key', () => {
-    const today = new Date();
-    today.setHours(12, 0, 0, 0);
+    const refNow = new Date();
+    const todayKey = getDateKey(refNow);
 
-    // 5 datas nos últimos 14 dias como objetos (formato real do heatmap)
+    // 5 datas nos últimos 14 dias como objetos (formato real do heatmap alinhado a APP_TIMEZONE, sem desvio entre 00:00–04:00 UTC)
     const recentDateKeys = [];
     for (let i = 0; i < 5; i++) {
-      const d = new Date(today);
-      d.setDate(d.getDate() - i);
-      recentDateKeys.push(getDateKey(d));
+      const shifted = addDaysNoon(todayKey, -i);
+      recentDateKeys.push(getDateKey(shifted));
     }
 
     const heatmapData = {
@@ -38,7 +38,8 @@ describe('Evolution Menu Comprehensive Fixes Audit', () => {
     const statuses = computeEvolutionStatuses({
       timeline: [],
       heatmapData,
-      targetScore: 80
+      targetScore: 80,
+      now: refNow
     });
 
     const consistency = statuses.find(s => s.id === 'consistency');

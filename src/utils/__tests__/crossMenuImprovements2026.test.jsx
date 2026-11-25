@@ -5,6 +5,7 @@ import { render, fireEvent, cleanup } from '@testing-library/react';
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { resolveCanonicalNextMission } from '../canonicalNextMission';
 import { getBestTask } from '../coach/coachHistory';
+import { getDateKey } from '../dateHelper';
 import { evaluateContestMaturity } from '../../engine/adaptive/adaptiveMaturityEngine';
 import { createTrashSlice } from '../../store/slices/createTrashSlice';
 import { createStudySlice } from '../../store/slices/createStudySlice';
@@ -255,7 +256,7 @@ describe('Cross-Menu Architectural & UX Improvements (2026)', () => {
 
   describe('4. Study Slice: Flashcard category linkage & Agenda auto-completion', () => {
     it('resolves categoryId via deck linkage / fuzzy match and auto-completes today agenda block on study log', () => {
-      const todayIso = new Date().toISOString().slice(0, 10);
+      const todayIso = getDateKey(new Date());
       const state = {
         appState: {
           activeId: 'c1',

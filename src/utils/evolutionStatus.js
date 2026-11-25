@@ -45,9 +45,11 @@ export function computeEvolutionStatuses({
   projectDays = 30,
   timeWindow = 'all',
   examDurationMinutes = null,
-  examTotalQuestions = null
+  examTotalQuestions = null,
+  now = null
 }) {
   const statuses = [];
+  const refNow = (now instanceof Date && !Number.isNaN(now.getTime())) ? now : new Date();
 
   const safeMin = safeNum(minScore, 0);
   const safeMax = Math.max(safeMin + 1, safeNum(maxScore, 100));
@@ -242,7 +244,7 @@ export function computeEvolutionStatuses({
   ]);
 
   if (allActiveDates.size > 0 || (showOnlyFocus && focusId && (rawHeatmapDates.length > 0 || timeline.length > 0))) {
-    const todayKey = getDateKey(new Date());
+    const todayKey = getDateKey(refNow);
     let activeDays = 0;
     for (let i = 0; i < 14; i++) {
       const shifted = todayKey ? addDaysNoon(todayKey, -i) : null;
@@ -411,7 +413,7 @@ export function computeEvolutionStatuses({
   }
 
   // Volume recente (últimos 7 dias corridos)
-  const todayKeyForVol = getDateKey(new Date());
+  const todayKeyForVol = getDateKey(refNow);
   const sevenDayKeys = new Set();
   for (let i = 0; i < 7; i++) {
     const shifted = todayKeyForVol ? addDaysNoon(todayKeyForVol, -i) : null;
