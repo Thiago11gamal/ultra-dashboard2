@@ -227,8 +227,8 @@ export const createStudySlice = (set, get) => ({
     const subject = isObjPayload ? (deckIdOrObj.subject || '') : subjectArg;
     const minutes = isObjPayload
       ? (Number.isFinite(Number(deckIdOrObj.minutes))
-          ? Number(deckIdOrObj.minutes)
-          : (Number.isFinite(Number(deckIdOrObj.durationSeconds)) ? Math.max(0.1, Number(deckIdOrObj.durationSeconds) / 60) : 0.5))
+        ? Number(deckIdOrObj.minutes)
+        : (Number.isFinite(Number(deckIdOrObj.durationSeconds)) ? Math.max(0.1, Number(deckIdOrObj.durationSeconds) / 60) : 0.5))
       : minutesArg;
     const explicitCategoryId = isObjPayload
       ? (deckIdOrObj.explicitCategoryId || deckIdOrObj.categoryId || null)
