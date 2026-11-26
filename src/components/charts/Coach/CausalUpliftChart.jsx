@@ -14,30 +14,41 @@ import {
 import { ChartFrame } from '../ChartFrame';
 
 const ACTION_LABELS = {
-  srs_review: 'Revisão SRS',
+  srs_review: 'Revisão Espaçada',
   mock_exam: 'Simulado',
   simulado: 'Simulado',
   error_review: 'Revisão de Erros',
-  study_volume: 'Volume de Estudo',
-  theory: 'Teoria / Base',
-  general_review: 'Consolidação',
-  weak_topic_practice: 'Prática de Tópicos Fracos',
-  practice: 'Prática / Questões',
-  agility_training: 'Treino de Agilidade',
-  critical_rescue: 'Resgate Crítico',
-  mode_questoes: 'Modo: Questões',
-  mode_teoria: 'Modo: Teoria',
-  mode_revisao: 'Modo: Revisão',
-  mode_lei_seca: 'Modo: Lei Seca',
-  mode_jurisprudencia: 'Modo: Jurisprudência',
-  mode_simulado: 'Modo: Simulado',
-  mode_flashcards: 'Modo: Flashcards',
-  mode_resumo: 'Modo: Resumo',
-  mode_discursiva: 'Modo: Discursiva',
-  no_study_volume: 'Controle (Sem Estudo)',
-  no_task: 'Controle (Sem Tarefa)',
+  study_volume: 'Sessões de Estudo',
+  theory: 'Estudo de Teoria',
+  general_review: 'Revisão Geral',
+  weak_topic_practice: 'Questões em Tópicos Fracos',
+  practice: 'Prática de Questões',
+  agility_training: 'Treino de Velocidade',
+  critical_rescue: 'Recuperação Intensiva',
+  mode_questoes: 'Modalidade: Questões',
+  mode_teoria: 'Modalidade: Teoria',
+  mode_revisao: 'Modalidade: Revisão',
+  mode_lei_seca: 'Modalidade: Lei Seca',
+  mode_jurisprudencia: 'Modalidade: Jurisprudência',
+  mode_simulado: 'Modalidade: Simulado',
+  mode_flashcards: 'Modalidade: Cartões',
+  mode_resumo: 'Modalidade: Resumo',
+  mode_discursiva: 'Modalidade: Discursiva',
+  no_study_volume: 'Sem Estudo (Controle)',
+  no_task: 'Sem Tarefa (Controle)',
   control: 'Grupo Controle',
   none: 'Sem Ação',
+};
+
+const METHOD_LABELS_PT = {
+  doubly_robust: 'Duplamente Robusto',
+  iptw: 'Ponderação de Probabilidade',
+  regression_adjusted: 'Ajuste por Regressão',
+  naive: 'Diferença de Médias',
+  naive_fallback_regression: 'Diferença de Médias',
+  naive_fallback_iptw: 'Diferença de Médias',
+  naive_fallback_iptw_no_overlap: 'Diferença de Médias',
+  observational: 'Observacional',
 };
 
 function formatActionLabel(actionType) {
@@ -71,24 +82,24 @@ function UpliftTooltip({ active, payload }) {
       <p className="font-black text-white mb-1.5 border-b border-white/10 pb-1">{item.label}</p>
       <div className="space-y-1 font-mono">
         <div className="flex justify-between gap-4">
-          <span className="text-slate-400">Uplift estimado:</span>
+          <span className="text-slate-400">Ganho estimado:</span>
           <span className={`font-black ${pos ? 'text-emerald-400' : 'text-rose-400'}`}>
             {pos ? '+' : ''}{item.uplift.toFixed(2)} pts
           </span>
         </div>
         {item.hasCi && (
           <div className="flex justify-between gap-4 text-slate-400">
-            <span>IC 95%:</span>
+            <span>Margem 95%:</span>
             <span>[{item.ciLow.toFixed(2)}, {item.ciHigh.toFixed(2)}]</span>
           </div>
         )}
         <div className="flex justify-between gap-4 text-slate-400">
-          <span>Amostras:</span>
+          <span>Janelas:</span>
           <span className="text-white">{item.sampleSize}</span>
         </div>
         <div className="flex justify-between gap-4 text-slate-500 text-[10px]">
           <span>Método:</span>
-          <span>{item.method}</span>
+          <span>{METHOD_LABELS_PT[item.method] || item.method}</span>
         </div>
       </div>
     </div>

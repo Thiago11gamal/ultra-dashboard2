@@ -119,12 +119,12 @@ export function getGranularCoachStrategies() {
   return [
     {
       id: 'baseline',
-      label: 'Baseline',
+      label: 'Padrão Seguro (Base)',
       features: {},
     },
     {
       id: 'lot1-state-space',
-      label: 'Lote 1 — State-Space',
+      label: 'Lote 1 — Filtro de Estado (Kalman)',
       features: {
         useStateSpace: true,
         useStateSpaceAverage: true,
@@ -133,7 +133,7 @@ export function getGranularCoachStrategies() {
     },
     {
       id: 'lot2-dynamic-volatility',
-      label: 'Lote 2 — Volatilidade dinâmica',
+      label: 'Lote 2 — Volatilidade Dinâmica',
       features: {
         useDynamicVolatility: true,
         useGarchVolatility: true,
@@ -141,14 +141,14 @@ export function getGranularCoachStrategies() {
     },
     {
       id: 'lot3-posterior-mc',
-      label: 'Lote 3 — Posterior MC',
+      label: 'Lote 3 — Simulação Preditiva Posterior',
       features: {
         usePosteriorMonteCarlo: true,
       },
     },
     {
       id: 'lot4-bayesian-topics',
-      label: 'Lote 4 — Bayesian Topics',
+      label: 'Lote 4 — Tópicos Bayesianos',
       features: {
         useBayesianTopics: true,
         useBayesianTopicsForUrgency: true,
@@ -156,7 +156,7 @@ export function getGranularCoachStrategies() {
     },
     {
       id: 'lot5-decision-utility',
-      label: 'Lote 5 — Decision Utility',
+      label: 'Lote 5 — Utilidade de Decisão',
       features: {
         useDecisionUtility: true,
         useDecisionUtilityForTopics: true,
@@ -165,7 +165,7 @@ export function getGranularCoachStrategies() {
     },
     {
       id: 'lot7-knowledge-fsrs',
-      label: 'Lote 7 — Knowledge Graph + FSRS',
+      label: 'Lote 7 — Grafo de Assuntos + Revisão FSRS',
       features: {
         useKnowledgeGraph: true,
         useKnowledgeGraphForTopics: true,
@@ -176,7 +176,7 @@ export function getGranularCoachStrategies() {
     },
     {
       id: 'lot11-causal-policy',
-      label: 'Lote 11 — Causal Uplift & Policy',
+      label: 'Lote 11 — Impacto Causal e Política',
       features: {
         useCausalUplift: true,
         usePersonalizedPolicy: true,
@@ -210,7 +210,7 @@ export function getGranularCoachStrategies() {
     },
     {
       id: 'all-lots',
-      label: 'Todos os lotes',
+      label: 'Completo — Todos os Lotes',
       features: {
         useStateSpace: true,
         useStateSpaceAverage: true,

@@ -442,8 +442,10 @@ export function evaluateModelHealth(input = {}, options = {}) {
   const lastTelemetryTimestamp = Number(input.lastTelemetryTimestamp) || 0;
 
   if (lastTelemetryTimestamp > 0) {
-    const daysSinceTelemetry =
-      (Date.now() - lastTelemetryTimestamp) / 86400000;
+    const daysSinceTelemetry = Math.max(
+      0,
+      (Date.now() - lastTelemetryTimestamp) / 86400000
+    );
 
     metrics.daysSinceLastTelemetry = Number(daysSinceTelemetry.toFixed(2));
 

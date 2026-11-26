@@ -162,7 +162,7 @@ describe('Coach AI & Control Center — 22-Bug Audit Regression Suite', () => {
     const panelScope = 'lot13-panel-test';
     replaceFlags({ useControlCenterLLMPanel: false }, panelScope);
     render(<CoachControlCenter contestId={panelScope} embedded categories={[]} simulados={[]} studyLogs={[]} />);
-    expect(screen.queryByRole('button', { name: /Explicação LLM/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Explicação por IA/i })).toBeNull();
     expect(screen.getByRole('button', { name: /Visão Geral/i })).toBeTruthy();
   });
 

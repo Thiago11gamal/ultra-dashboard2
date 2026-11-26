@@ -141,8 +141,8 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium: _isPre
                             active={activeTab === 'control'}
                             onClick={handleActivateControl}
                             icon={SlidersHorizontal}
-                            label="Control Center"
-                            subtitle="Flags & AutoTuner"
+                            label="Central de Controle"
+                            subtitle="Motores e calibração"
                             tabId="coach-tab-control"
                             panelId="coach-panel-control"
                         />

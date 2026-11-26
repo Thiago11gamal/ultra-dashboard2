@@ -658,6 +658,15 @@ export function buildCoachOrchestratorDashboard(result = {}) {
         ? Number(Number(rawHealthScore).toFixed(2))
         : null;
 
+    const TUNER_ACTION_LABELS_PT = {
+      promote: 'Promover melhoria',
+      keep: 'Manter atual',
+      rollback: 'Restaurar padrão',
+      explore: 'Testar alternativa',
+    };
+    const rawTunerAction = tuner?.recommendation?.action ? String(tuner.recommendation.action).toLowerCase() : '';
+    const tunerActionLabel = rawTunerAction ? (TUNER_ACTION_LABELS_PT[rawTunerAction] || rawTunerAction) : null;
+
     return {
       generatedAt: safeResult.generatedAt || Date.now(),
       durationMs: safeResult.durationMs ?? null,
@@ -668,40 +677,40 @@ export function buildCoachOrchestratorDashboard(result = {}) {
       cards: [
         {
           id: 'focus_category',
-          label: 'Foco principal',
+          label: 'Disciplina em foco',
           value: focus?.name || focus?.categoryName || null,
         },
         {
           id: 'focus_urgency',
-          label: 'Urgência',
+          label: 'Urgência (0–100)',
           value: cleanUrgency,
           goodDirection: 'contextual',
         },
         {
           id: 'tasks_count',
-          label: 'Tarefas geradas',
+          label: 'Metas geradas',
           value: validTasks.length,
         },
         {
           id: 'health_score',
-          label: 'Health Score',
+          label: 'Nota de saúde (0–100)',
           value: cleanHealthScore,
           goodDirection: 'higher',
         },
         {
           id: 'causal_model',
-          label: 'Modelo causal',
-          value: causal?.available ? 'Ativo' : 'Indisponível',
+          label: 'Impacto causal',
+          value: causal?.available ? 'Ativo' : 'Aguardando dados',
         },
         {
           id: 'llm_explanation',
-          label: 'Explicação LLM',
+          label: 'Leitura por IA',
           value: llm?.headline || null,
         },
         {
           id: 'tuner_action',
-          label: 'Ação do AutoTuner',
-          value: tuner?.recommendation?.action ? String(tuner.recommendation.action).toUpperCase() : null,
+          label: 'Sugestão do otimizador',
+          value: tunerActionLabel,
         },
       ],
       focus: focus

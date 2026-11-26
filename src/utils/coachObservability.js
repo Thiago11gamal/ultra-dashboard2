@@ -86,6 +86,9 @@ export function extractObservabilitySeries(simulados = [], options = {}) {
     return getSafeScore(simulado, maxScore, minScore);
   };
 
+  const maxAllowedFutureMs = Date.now() + 24 * 60 * 60 * 1000;
+  const seenObsSigs = new Set();
+
   const sorted = safeArray(simulados)
     .filter((simulado) => simulado && simulado.valid !== false && simulado.validated !== false)
     // FIX (A6): preserva o índice original — o tiebreak do sort lia
@@ -108,7 +111,23 @@ export function extractObservabilitySeries(simulados = [], options = {}) {
       score: resolveSimuladoScoreOnGlobalScale(simulado),
       _idx,
     }))
-    .filter((entry) => Number.isFinite(entry.score))
+    .filter((entry) => {
+      if (!Number.isFinite(entry.score)) return false;
+      // Descarta datas corrompidas no futuro (> 24h) que ficariam presas no fim da série distorcendo o drift recente
+      if (Number.isFinite(entry.time) && entry.time > maxAllowedFutureMs) return false;
+      const rawId = entry.simulado?.id && !String(entry.simulado.id).startsWith('legacy-')
+        ? `id:${entry.simulado.id}`
+        : null;
+      const dayBucket = Number.isFinite(entry.time) ? Math.floor(entry.time / 86_400_000) : null;
+      const dsSig = dayBucket !== null
+        ? `ds:${entry.subjectKey || '__global__'}:${dayBucket}:${Math.round(entry.score * 10)}`
+        : null;
+      if (rawId && seenObsSigs.has(rawId)) return false;
+      if (dsSig && seenObsSigs.has(dsSig)) return false;
+      if (rawId) seenObsSigs.add(rawId);
+      if (dsSig) seenObsSigs.add(dsSig);
+      return true;
+    })
     .sort((a, b) => {
       const aFinite = Number.isFinite(a.time);
       const bFinite = Number.isFinite(b.time);
@@ -364,9 +383,10 @@ export function runCoachDriftGuard(options = {}) {
     }
   }
 
+  const maxValidNow = Date.now() + 24 * 60 * 60 * 1000;
   const maxCalibrationTimestamp = calibrationEvents.reduce((maxTs, ev) => {
     const ts = Number(ev?.timestamp);
-    return Number.isFinite(ts) && ts > maxTs ? ts : maxTs;
+    return Number.isFinite(ts) && ts > maxTs && ts <= maxValidNow ? ts : maxTs;
   }, 0);
 
   const lastTelemetryTimestamp =

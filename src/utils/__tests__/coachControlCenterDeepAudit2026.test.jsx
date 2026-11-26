@@ -60,14 +60,14 @@ describe('Coach Control Center — Deep Audit & Enhancements 2026', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /Executar Orquestrador/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Atualizar Diagnóstico/i }));
     await waitFor(() => {
       expect(screen.getByText(/Saúde do Modelo/i)).toBeTruthy();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /Saúde & Drift/i }));
-    expect(screen.getByRole('heading', { name: /Drift de Calibração/i })).toBeTruthy();
-    expect(screen.getByRole('heading', { name: /Calibração Atual/i })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /Saúde e Estabilidade/i }));
+    expect(screen.getByRole('heading', { name: /Desvio de Calibração/i })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: /Calibração Atual das Probabilidades/i })).toBeTruthy();
     // Brier, ECE and MCE are populated from calibrationAuditLog (not '—')
     expect(document.body.textContent).toContain('0.1800');
 
@@ -177,30 +177,30 @@ describe('Coach Control Center — Deep Audit & Enhancements 2026', () => {
     replaceFlags({ useControlCenterLLMPanel: false, useControlCenterCausalPanel: false }, scope);
 
     render(<CoachControlCenter embedded contestId={scope} categories={[]} simulados={[]} studyLogs={[]} />);
-    expect(screen.queryByRole('button', { name: /Explicação LLM/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Explicação por IA/i })).toBeNull();
     expect(screen.getByText(/2 aba\(s\) oculta\(s\)/i)).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: /Restaurar abas ocultas/i }));
-    expect(screen.getByRole('button', { name: /Explicação LLM/i })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /Causalidade/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Explicação por IA/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Impacto Causal/i })).toBeTruthy();
 
-    // Switch to Feature Flags, apply preset, verify active badge and search in Portuguese
-    fireEvent.click(screen.getByRole('button', { name: /Feature Flags/i }));
+    // Switch to Recursos do Motor, apply preset, verify active badge and search in Portuguese
+    fireEvent.click(screen.getByRole('button', { name: /Recursos do Motor/i }));
     fireEvent.click(screen.getByRole('button', { name: /Conservador — Lotes 1 \+ 2/i }));
     expect(screen.getByText('✓ Ativa')).toBeTruthy();
     expect(Object.keys(readManualFlagOverrides(scope)).length).toBeGreaterThan(0);
 
-    // Search by Portuguese description ("volatilidade")
-    const searchInput = screen.getByPlaceholderText(/Buscar por flag, função ou lote/i);
-    fireEvent.change(searchInput, { target: { value: 'volatilidade' } });
+    // Search by Portuguese description ("oscilação")
+    const searchInput = screen.getByPlaceholderText(/Buscar recurso por nome, função ou lote/i);
+    fireEvent.change(searchInput, { target: { value: 'oscilação' } });
     expect(document.body.textContent).toContain('useDynamicVolatility');
 
     // Restore automatic flags clears pinned manual overrides
-    fireEvent.click(screen.getByRole('button', { name: /Automático \(Maturidade\)/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Modo Automático \(Maturidade\)/i }));
     expect(Object.keys(readManualFlagOverrides(scope))).toHaveLength(0);
   });
 
-  it('5. Pipeline Completo populates Overview and partial LLMPanel run preserves Health, AutoTuner, and Causal cards', async () => {
+  it('5. Análise Completa populates Overview and partial LLMPanel run preserves Health, AutoTuner, and Causal cards', async () => {
     const scope = 'cc-partial-preserve';
     const categories = [
       {
@@ -230,15 +230,15 @@ describe('Coach Control Center — Deep Audit & Enhancements 2026', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /Pipeline Completo/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Análise Completa/i }));
     await waitFor(() => {
       expect(screen.getByText(/Saúde do Modelo/i)).toBeTruthy();
     });
     expect(document.body.textContent).toContain('Ativo');
 
     // Run partial LLM generation (runHealth: false, runAutoTuner: false)
-    fireEvent.click(screen.getByRole('button', { name: /Explicação LLM/i }));
-    fireEvent.click(screen.getByRole('button', { name: /Gerar Explicação LLM/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Explicação por IA/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Gerar Explicação/i }));
     await waitFor(() => {
       expect(screen.getByText(/Fatores Identificados/i)).toBeTruthy();
     });
@@ -249,7 +249,7 @@ describe('Coach Control Center — Deep Audit & Enhancements 2026', () => {
     expect(document.body.textContent).toContain('Ativo');
   });
 
-  it('6. AutoTuner resets applied badge after rollback, displays Bootstrap gate, and Backtest/Causal show clear zero-sample diagnostics', async () => {
+  it('6. Otimizador resets applied badge after rollback, displays Validação Estatística, and Backtest/Causal show clear zero-sample diagnostics', async () => {
     const scope = 'cc-tuner-reset';
     saveBacktestReport(
       {
@@ -268,29 +268,29 @@ describe('Coach Control Center — Deep Audit & Enhancements 2026', () => {
 
     render(<CoachControlCenter embedded contestId={scope} categories={[]} simulados={[]} studyLogs={[]} />);
 
-    fireEvent.click(screen.getByRole('button', { name: /AutoTuner/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Otimizador Automático/i }));
     fireEvent.click(screen.getByRole('button', { name: /Analisar e Aplicar/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/Recomendação aplicada às flags ativas/i)).toBeTruthy();
+      expect(screen.getByText(/Recomendação aplicada aos recursos ativos/i)).toBeTruthy();
     });
-    expect(screen.getByText(/Gate Bootstrap/i)).toBeTruthy();
+    expect(screen.getByText(/Validação Estatística/i)).toBeTruthy();
 
-    // Rollback to Baseline must clear the stale "aplicada às flags ativas" state
-    fireEvent.click(screen.getByRole('button', { name: /Rollback para Baseline/i }));
-    expect(screen.queryByText(/Recomendação aplicada às flags ativas/i)).toBeNull();
+    // Restaurar Padrão Seguro must clear the stale "aplicada aos recursos ativos" state
+    fireEvent.click(screen.getByRole('button', { name: /Restaurar Padrão Seguro/i }));
+    expect(screen.queryByText(/Recomendação aplicada aos recursos ativos/i)).toBeNull();
 
     // Zero-sample diagnostic hints in Backtest and Causal tabs
-    fireEvent.click(screen.getByRole('button', { name: /Backtests/i }));
-    fireEvent.click(screen.getByRole('button', { name: /Executar Backtest Granular/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Testes Históricos/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Executar Teste Histórico/i }));
     await waitFor(() => {
       expect(screen.getByText(/Amostra cronológica insuficiente/i)).toBeTruthy();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /Causalidade/i }));
-    fireEvent.click(screen.getByRole('button', { name: /Treinar Modelo Causal/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Impacto Causal/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Calcular Impacto Causal/i }));
     await waitFor(() => {
-      expect(screen.getByText(/Nenhum intervalo causal elegível/i)).toBeTruthy();
+      expect(screen.getByText(/Nenhum intervalo elegível encontrado/i)).toBeTruthy();
     });
   });
 });

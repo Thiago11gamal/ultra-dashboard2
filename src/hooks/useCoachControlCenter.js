@@ -168,6 +168,32 @@ function saveControlCenterState(state, contestId) {
   }
 }
 
+function doesFlagsMatchStrategy(flags, strategyId, strategySpace = getStrategySpace()) {
+  if (!flags || typeof flags !== 'object' || !strategyId) return false;
+  const normId = strategyId === 'all-lots' ? 'all-math-lots' : strategyId;
+  const strategy = (strategySpace || []).find((s) => s.id === normId || s.id === strategyId);
+  if (!strategy) return false;
+  const activeExp = new Set(EXPERIMENTAL_MATH_FLAGS.filter((k) => flags[k] === true));
+  const stratExp = EXPERIMENTAL_MATH_FLAGS.filter((k) => strategy.features?.[k] === true);
+  return stratExp.length === activeExp.size && stratExp.every((k) => activeExp.has(k));
+}
+
+function hydrateTunerResultFromHistory(history, currentFlags) {
+  if (!Array.isArray(history) || history.length === 0) return null;
+  const latest = history[history.length - 1];
+  if (!latest || typeof latest !== 'object') return null;
+  const recStratId = latest.recommendation?.strategyId;
+  const isActuallyApplied = Boolean(
+    latest.applied &&
+    recStratId &&
+    doesFlagsMatchStrategy(currentFlags, recStratId)
+  );
+  return {
+    ...latest,
+    applied: isActuallyApplied,
+  };
+}
+
 export function useCoachControlCenter({
   contestId,
   categories = [],
@@ -187,6 +213,26 @@ export function useCoachControlCenter({
   calibrationAuditLog = undefined,
   calibrationHistoryByCategory = undefined,
 } = {}) {
+  const safeMaxScore = useMemo(() => {
+    const n = Number(maxScore);
+    return maxScore !== null && maxScore !== undefined && typeof maxScore !== 'boolean' && String(maxScore).trim() !== '' && Number.isFinite(n) && n > 0
+      ? n
+      : 100;
+  }, [maxScore]);
+  const safeMinScore = useMemo(() => {
+    const n = Number(minScore);
+    return minScore !== null && minScore !== undefined && typeof minScore !== 'boolean' && String(minScore).trim() !== '' && Number.isFinite(n) && n < safeMaxScore
+      ? n
+      : 0;
+  }, [minScore, safeMaxScore]);
+  const safeTargetScore = useMemo(() => {
+    const n = Number(targetScore);
+    if (targetScore !== null && targetScore !== undefined && typeof targetScore !== 'boolean' && String(targetScore).trim() !== '' && Number.isFinite(n)) {
+      return Math.max(safeMinScore, Math.min(safeMaxScore, n));
+    }
+    return safeMinScore + (safeMaxScore - safeMinScore) * 0.8;
+  }, [targetScore, safeMinScore, safeMaxScore]);
+
   const resolvedContestId = contestId ?? getCoachFeatureContestScope();
   const isAdmin = isAdminUser(useAuth()?.currentUser || null);
   const [activeTab, setActiveTab] = useState(() => loadControlCenterState(resolvedContestId)?.activeTab || 'overview');
@@ -196,17 +242,6 @@ export function useCoachControlCenter({
   const [dashboard, setDashboard] = useState(null);
   const [backtestReport, setBacktestReport] = useState(() => loadLastBacktestReport(resolvedContestId));
   const [lastBacktestDiag, setLastBacktestDiag] = useState(null);
-  const [tunerHistory, setTunerHistory] = useState(() => {
-    const h = loadTunerHistory(resolvedContestId);
-    return Array.isArray(h) ? h : [];
-  });
-  const [tunerResult, setTunerResult] = useState(null);
-  const [causalModel, setCausalModel] = useState(() => loadCausalModel(resolvedContestId));
-  const [lastCausalDiag, setLastCausalDiag] = useState(null);
-  const [healthSnapshots, setHealthSnapshots] = useState(() => {
-    const s = loadModelHealthSnapshots(resolvedContestId);
-    return Array.isArray(s) ? s : [];
-  });
   const [currentFlags, setCurrentFlags] = useState(() => {
     const existing = readFlags(resolvedContestId);
     if (Object.keys(existing).length === 0) {
@@ -217,6 +252,20 @@ export function useCoachControlCenter({
       syncAdminCoachFlags(resolvedContestId, getActiveContestSnapshot(resolvedContestId), { silent: true });
     }
     return readFlags(resolvedContestId) || {};
+  });
+  const [tunerHistory, setTunerHistory] = useState(() => {
+    const h = loadTunerHistory(resolvedContestId);
+    return Array.isArray(h) ? h : [];
+  });
+  const [tunerResult, setTunerResult] = useState(() => {
+    const h = loadTunerHistory(resolvedContestId);
+    return hydrateTunerResultFromHistory(h, readFlags(resolvedContestId) || {});
+  });
+  const [causalModel, setCausalModel] = useState(() => loadCausalModel(resolvedContestId));
+  const [lastCausalDiag, setLastCausalDiag] = useState(null);
+  const [healthSnapshots, setHealthSnapshots] = useState(() => {
+    const s = loadModelHealthSnapshots(resolvedContestId);
+    return Array.isArray(s) ? s : [];
   });
   const [flagOverrides, setFlagOverrides] = useState(() => loadControlCenterState(resolvedContestId)?.flagOverrides || {});
   const flagOverridesRef = useRef(flagOverrides);
@@ -301,14 +350,15 @@ export function useCoachControlCenter({
       setBacktestReport(loadLastBacktestReport(resolvedContestId));
       setLastBacktestDiag(null);
       const h = loadTunerHistory(resolvedContestId);
-      setTunerHistory(Array.isArray(h) ? h : []);
+      const safeH = Array.isArray(h) ? h : [];
+      setTunerHistory(safeH);
+      setTunerResult(hydrateTunerResultFromHistory(safeH, loadedFlags));
       setCausalModel(loadCausalModel(resolvedContestId));
       setLastCausalDiag(null);
       const s = loadModelHealthSnapshots(resolvedContestId);
       setHealthSnapshots(Array.isArray(s) ? s : []);
       setOrchestratorResult(null);
       setDashboard(null);
-      setTunerResult(null);
       setLastRunTimestamp(null);
       setCacheClearedAt(null);
       setError(null);
@@ -399,9 +449,9 @@ export function useCoachControlCenter({
         { categories, simulados, studyLogs },
         {
           contestId: targetContestId,
-          maxScore,
-          minScore,
-          targetScore,
+          maxScore: safeMaxScore,
+          minScore: safeMinScore,
+          targetScore: safeTargetScore,
           user: user ?? contestSnap?.user,
           globalMcStats: globalMcStats ?? undefined,
           simuladoRows: simuladoRows ?? contestSnap?.simuladoRows,
@@ -527,7 +577,7 @@ export function useCoachControlCenter({
       pendingRunsRef.current = Math.max(0, pendingRunsRef.current - 1);
       if (isMounted.current && pendingRunsRef.current === 0) setLoading(false);
     }
-  }, [categories, simulados, studyLogs, maxScore, minScore, targetScore, user, globalMcStats, simuladoRows, allSimulados, flashcardDecks, flashcardDue, coachPlan, coachPlanner, calibrationAuditLog, calibrationHistoryByCategory, currentFlags, flagOverrides, resolvedContestId]);
+  }, [categories, simulados, studyLogs, safeMaxScore, safeMinScore, safeTargetScore, user, globalMcStats, simuladoRows, allSimulados, flashcardDecks, flashcardDue, coachPlan, coachPlanner, calibrationAuditLog, calibrationHistoryByCategory, currentFlags, flagOverrides, resolvedContestId]);
 
   // ==========================================================
   // Carregar dados auxiliares (somente leitura: nunca sobrescreve store em memória)
@@ -569,8 +619,8 @@ export function useCoachControlCenter({
     try {
       const result = await runCoachAutoTuner({
         contestId: targetContestId,
-        maxScore,
-        minScore,
+        maxScore: safeMaxScore,
+        minScore: safeMinScore,
         currentFeatures: { ...currentFlags, ...flagOverrides },
         force: options.force === true,
         autoApply: options.autoApply === true,
@@ -609,7 +659,7 @@ export function useCoachControlCenter({
       pendingRunsRef.current = Math.max(0, pendingRunsRef.current - 1);
       if (isMounted.current && pendingRunsRef.current === 0) setLoading(false);
     }
-  }, [maxScore, minScore, loadAuxiliaryData, resolvedContestId, currentFlags, flagOverrides]);
+  }, [safeMaxScore, safeMinScore, loadAuxiliaryData, resolvedContestId, currentFlags, flagOverrides]);
 
   // ==========================================================
   // Aplicar recomendação de flags
@@ -842,9 +892,9 @@ export function useCoachControlCenter({
         const safeSims = mergeSimuladosWithCategoryHistory(safeCats, combinedInputSims);
 
         const report = runGranularCoachBacktest(safeCats, safeSims, safeLogs, {
-          maxScore,
-          minScore,
-          targetScore,
+          maxScore: safeMaxScore,
+          minScore: safeMinScore,
+          targetScore: safeTargetScore,
           contestId: resolvedContestId,
           coachPlan: coachPlan ?? contestSnap?.coachPlan,
           coachPlanner: coachPlanner ?? contestSnap?.coachPlanner,
@@ -892,7 +942,7 @@ export function useCoachControlCenter({
                 lastRecordedBtSigRef.current = btSig;
                 Object.entries(report.summaries || {}).forEach(([stratId, summary]) => {
                   if (!summary || (summary.count || 0) <= 0) return;
-                  const scored = scoreStrategyEvaluation(summary, null, { maxScore, minScore });
+                  const scored = scoreStrategyEvaluation(summary, null, { maxScore: safeMaxScore, minScore: safeMinScore });
                   if (Number.isFinite(scored?.final)) {
                     recordStrategyOutcome(stratId, scored.final, { contestId: resolvedContestId });
                   }
@@ -932,7 +982,7 @@ export function useCoachControlCenter({
       });
     }
     return execute();
-  }, [categories, simulados, simuladoRows, allSimulados, studyLogs, user, maxScore, minScore, targetScore, coachPlan, coachPlanner, resolvedContestId, currentFlags, flagOverrides]);
+  }, [categories, simulados, simuladoRows, allSimulados, studyLogs, user, safeMaxScore, safeMinScore, safeTargetScore, coachPlan, coachPlanner, resolvedContestId, currentFlags, flagOverrides]);
 
   // ==========================================================
   // Treinar Modelo Causal
@@ -956,15 +1006,15 @@ export function useCoachControlCenter({
         const safeSims = mergeSimuladosWithCategoryHistory(safeCats, combinedInputSims);
 
         const events = buildCausalEventsFromHistory(safeCats, safeSims, safeLogs, {
-          maxScore,
-          minScore,
+          maxScore: safeMaxScore,
+          minScore: safeMinScore,
           coachPlan: coachPlan ?? contestSnap?.coachPlan,
           coachPlanner: coachPlanner ?? contestSnap?.coachPlanner,
         });
         const model = trainCausalModel(events, {
           contestId: resolvedContestId,
-          maxScore,
-          minScore,
+          maxScore: safeMaxScore,
+          minScore: safeMinScore,
           useBootstrap: Boolean(flagOverrides?.useCausalBootstrap ?? currentFlags?.useCausalBootstrap),
           save: events.length > 0,
         });
@@ -998,19 +1048,25 @@ export function useCoachControlCenter({
       });
     }
     return execute();
-  }, [categories, simulados, simuladoRows, allSimulados, studyLogs, maxScore, minScore, coachPlan, coachPlanner, resolvedContestId, currentFlags, flagOverrides]);
+  }, [categories, simulados, simuladoRows, allSimulados, studyLogs, safeMaxScore, safeMinScore, coachPlan, coachPlanner, resolvedContestId, currentFlags, flagOverrides]);
 
   // ==========================================================
   // Dados derivados
   // ==========================================================
   const strategySpace = useMemo(() => getStrategySpace(), []);
 
-  const hasPinnedOverrides = useMemo(() => {
+  const manualOverridesSnapshot = useMemo(() => {
     void manualLockRevision;
     void currentFlags;
-    const manual = readManualFlagOverrides(resolvedContestId, getActiveContestSnapshot(resolvedContestId));
-    return Boolean(manual && Object.keys(manual).length > 0);
+    return readManualFlagOverrides(resolvedContestId, getActiveContestSnapshot(resolvedContestId)) || {};
   }, [resolvedContestId, manualLockRevision, currentFlags]);
+
+  const pinnedOverridesCount = useMemo(
+    () => Object.keys(manualOverridesSnapshot).length,
+    [manualOverridesSnapshot]
+  );
+
+  const hasPinnedOverrides = pinnedOverridesCount > 0;
 
   const latestHealth = useMemo(() => {
     const snapLatest = healthSnapshots.length > 0 ? healthSnapshots[healthSnapshots.length - 1] : null;
@@ -1063,6 +1119,7 @@ export function useCoachControlCenter({
     effectiveCalibrationAuditLog,
     currentFlags,
     flagOverrides,
+    pinnedOverridesCount,
     hasPinnedOverrides,
     strategySpace,
     // Ações

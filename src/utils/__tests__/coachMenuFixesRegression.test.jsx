@@ -369,18 +369,18 @@ describe('Coach AI Menu & Ecosystem Regression Suite', () => {
       expect(html).toContain('±&lt;1 pts');
     });
 
-    it('CoachMenuNav shows Control Center tab when enabled and CoachControlCenter renders LLM tab', () => {
+    it('CoachMenuNav shows Central de Controle tab when enabled and CoachControlCenter renders AI explanation tab', () => {
       render(
         <CoachMenuNav activeTab="insights" onChangeTab={() => { }} isPremium={true} showControlCenter={true} />
       );
-      expect(screen.getByRole('tab', { name: /Control Center/i })).toBeTruthy();
+      expect(screen.getByRole('tab', { name: /Central de Controle/i })).toBeTruthy();
 
       cleanup();
 
       render(<CoachControlCenter categories={[]} simulados={[]} studyLogs={[]} maxScore={100} targetScore={80} />);
-      const llmTab = screen.getByRole('button', { name: /Explicação LLM/i });
+      const llmTab = screen.getByRole('button', { name: /Explicação por IA/i });
       fireEvent.click(llmTab);
-      expect(screen.getByText(/Explicação LLM do Foco/i)).toBeTruthy();
+      expect(screen.getByText(/Explicação Estratégica da Matéria Prioritária/i)).toBeTruthy();
     });
 
     it('useCoachControlCenter clears flagOverrides and updates initial baseline on applyRecommendation', async () => {

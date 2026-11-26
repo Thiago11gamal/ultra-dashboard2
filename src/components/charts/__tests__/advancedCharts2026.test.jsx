@@ -247,7 +247,7 @@ describe('Advanced Charts Suite (#2, #4, #6, #8, #11, #12, #15, #16)', () => {
       />
     );
     fireEvent.click(getByText('Painel Científico'));
-    expect(c4.textContent).toContain('Grafo de Pré-Requisitos e PageRank');
-    expect(c4.textContent).toContain('Uplift Causal por Tipo de Ação');
+    expect(c4.textContent).toContain('Grafo de Pré-Requisitos e Importância Estrutural');
+    expect(c4.textContent).toContain('Ganho Causal por Tipo de Ação');
   });
 });

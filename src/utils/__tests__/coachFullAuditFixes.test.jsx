@@ -765,7 +765,7 @@ describe('Coach AI Complete Audit Regression Suite (Batches 1-3)', () => {
       // Timeout reports llm_timeout (not llm_invalid_output) and cache clones causes
       registerLLMProvider({
         id: 'slow-mock',
-        generateStructured: () => new Promise(() => {}),
+        generateStructured: () => new Promise(() => { }),
       });
       const timedOut = await explainCoachMetrics(
         { categoryName: 'Penal', urgencyScore: 70 },
@@ -873,11 +873,11 @@ describe('Coach AI Complete Audit Regression Suite (Batches 1-3)', () => {
         />
       );
 
-      fireEvent.click(screen.getByRole('button', { name: /Saúde & Drift/i }));
+      fireEvent.click(screen.getByRole('button', { name: /Saúde e Estabilidade/i }));
       expect(document.body.textContent).not.toContain('1969');
       expect(document.body.textContent).not.toContain('1970');
 
-      fireEvent.click(screen.getByRole('button', { name: /Feature Flags/i }));
+      fireEvent.click(screen.getByRole('button', { name: /Recursos do Motor/i }));
       const presetBtn = screen.getByRole('button', { name: /Conservador — Lotes 1 \+ 2/i });
       fireEvent.click(presetBtn);
       expect(readFlags('ui-null-check').useStateSpace).toBe(true);

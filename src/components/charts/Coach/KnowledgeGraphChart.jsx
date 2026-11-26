@@ -192,7 +192,7 @@ export const KnowledgeGraphChart = React.memo(function KnowledgeGraphChart({
                       fontSize={9}
                       fontFamily="monospace"
                     >
-                      {node.proficiencyPct}% • PR {Math.round(node.graphImportance * 100)}
+                      {node.proficiencyPct}% • Imp. {Math.round(node.graphImportance * 100)}
                     </text>
                   </g>
                 );
@@ -217,7 +217,7 @@ export const KnowledgeGraphChart = React.memo(function KnowledgeGraphChart({
               <div className="flex items-center justify-between gap-2">
                 <p className="font-bold text-white">{selectedNode.name}</p>
                 <span className="font-mono text-indigo-300">
-                  Importância (PageRank): {Math.round(selectedNode.graphImportance * 100)}/100
+                  Importância Estrutural: {Math.round(selectedNode.graphImportance * 100)}/100
                 </span>
               </div>
               <p className="text-slate-400">
