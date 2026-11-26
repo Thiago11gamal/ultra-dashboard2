@@ -9,6 +9,7 @@ import { clearUrgencyCache, clearMcCache, clearTopicsCache } from '../coachLogic
 import { compareEvaluationSummaries, saveEvaluationResult } from '../../engine/evaluation/coachEvaluator.js';
 import { bootstrapPromotionGate } from '../autoTunerGate.js';
 import { runAutoTunerCycle, saveBacktestReport, loadLastBacktestReport, saveTunerHistory } from '../../engine/optimization/autoTuner.js';
+import { EXPERIMENTAL_MATH_FLAGS } from '../../engine/optimization/flagOptimizer.js';
 import { mergeSimuladosWithCategoryHistory } from '../coachCausal.js';
 import { saveCausalModel, loadCausalModel } from '../../engine/causal/upliftModel.js';
 import { runCoachDriftGuard, saveModelHealthSnapshot, extractObservabilitySeries } from '../coachObservability.js';
@@ -145,11 +146,11 @@ describe('Coach Control Center — Data Integrity, Portuguese UI & Zero-Data-Err
     fireEvent.click(screen.getByRole('button', { name: /Otimizador Automático/i }));
     expect(screen.queryByText(/Recomendação aplicada aos recursos ativos/i)).toBeNull();
 
-    // Switch to Recursos do Motor and apply preset -> Travas / Ajustes Manuais card must reflect > 0 (not 0!)
+    // Switch to Recursos do Motor and apply preset -> Travas / Ajustes Manuais card must reflect exact EXPERIMENTAL_MATH_FLAGS count (23, not 0!)
     fireEvent.click(screen.getByRole('button', { name: /Recursos do Motor/i }));
     fireEvent.click(screen.getByRole('button', { name: /Conservador — Lotes 1 \+ 2/i }));
     expect(document.body.textContent).toContain('Fixados por perfil escolhido');
-    expect(document.body.textContent).toContain('22');
+    expect(document.body.textContent).toContain(String(EXPERIMENTAL_MATH_FLAGS.length));
   });
 
   it('4. mergeSimuladosWithCategoryHistory keeps standalone global simulados and extractObservabilitySeries deduplicates & rejects corrupted future dates', () => {
