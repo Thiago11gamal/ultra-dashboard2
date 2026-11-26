@@ -16,8 +16,14 @@ import {
 
 const EMPTY_CATEGORIES = Object.freeze([]);
 
+const PRESET_CATEGORY_ICONS = [
+    '📚', '⚖️', '🧮', '💻', '🌎', '📝',
+    '🏛️', '📊', '🧠', '🧪', '🔍', '🎯'
+];
+
 export default function CategoryEditor({ category, isOpen, onClose }) {
     const modalRef = useRef(null);
+    const initializedKeyRef = useRef(null);
 
     const updateCategoryFields = useAppStore(state => state.updateCategoryFields);
     const showToast = useToast();
@@ -40,23 +46,33 @@ export default function CategoryEditor({ category, isOpen, onClose }) {
     const nameInputId = useId();
     const maxScoreInputId = useId();
     const minCutoffInputId = useId();
+    const weightInputId = useId();
+    const examGroupInputId = useId();
     const colorInputId = useId();
 
-    const [minCutoff, setMinCutoff] = useState(category?.minCutoff ?? 0);
+    const [minCutoff, setMinCutoff] = useState(category?.minCutoff != null ? category.minCutoff : '');
     const [maxScore, setMaxScore] = useState(category?.maxScore ?? 100);
+    const [weight, setWeight] = useState(category?.weight ?? 10);
     const [name, setName] = useState(category?.name || '');
+    const [icon, setIcon] = useState(category?.icon || '📚');
     const [examGroup, setExamGroup] = useState(category?.examGroup || '');
     const [color, setColor] = useState(normalizeHexColor(category?.color, DEFAULT_CATEGORY_COLOR));
 
     useEffect(() => {
-        if (effectiveOpen && category) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
-            setMinCutoff(category.minCutoff ?? 0);
-            setMaxScore(category.maxScore ?? 100);
-            setName(category.name || '');
-            setExamGroup(category.examGroup || '');
-            setColor(normalizeHexColor(category.color, DEFAULT_CATEGORY_COLOR));
+        if (!effectiveOpen || !category) {
+            initializedKeyRef.current = null;
+            return;
         }
+        const catKey = String(category.id || category.name || '');
+        if (initializedKeyRef.current === catKey) return;
+        initializedKeyRef.current = catKey;
+        setMinCutoff(category.minCutoff != null ? category.minCutoff : '');
+        setMaxScore(category.maxScore ?? 100);
+        setWeight(category.weight ?? 10);
+        setName(category.name || '');
+        setIcon(category.icon || '📚');
+        setExamGroup(category.examGroup || '');
+        setColor(normalizeHexColor(category.color, DEFAULT_CATEGORY_COLOR));
     }, [effectiveOpen, category]);
 
     const canSave = Boolean(category) && name.trim().length > 0;
@@ -87,19 +103,24 @@ export default function CategoryEditor({ category, isOpen, onClose }) {
 
         const rawMax = Number(maxScore);
         const parsedMax = Number.isFinite(rawMax) && rawMax > 0 ? rawMax : 100;
-        const rawMin = Number(minCutoff);
-        const parsedMin = Number.isFinite(rawMin) && rawMin >= 0 ? rawMin : 0;
+        const hasMinCutoffInput = minCutoff !== null && minCutoff !== undefined && String(minCutoff).trim() !== '';
+        const rawMin = hasMinCutoffInput ? Number(minCutoff) : null;
+        const parsedMin = rawMin !== null && Number.isFinite(rawMin) && rawMin >= 0 ? rawMin : null;
 
-        const safeMin = Math.min(parsedMin, parsedMax);
+        const safeMin = parsedMin !== null ? Math.min(parsedMin, parsedMax) : null;
 
         // BUG-T15 FIX: Informar o usuário quando minCutoff foi clampado.
-        if (parsedMin > parsedMax) {
+        if (parsedMin !== null && parsedMin > parsedMax) {
             console.warn(
                 `[CategoryEditor] minCutoff (${parsedMin}) > maxScore (${parsedMax}). ` +
                 `Clampado para ${safeMin}.`
             );
             showToast(`Nota mínima ajustada para o limite máximo (${parsedMax}).`, 'warning');
         }
+        const rawWeight = Number(weight);
+        const safeWeight = Number.isFinite(rawWeight) && rawWeight > 0
+            ? Math.min(100, Math.max(0.5, rawWeight))
+            : 10;
         const safeColor = normalizeHexColor(color, DEFAULT_CATEGORY_COLOR);
         const roundedMax = Number(parsedMax.toFixed(2));
         const hasExistingMinScore =
@@ -115,8 +136,10 @@ export default function CategoryEditor({ category, isOpen, onClose }) {
 
         updateCategoryFields(category.id || category.name, {
             name: cleanName,
+            icon: icon || '📚',
             color: safeColor,
-            minCutoff: Number(safeMin.toFixed(2)),
+            weight: Number(safeWeight.toFixed(2)),
+            minCutoff: safeMin !== null ? Number(safeMin.toFixed(2)) : null,
             minScore: preservedMinScore,
             maxScore: roundedMax,
             examGroup: examGroup ? String(examGroup).trim() : null,
@@ -148,7 +171,7 @@ export default function CategoryEditor({ category, isOpen, onClose }) {
                 aria-modal="true"
                 aria-labelledby={titleId}
                 tabIndex={-1}
-                className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-sm shadow-2xl relative z-10 p-6 flex flex-col focus:outline-none"
+                className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto custom-scrollbar shadow-2xl relative z-10 p-6 flex flex-col focus:outline-none"
             >
                 <div className="flex justify-between items-center mb-4">
                     <div className="flex items-center gap-2 text-white">
@@ -193,8 +216,8 @@ export default function CategoryEditor({ category, isOpen, onClose }) {
                         )}
                     </div>
 
-                    <div className="flex gap-4">
-                        <div className="flex-1">
+                    <div className="grid grid-cols-3 gap-3">
+                        <div>
                             <label
                                 htmlFor={maxScoreInputId}
                                 className="block text-xs text-slate-400 font-bold uppercase mb-1"
@@ -214,11 +237,11 @@ export default function CategoryEditor({ category, isOpen, onClose }) {
                             />
                         </div>
 
-                        <div className="flex-1">
+                        <div>
                             <label
                                 htmlFor={minCutoffInputId}
                                 className="block text-xs text-slate-400 font-bold uppercase mb-1"
-                                title="Mínimo exigido pelo edital nesta matéria"
+                                title="Mínimo exigido pelo edital nesta matéria (opcional)"
                             >
                                 Nota Mínima
                             </label>
@@ -229,18 +252,44 @@ export default function CategoryEditor({ category, isOpen, onClose }) {
                                 min="0"
                                 max={maxScore}
                                 step="any"
+                                placeholder="Opcional"
                                 value={minCutoff}
                                 onChange={e => setMinCutoff(e.target.value)}
+                                className="w-full bg-slate-800 border border-slate-700 text-white placeholder-slate-500 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-purple-500"
+                            />
+                        </div>
+
+                        <div>
+                            <label
+                                htmlFor={weightInputId}
+                                className="block text-xs text-slate-400 font-bold uppercase mb-1"
+                                title="Peso ou número de questões da disciplina no edital"
+                            >
+                                Peso Edital
+                            </label>
+
+                            <input
+                                id={weightInputId}
+                                type="number"
+                                min="0.5"
+                                max="100"
+                                step="any"
+                                value={weight}
+                                onChange={e => setWeight(e.target.value)}
                                 className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-purple-500"
                             />
                         </div>
                     </div>
 
                     <div>
-                        <label className="block text-xs text-slate-400 font-bold uppercase mb-1">
+                        <label
+                            htmlFor={examGroupInputId}
+                            className="block text-xs text-slate-400 font-bold uppercase mb-1"
+                        >
                             Bloco do Edital (Opcional)
                         </label>
                         <select
+                            id={examGroupInputId}
                             value={examGroup}
                             onChange={(e) => setExamGroup(e.target.value)}
                             className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-purple-500"
@@ -250,6 +299,32 @@ export default function CategoryEditor({ category, isOpen, onClose }) {
                             <option value="especificos">Conhecimentos Específicos</option>
                             <option value="discursiva">Discursiva / Redação</option>
                         </select>
+                    </div>
+
+                    <div>
+                        <span className="block text-xs text-slate-400 font-bold uppercase mb-2">
+                            Ícone da Disciplina
+                        </span>
+                        <div className="grid grid-cols-6 gap-1.5">
+                            {PRESET_CATEGORY_ICONS.map((emoji) => {
+                                const isSelected = icon === emoji;
+                                return (
+                                    <button
+                                        key={emoji}
+                                        type="button"
+                                        onClick={() => setIcon(emoji)}
+                                        aria-label={`Ícone ${emoji}`}
+                                        aria-pressed={isSelected}
+                                        className={`h-8 rounded-lg flex items-center justify-center text-base transition-all cursor-pointer border ${isSelected
+                                                ? 'bg-purple-500/25 border-purple-400 ring-1 ring-purple-400/50 scale-105'
+                                                : 'bg-slate-800/80 border-slate-700/80 hover:bg-slate-800 hover:border-slate-500'
+                                            }`}
+                                    >
+                                        {emoji}
+                                    </button>
+                                );
+                            })}
+                        </div>
                     </div>
 
                     <div>
@@ -315,7 +390,7 @@ export default function CategoryEditor({ category, isOpen, onClose }) {
                                 }}
                                 title="Pré-visualização do tema da disciplina"
                             >
-                                <span className="text-sm">{category?.icon || '📚'}</span>
+                                <span className="text-sm">{icon || '📚'}</span>
                                 <span className="truncate">{name.trim() || 'Exemplo'}</span>
                             </div>
                         </div>

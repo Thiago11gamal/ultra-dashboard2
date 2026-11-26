@@ -4,8 +4,10 @@ import { markStorageDirty } from '../../utils/storageSafe.js';
 import { addCategoryTombstones, removeCategoryTombstone } from '../../utils/tombstones.js';
 import { normalize } from '../../utils/normalization.js';
 import { reconcileContestCategoriesHistory } from '../../utils/simuladoReconciler.js';
+import { getTaskXP } from '../../utils/gamification.js';
+import { clearCoachCaches } from '../../utils/coachCaches.js';
 
-export const createTrashSlice = (set) => ({
+export const createTrashSlice = (set, get) => ({
     archiveToTrash: (entry) => set((state) => {
         if (!entry || typeof entry !== 'object' || !entry.type || !entry.data) return;
         const nowIso = new Date().toISOString();
@@ -22,7 +24,10 @@ export const createTrashSlice = (set) => ({
         ].slice(-50);
     }),
 
-    restoreFromTrash: (trashId) => set((state) => {
+    restoreFromTrash: (trashId) => {
+        let restoredCompletedTaskXp = 0;
+        let restoredTaskContestId = null;
+        set((state) => {
         if (!state.appState.trash) return;
         const index = state.appState.trash.findIndex(t => t.id === trashId);
         if (index === -1) return;
@@ -157,6 +162,13 @@ export const createTrashSlice = (set) => ({
                 const normText = normalize(String(taskData.text || taskData.title || ''));
                 if (!tasks.some(t => t && (t.id === taskData.id || normalize(String(t.text || t.title || '')) === normText))) {
                     tasks.push({ ...taskData, updatedAt: new Date().toISOString() });
+                    if (taskData.completed) {
+                        const rawAwarded = taskData.awardedXP;
+                        restoredCompletedTaskXp = (rawAwarded !== undefined && rawAwarded !== null && Number.isFinite(Number(rawAwarded)))
+                            ? Math.abs(Number(rawAwarded))
+                            : Math.abs(getTaskXP(taskData, true));
+                        restoredTaskContestId = targetContestId;
+                    }
                 }
                 cat.tasks = tasks;
                 if (Array.isArray(cat.deletedTaskIds)) {
@@ -237,8 +249,18 @@ export const createTrashSlice = (set) => ({
         state.appState.trash.splice(index, 1);
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = new Date().toISOString();
+        clearCoachCaches();
         markStorageDirty();
-    }),
+        });
+        if (
+            restoredCompletedTaskXp > 0 &&
+            typeof get === 'function' &&
+            typeof get()?.awardExperience === 'function' &&
+            get()?.appState?.activeId === restoredTaskContestId
+        ) {
+            get().awardExperience(restoredCompletedTaskXp, { skipVersionBump: true });
+        }
+    },
 
     emptyTrash: () => set((state) => {
         const nowIso = new Date().toISOString();

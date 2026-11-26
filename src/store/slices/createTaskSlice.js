@@ -6,6 +6,7 @@ import { markStorageDirty } from '../../utils/storageSafe.js';
 import { normalizePriority } from '../../utils/colorHelper.js';
 import { normalize, isSubjectMatch } from '../../utils/normalization.js';
 import { matchesActiveSubjectTask } from '../../utils/pomodoroHelpers.js';
+import { clearCoachCaches } from '../../utils/coachCaches.js';
 
 const clearPomodoroSession = (state) => {
     const p = state.appState?.pomodoro;
@@ -110,6 +111,7 @@ export const createTaskSlice = (set, get) => ({
             activeData.lastUpdated = nowIso;
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = nowIso;
+            clearCoachCaches();
             markStorageDirty();
         });
         if (pendingXpChange !== 0 && get().awardExperience) {
@@ -295,6 +297,7 @@ export const createTaskSlice = (set, get) => ({
             activeData.lastUpdated = nowIso;
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = nowIso;
+            clearCoachCaches();
             markStorageDirty();
         }
     }),
@@ -367,9 +370,38 @@ export const createTaskSlice = (set, get) => ({
             };
         }
 
+        // Sincroniza título/prioridade em espelhos do Coach vinculados por sourceTaskId
+        if (currentTask.id) {
+            const syncCoachTaskUpdate = (ct) => {
+                if (!ct || !ct.sourceTaskId || String(ct.sourceTaskId) !== String(currentTask.id)) return;
+                const hadPrefix = /^Avan[çc]o de Edital\s*[—-]\s*/i.test(String(ct.topicName || ''));
+                ct.topicName = hadPrefix ? `Avanço de Edital — ${newTitle}` : newTitle;
+                if (typeof ct.title === 'string' && ct.title.includes(':')) {
+                    const prefix = ct.title.split(':')[0];
+                    ct.title = `${prefix}: ${newTitle}`;
+                } else if (ct.title) {
+                    ct.title = newTitle;
+                }
+                if (ct.text) ct.text = newTitle;
+                ct.priority = newPriority;
+                ct.updatedAt = nowIso;
+            };
+            if (activeData.coachPlan) {
+                const planList = Array.isArray(activeData.coachPlan) ? activeData.coachPlan : Object.values(activeData.coachPlan || {});
+                planList.forEach(syncCoachTaskUpdate);
+            }
+            if (activeData.coachPlanner && typeof activeData.coachPlanner === 'object') {
+                Object.values(activeData.coachPlanner).forEach(rawDayTasks => {
+                    const dayTasks = Array.isArray(rawDayTasks) ? rawDayTasks : Object.values(rawDayTasks || {});
+                    dayTasks.forEach(syncCoachTaskUpdate);
+                });
+            }
+        }
+
         activeData.lastUpdated = nowIso;
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = nowIso;
+        clearCoachCaches();
         markStorageDirty();
     }),
 
@@ -437,9 +469,27 @@ export const createTaskSlice = (set, get) => ({
                         { ...(tombstoneId ? { id: tombstoneId } : {}), ...(tombstoneText ? { text: tombstoneText } : {}), deletedAt: nowIso }
                     ].slice(-100);
                 }
+                if (task?.id) {
+                    const deletedIdStr = String(task.id);
+                    if (Array.isArray(activeData.coachPlan)) {
+                        activeData.coachPlan = activeData.coachPlan.filter(
+                            ct => !ct || !ct.sourceTaskId || String(ct.sourceTaskId) !== deletedIdStr
+                        );
+                    }
+                    if (activeData.coachPlanner && typeof activeData.coachPlanner === 'object') {
+                        Object.keys(activeData.coachPlanner).forEach(day => {
+                            if (Array.isArray(activeData.coachPlanner[day])) {
+                                activeData.coachPlanner[day] = activeData.coachPlanner[day].filter(
+                                    ct => !ct || !ct.sourceTaskId || String(ct.sourceTaskId) !== deletedIdStr
+                                );
+                            }
+                        });
+                    }
+                }
                 activeData.lastUpdated = nowIso;
                 state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = nowIso;
+                clearCoachCaches();
                 markStorageDirty();
             }
         });
@@ -508,9 +558,29 @@ export const createTaskSlice = (set, get) => ({
                 activeData.categories = [...categories];
 
                 const nowIso = new Date().toISOString();
+                if (task?.id) {
+                    const targetTaskIdStr = String(task.id);
+                    const syncCoachPriority = (ct) => {
+                        if (ct && ct.sourceTaskId && String(ct.sourceTaskId) === targetTaskIdStr) {
+                            ct.priority = newPriority;
+                            ct.updatedAt = nowIso;
+                        }
+                    };
+                    if (activeData.coachPlan) {
+                        const planList = Array.isArray(activeData.coachPlan) ? activeData.coachPlan : Object.values(activeData.coachPlan || {});
+                        planList.forEach(syncCoachPriority);
+                    }
+                    if (activeData.coachPlanner && typeof activeData.coachPlanner === 'object') {
+                        Object.values(activeData.coachPlanner).forEach(rawDayTasks => {
+                            const dayTasks = Array.isArray(rawDayTasks) ? rawDayTasks : Object.values(rawDayTasks || {});
+                            dayTasks.forEach(syncCoachPriority);
+                        });
+                    }
+                }
                 activeData.lastUpdated = nowIso;
                 state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = nowIso;
+                clearCoachCaches();
                 markStorageDirty();
             }
         });

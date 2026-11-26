@@ -104,7 +104,7 @@ export const SyllabusBurndownChart = React.memo(function SyllabusBurndownChart({
               </span>
             </div>
             <p className="text-[11px] text-slate-400 mt-1">
-              Ritmo real de tópicos concluídos vs. ritmo ideal até {data.hasGoalDate ? data.goalDateKey.split('-').reverse().join('/') : 'horizonte de 60 dias'}
+              Ritmo real de tópicos concluídos vs. ritmo ideal até {data.hasGoalDate && data.goalDateKey ? data.goalDateKey.split('-').reverse().join('/') : 'horizonte de 60 dias'}
             </p>
           </div>
         </div>
@@ -113,7 +113,8 @@ export const SyllabusBurndownChart = React.memo(function SyllabusBurndownChart({
           <button
             type="button"
             onClick={() => setMode('burnup')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all ${
+            aria-pressed={isBurnup}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
               isBurnup ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'text-slate-400 hover:text-white'
             }`}
           >
@@ -123,7 +124,8 @@ export const SyllabusBurndownChart = React.memo(function SyllabusBurndownChart({
           <button
             type="button"
             onClick={() => setMode('burndown')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all ${
+            aria-pressed={!isBurnup}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
               !isBurnup ? 'bg-sky-500/20 text-sky-300 border border-sky-500/40' : 'text-slate-400 hover:text-white'
             }`}
           >
@@ -148,15 +150,41 @@ export const SyllabusBurndownChart = React.memo(function SyllabusBurndownChart({
         <div className="rounded-xl bg-slate-950/60 border border-white/5 p-3">
           <p className="text-[9px] uppercase text-slate-500 font-bold">Ritmo Necessário</p>
           <p className="text-lg font-black font-mono text-amber-300">
-            {data.status === 'overdue' ? 'Prazo encerrado' : `${data.requiredWeeklyPace}/sem`}
+            {data.status === 'completed'
+              ? 'Meta atingida'
+              : data.status === 'overdue'
+                ? 'Prazo encerrado'
+                : `${data.requiredWeeklyPace}/sem`}
           </p>
         </div>
         <div className="rounded-xl bg-slate-950/60 border border-white/5 p-3">
           <p className="text-[9px] uppercase text-slate-500 font-bold">Previsão Fechamento</p>
           <p className="text-sm font-black font-mono text-sky-300 mt-0.5">
-            {data.projectedFinishKey ? data.projectedFinishKey.split('-').reverse().join('/') : 'Defina ritmo'}
+            {data.status === 'completed'
+              ? 'Concluído ✓'
+              : data.projectedFinishKey
+                ? data.projectedFinishKey.split('-').reverse().join('/')
+                : data.currentWeeklyPace > 0
+                  ? '> 2 anos'
+                  : 'Sem ritmo recente'}
           </p>
         </div>
+      </div>
+
+      {/* Legenda compacta */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-400 px-1">
+        <span className="inline-flex items-center gap-1.5">
+          <span className={`w-3 h-0.5 rounded-full ${isBurnup ? 'bg-emerald-400' : 'bg-sky-400'}`} />
+          <span>{isBurnup ? 'Concluídos (real)' : 'Restantes (real)'}</span>
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="w-3 border-t-2 border-dashed border-violet-400" />
+          <span>Projeção (ritmo 14d)</span>
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="w-3 border-t-2 border-dashed border-slate-500" />
+          <span>Ritmo ideal</span>
+        </span>
       </div>
 
       <ChartFrame minHeight={260} label="Calculando burndown do edital">

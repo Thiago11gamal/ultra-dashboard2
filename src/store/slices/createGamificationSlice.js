@@ -2,6 +2,7 @@ import { calculateLevel } from '../../utils/gamification.js';
 import { buildAchievementStats } from '../../utils/analytics.js';
 import { ACHIEVEMENTS } from '../../config/gamification.js';
 import { markStorageDirty } from '../../utils/storageSafe.js';
+import { sanitizePlainText } from '../../utils/sanitizeText.js';
 
 function applyGamificationInDraft(state, xpGained) {
     const activeData = state.appState.contests[state.appState.activeId];
@@ -89,11 +90,13 @@ export const createGamificationSlice = (set, get) => ({
     updateUserName: (name) => set((state) => {
         const activeData = state.appState.contests[state.appState.activeId];
         if (!activeData) return;
+        const cleanName = sanitizePlainText(typeof name === 'string' ? name.trim() : '');
+        if (!cleanName) return;
         const nowIso = new Date().toISOString();
         if (!activeData.user) activeData.user = {};
-        activeData.user.name = name;
-        activeData.contestName = name;
-        activeData.name = name;
+        activeData.user.name = cleanName;
+        activeData.contestName = cleanName;
+        activeData.name = cleanName;
         activeData.lastUpdated = nowIso;
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = nowIso;

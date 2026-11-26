@@ -12,11 +12,15 @@ import { useAppStore } from '../store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../hooks/useToast';
+import { useClockDate } from '../hooks/useClock';
 import { toArray } from '../utils/normalize';
+import { normalize } from '../utils/normalization';
 import { normalizePriority } from '../utils/colorHelper';
 import { clearUrgencyCache, clearTopicsCache } from '../utils/coachCaches';
 import { clearMcCache } from '../utils/coachAdaptive';
 import { resolveUserTargetScorePoints } from '../utils/scoreHelper';
+import { getDateKey } from '../utils/dateHelper';
+import { removeCategoryTombstone } from '../utils/tombstones';
 
 export default function Dashboard() {
     // P06 PERF FIX: Group store actions with useShallow to prevent re-rendering Dashboard on every store mutation
@@ -40,10 +44,18 @@ export default function Dashboard() {
 
     const showToast = useToast();
     const navigate = useNavigate();
+    const todayDate = useClockDate();
+    const dayTick = React.useMemo(() => getDateKey(todayDate), [todayDate]);
 
     const filter = useAppStore(state => state.appState?.dashboardFilter || 'all');
     const isHydrated = useAppStore(state => state.appState?.isHydrated);
     const activeId = useAppStore(state => state.appState?.activeId);
+
+    const [priorityFilterState, setPriorityFilterState] = React.useState({ contestId: null, value: 'all' });
+    const priorityFilter = priorityFilterState.contestId === activeId ? priorityFilterState.value : 'all';
+    const setPriorityFilter = React.useCallback((nextValue) => {
+        setPriorityFilterState({ contestId: activeId, value: nextValue || 'all' });
+    }, [activeId]);
 
     const contestsRaw = useAppStore(state => state.appState?.contests);
     const contests = React.useMemo(() => contestsRaw || {}, [contestsRaw]);
@@ -154,9 +166,8 @@ export default function Dashboard() {
 }, [setData, showToast]);
 
 const handleStartStudying = React.useCallback((categoryId, taskId) => {
-    const currentCategories = useAppStore.getState().appState?.contests?.[
-        useAppStore.getState().appState?.activeId
-    ]?.categories || [];
+    const storeState = useAppStore.getState().appState;
+    const currentCategories = storeState?.contests?.[storeState?.activeId]?.categories || [];
     const safeCategoriesList = Array.isArray(currentCategories)
         ? currentCategories
         : Object.values(currentCategories || {});
@@ -169,11 +180,11 @@ const handleStartStudying = React.useCallback((categoryId, taskId) => {
 
     if (!cat || !tsk) return;
 
-    const currentActiveSubject = useAppStore.getState().appState?.pomodoro?.activeSubject;
-        const categoryMatchesActive = Boolean(currentActiveSubject && (
-            (Boolean(cat.id) && currentActiveSubject.categoryId === cat.id) ||
-            (Boolean(cat.name) && (currentActiveSubject.category === cat.name || currentActiveSubject.categoryId === cat.name))
-        ));
+    const currentActiveSubject = storeState?.pomodoro?.activeSubject;
+    const categoryMatchesActive = Boolean(currentActiveSubject && (
+        (Boolean(cat.id) && currentActiveSubject.categoryId === cat.id) ||
+        (Boolean(cat.name) && (currentActiveSubject.category === cat.name || currentActiveSubject.categoryId === cat.name))
+    ));
     const taskMatchesActive = Boolean(currentActiveSubject && categoryMatchesActive && (
         (Boolean(tsk.id) && currentActiveSubject.taskId === tsk.id) ||
         (Boolean(taskId) && currentActiveSubject.taskId === taskId) ||
@@ -182,53 +193,14 @@ const handleStartStudying = React.useCallback((categoryId, taskId) => {
             (Boolean(tsk.text) && currentActiveSubject.task === tsk.text)
         ))
     ));
-    const isAlreadyActive = taskMatchesActive && tsk.status === 'studying';
+    const isAlreadyActive = taskMatchesActive && (tsk.status === 'studying' || Boolean(tsk.completed));
     if (isAlreadyActive) {
         navigate('/pomodoro');
         return;
     }
 
-    // Mantém uma única entrada no histórico de Undo (zundo) entre status 'studying' e startPomodoroSession
-    const temporalApi = useAppStore.temporal?.getState?.();
-    temporalApi?.pause?.();
-    try {
-        setData(activeContest => {
-            if (!activeContest || activeContest.categories == null) {
-                return activeContest;
-            }
-
-            return {
-                ...activeContest,
-                categories: toArray(activeContest.categories).map(c => {
-                    return {
-                        ...c,
-                        tasks: toArray(c.tasks).map(t => {
-                                if (!t || typeof t !== 'object') return t;
-                                const isMatchingCategory = (Boolean(c.id) && Boolean(cat.id) && c.id === cat.id) || (Boolean(c.name) && Boolean(cat.name) && c.name === cat.name);
-                                const isTargetTask = isMatchingCategory && (
-                                    (Boolean(tsk.id) && t.id === tsk.id) ||
-                                    (Boolean(taskId) && t.id === taskId) ||
-                                    (Boolean(tsk.text) && t.text === tsk.text) ||
-                                    (Boolean(tsk.title) && t.title === tsk.title)
-                                );
-                                if (isTargetTask) {
-                                    return { ...t, status: 'studying' };
-                                }
-
-                                if (t.status === 'studying') {
-                                    return { ...t, status: null };
-                                }
-
-                                return t;
-                            })
-                    };
-                })
-            };
-        });
-    } finally {
-        temporalApi?.resume?.();
-    }
-
+    // startPomodoroSession sincroniza task.status ('studying' apenas para tarefas pendentes)
+    // e ativa o Pomodoro atomicamente em uma única transação/entrada de Undo.
     startPomodoroSession({
         categoryId: cat.id || cat.name,
         taskId: tsk.id || taskId,
@@ -241,7 +213,7 @@ const handleStartStudying = React.useCallback((categoryId, taskId) => {
     const taskLabel = tsk.title || tsk.text || 'Estudo';
     showToast(`Iniciando estudos: ${cat.name} - ${taskLabel}`, 'success');
     navigate('/pomodoro');
-}, [startPomodoroSession, setData, showToast, navigate]);
+}, [startPomodoroSession, showToast, navigate]);
 
 const [bannerDismissed, setBannerDismissed] = React.useState(() => {
     try {
@@ -263,40 +235,115 @@ const handleDismissBanner = React.useCallback(() => {
 const hasTasks = React.useMemo(() => safeCategories.some(c => (c.tasks || []).length > 0), [safeCategories]);
 const [showSyllabusImporter, setShowSyllabusImporter] = React.useState(false);
 
+const handleOpenSyllabusImporter = React.useCallback(() => setShowSyllabusImporter(true), []);
+const handleCloseSyllabusImporter = React.useCallback(() => setShowSyllabusImporter(false), []);
+const handleClearPriorityFilter = React.useCallback(() => {
+    setPriorityFilterState({ contestId: activeId, value: 'all' });
+}, [activeId]);
+
+const pulseScoreConfig = React.useMemo(() => {
+    const dashMin = Number.isFinite(Number(data.minScore ?? data.settings?.minScore))
+        ? Number(data.minScore ?? data.settings?.minScore)
+        : 0;
+    const rawDashMax = Number(data.maxScore ?? data.settings?.maxScore);
+    const dashMax = Number.isFinite(rawDashMax) && rawDashMax > dashMin ? rawDashMax : Math.max(dashMin + 1, 100);
+    const dashTarget = resolveUserTargetScorePoints(data.user, dashMin, dashMax, 0.85);
+    return { dashMin, dashMax, dashTarget };
+}, [data.minScore, data.maxScore, data.settings?.minScore, data.settings?.maxScore, data.user]);
+
 const handleImportSyllabusCategories = React.useCallback((newCategories = []) => {
     if (!Array.isArray(newCategories) || newCategories.length === 0) return;
+    let addedCategoriesCount = 0;
+    let mergedCategoriesCount = 0;
+    let addedTopicsCount = 0;
+    const currentActiveContestId = useAppStore.getState().appState?.activeId;
+
     setData((contest) => {
         if (!contest) return contest;
+        const nowIso = new Date().toISOString();
+        const inheritedMax = Number(contest.maxScore) > 0 ? Number(contest.maxScore) : 100;
+        const inheritedMin = Number.isFinite(Number(contest.minScore)) ? Number(contest.minScore) : 0;
         const existing = Array.isArray(contest.categories)
             ? contest.categories
             : Object.values(contest.categories || {});
         const merged = [...existing];
+
         newCategories.forEach((incoming) => {
-            const idx = merged.findIndex((c) => c && String(c.name || '').trim().toLowerCase() === String(incoming.name || '').trim().toLowerCase());
+            if (!incoming || !incoming.name) return;
+            const normIncomingName = normalize(incoming.name);
+            if (!normIncomingName) return;
+            removeCategoryTombstone(incoming.id, incoming.name, currentActiveContestId);
+
+            const idx = merged.findIndex((c) => c && normalize(c.name || '') === normIncomingName);
             if (idx >= 0) {
-                const curTasks = Array.isArray(merged[idx].tasks) ? merged[idx].tasks : Object.values(merged[idx].tasks || {});
+                const targetCat = merged[idx];
+                removeCategoryTombstone(targetCat.id, targetCat.name, currentActiveContestId);
+                const curTasks = Array.isArray(targetCat.tasks) ? targetCat.tasks : Object.values(targetCat.tasks || {});
                 const dedupTasks = [...curTasks];
+                const readdedNorms = new Set();
+                let addedForCat = 0;
                 (incoming.tasks || []).forEach((t) => {
-                    if (!dedupTasks.some((x) => x && String(x.text || x.title || '').trim().toLowerCase() === String(t.text || '').trim().toLowerCase())) {
+                    const normT = normalize(String(t?.text || t?.title || ''));
+                    if (!normT) return;
+                    if (!dedupTasks.some((x) => x && normalize(String(x.text || x.title || '')) === normT)) {
                         dedupTasks.push(t);
+                        readdedNorms.add(normT);
+                        addedForCat += 1;
+                        addedTopicsCount += 1;
                     }
                 });
+                const nextDeletedTaskIds = Array.isArray(targetCat.deletedTaskIds) && readdedNorms.size > 0
+                    ? targetCat.deletedTaskIds.filter((entry) => entry && !readdedNorms.has(normalize(String(entry.text || ''))))
+                    : targetCat.deletedTaskIds;
+                const weightChanged = Boolean(incoming.weight && incoming.weight !== targetCat.weight);
+                const groupChanged = Boolean(incoming.examGroup && incoming.examGroup !== targetCat.examGroup);
+                if (addedForCat > 0 || weightChanged || groupChanged) {
+                    mergedCategoriesCount += 1;
+                }
                 merged[idx] = {
-                    ...merged[idx],
-                    weight: incoming.weight || merged[idx].weight,
+                    ...targetCat,
+                    weight: incoming.weight || targetCat.weight,
                     ...(incoming.examGroup ? { examGroup: incoming.examGroup } : {}),
+                    ...(nextDeletedTaskIds !== undefined ? { deletedTaskIds: nextDeletedTaskIds } : {}),
                     tasks: dedupTasks,
+                    lastUpdated: nowIso,
+                    updatedAt: nowIso,
                 };
             } else {
-                merged.push(incoming);
+                const incomingTasks = Array.isArray(incoming.tasks) ? incoming.tasks : [];
+                addedCategoriesCount += 1;
+                addedTopicsCount += incomingTasks.length;
+                merged.push({
+                    ...incoming,
+                    maxScore: Number(incoming.maxScore) > 0 ? Number(incoming.maxScore) : inheritedMax,
+                    minScore: Number.isFinite(Number(incoming.minScore)) ? Number(incoming.minScore) : inheritedMin,
+                    minCutoff: incoming.minCutoff ?? null,
+                    lastStudiedAt: incoming.lastStudiedAt ?? null,
+                    simuladoStats: incoming.simuladoStats || { history: [], average: 0, lastAttempt: 0, trend: 'stable', level: '-' },
+                    createdAt: incoming.createdAt || nowIso,
+                    lastUpdated: nowIso,
+                    updatedAt: nowIso,
+                });
             }
         });
-        return { ...contest, categories: merged, lastUpdated: new Date().toISOString() };
+        return { ...contest, categories: merged, lastUpdated: nowIso };
     });
     clearUrgencyCache();
     clearTopicsCache();
     clearMcCache();
-    showToast(`Edital importado: ${newCategories.length} matéria(s) adicionada(s)!`, 'success');
+    if (addedCategoriesCount === 0 && addedTopicsCount === 0 && mergedCategoriesCount === 0) {
+        showToast('Nenhum item novo: todas as matérias e assuntos já existem no painel.', 'info');
+    } else if (addedCategoriesCount > 0) {
+        showToast(
+            `Edital importado: ${addedCategoriesCount} ${addedCategoriesCount === 1 ? 'matéria nova' : 'matérias novas'} e ${addedTopicsCount} ${addedTopicsCount === 1 ? 'assunto' : 'assuntos'}!`,
+            'success'
+        );
+    } else {
+        showToast(
+            `Edital mesclado: ${addedTopicsCount} ${addedTopicsCount === 1 ? 'novo assunto adicionado' : 'novos assuntos adicionados'} em ${mergedCategoriesCount} ${mergedCategoriesCount === 1 ? 'matéria' : 'matérias'}!`,
+            'success'
+        );
+    }
 }, [setData, showToast]);
 
 if (!isHydrated) {
@@ -321,7 +368,7 @@ if (!isHydrated) {
 }
 
 return (
-    <PageErrorBoundary pageName="Dashboard">
+    <PageErrorBoundary pageName="Meu Painel">
         <div className="space-y-4 sm:space-y-5 animate-fade-in">
             {!bannerDismissed && (
                 <div className="hidden lg:flex items-center justify-between text-[13px] text-teal-300/90 bg-teal-500/10 border border-teal-500/20 px-3.5 py-2 rounded-xl mb-1 shadow-sm">
@@ -371,28 +418,19 @@ return (
                 </div>
             )}
 
-            {(() => {
-                const dashMin = Number.isFinite(Number(data.minScore ?? data.settings?.minScore))
-                    ? Number(data.minScore ?? data.settings?.minScore)
-                    : 0;
-                const rawDashMax = Number(data.maxScore ?? data.settings?.maxScore);
-                const dashMax = Number.isFinite(rawDashMax) && rawDashMax > dashMin ? rawDashMax : Math.max(dashMin + 1, 100);
-                const dashTarget = resolveUserTargetScorePoints(data.user, dashMin, dashMax, 0.85);
-                return (
-                    <AdaptivePulseStrip
-                        categories={data.categories}
-                        studyLogs={data.studyLogs}
-                        flashcardDecks={data.flashcardDecks}
-                        targetScore={dashTarget}
-                        minScore={dashMin}
-                        maxScore={dashMax}
-                        onOpenSyllabusImporter={() => setShowSyllabusImporter(true)}
-                    />
-                );
-            })()}
+            <AdaptivePulseStrip
+                categories={data.categories}
+                studyLogs={data.studyLogs}
+                flashcardDecks={data.flashcardDecks}
+                targetScore={pulseScoreConfig.dashTarget}
+                minScore={pulseScoreConfig.dashMin}
+                maxScore={pulseScoreConfig.dashMax}
+                onOpenSyllabusImporter={handleOpenSyllabusImporter}
+                dayTick={dayTick}
+            />
 
             <div className="tour-step-4">
-                <StatsCards data={data} onUpdateGoalDate={setGoalDate} />
+                <StatsCards data={data} onUpdateGoalDate={setGoalDate} dayTick={dayTick} />
             </div>
 
             {hasTasks && (
@@ -405,14 +443,19 @@ return (
                         maxScore={data.maxScore ?? data.settings?.maxScore}
                         minScore={data.minScore ?? data.settings?.minScore}
                         onStartStudying={handleStartStudying}
+                        dayTick={dayTick}
                     />
                 </div>
             )}
 
-            <PriorityProgress categories={data.categories} />
+            <PriorityProgress
+                categories={data.categories}
+                activePriority={priorityFilter}
+                onSelectPriority={setPriorityFilter}
+            />
 
             {hasTasks && (
-                <SyllabusBurndownChart categories={data.categories} user={data.user} />
+                <SyllabusBurndownChart categories={data.categories} user={data.user} dayTick={dayTick} />
             )}
 
             <div className="tour-step-6">
@@ -429,6 +472,9 @@ return (
                     showSimuladoStats
                     filter={filter}
                     setFilter={setDashboardFilter}
+                    priorityFilter={priorityFilter}
+                    onClearPriorityFilter={handleClearPriorityFilter}
+                    onOpenSyllabusImporter={handleOpenSyllabusImporter}
                     contests={contests}
                     activeId={activeId}
                     onImportCategory={importCategory}
@@ -436,7 +482,7 @@ return (
             </div>
             <SyllabusImporterModal
                 isOpen={showSyllabusImporter}
-                onClose={() => setShowSyllabusImporter(false)}
+                onClose={handleCloseSyllabusImporter}
                 onImportCategories={handleImportSyllabusCategories}
             />
         </div>

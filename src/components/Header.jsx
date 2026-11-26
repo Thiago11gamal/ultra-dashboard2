@@ -62,16 +62,18 @@ const Header = React.memo(function Header({
         return typeof raw === 'string' && raw.trim() ? raw.trim() : null;
     }, [contests, activeContestId]);
 
+    const todayDate = useClockDate();
+    const todayKey = useMemo(() => getDateKey(todayDate), [todayDate]);
+
     const daysToGoal = useMemo(() => {
-        if (!user?.goalDate) return null;
-        const todayKey = getDateKey(new Date());
+        if (!user?.goalDate || !todayKey) return null;
         const goalKey = getDateKey(user.goalDate);
-        if (!todayKey || !goalKey) return null;
+        if (!goalKey) return null;
         const tNoon = parseNoonLocal(todayKey);
         const gNoon = parseNoonLocal(goalKey);
         if (!tNoon || !gNoon) return null;
         return Math.round((gNoon.getTime() - tNoon.getTime()) / 86400000);
-    }, [user?.goalDate]);
+    }, [user?.goalDate, todayKey]);
     const [localName, setLocalName] = useState(displayName);
     const [isOffline, setIsOffline] = useState(() => (typeof navigator !== 'undefined' ? navigator.onLine === false : false));
     const prevDisplayNameRef = useRef(displayName);

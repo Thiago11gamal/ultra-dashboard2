@@ -6,12 +6,14 @@ import { addCategoryTombstones, removeCategoryTombstone } from '../../utils/tomb
 import { getCalibrationKey } from '../../utils/coachSafe.js';
 import { PRESET_CATEGORY_COLORS } from '../../utils/colorHelper.js';
 import { computeCategorySimuladoStats } from '../../utils/simuladoReconciler.js';
+import { clearCoachCaches } from '../../utils/coachCaches.js';
 
 export const createCategorySlice = (set) => ({
     addCategory: (name) => {
         let added = false;
         set((state) => {
-            if (!name || typeof name !== 'string') return;
+            const trimmedName = typeof name === 'string' ? name.trim() : '';
+            if (!trimmedName) return;
             const activeData = state.appState.contests[state.appState.activeId];
 
             if (!activeData) return;
@@ -22,9 +24,9 @@ export const createCategorySlice = (set) => ({
             }
 
             // BUG FIX: Prevent duplicate categories by name
-            const normName = normalize(name);
-            if (activeData.categories.some(c => normalize(c.name) === normName)) {
-                console.warn(`[Store] Category "${name}" already exists.`);
+            const normName = normalize(trimmedName);
+            if (activeData.categories.some(c => normalize(c?.name || '') === normName)) {
+                console.warn(`[Store] Category "${trimmedName}" already exists.`);
                 return;
             }
 
@@ -37,7 +39,7 @@ export const createCategorySlice = (set) => ({
             const nowIso = new Date().toISOString();
             activeData.categories.push({
                 id: newCatId,
-                name,
+                name: trimmedName,
                 color: assignedColor,
                 icon: '📚',
                 tasks: [],
@@ -45,7 +47,7 @@ export const createCategorySlice = (set) => ({
                 maxScore: catMaxScore,
                 minScore: catMinScore,
                 minCutoff: null,
-                simuladoStats: { history: [], average: 0, lastAttempt: 0, trend: 'stable', level: 'BAIXO' },
+                simuladoStats: { history: [], average: 0, lastAttempt: 0, trend: 'stable', level: '-' },
                 totalMinutes: 0,
                 lastStudiedAt: null,
                 createdAt: nowIso,
@@ -54,10 +56,11 @@ export const createCategorySlice = (set) => ({
             });
 
             // ✅ Remove qualquer tombstone prévio para permitir salvar e sincronizar perfeitamente
-            removeCategoryTombstone(newCatId, name, state.appState.activeId);
+            removeCategoryTombstone(newCatId, trimmedName, state.appState.activeId);
             activeData.lastUpdated = nowIso;
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = nowIso;
+            clearCoachCaches();
             markStorageDirty();
             added = true;
         });
@@ -87,15 +90,22 @@ export const createCategorySlice = (set) => ({
                 return false;
             });
 
+            const matchesCoachTask = (task) => Boolean(
+                task && (
+                    matchesCatId(task.categoryId) ||
+                    (normName && normalize(task.subject || task.category || task.categoryName || task.catName || '') === normName)
+                )
+            );
+
             const deletedCoachPlan = Array.isArray(activeData.coachPlan)
-                ? activeData.coachPlan.filter(task => task && matchesCatId(task.categoryId))
+                ? activeData.coachPlan.filter(matchesCoachTask)
                 : [];
 
             const deletedCoachPlanner = {};
             if (activeData.coachPlanner && typeof activeData.coachPlanner === 'object') {
                 Object.keys(activeData.coachPlanner).forEach(day => {
                     if (Array.isArray(activeData.coachPlanner[day])) {
-                        deletedCoachPlanner[day] = activeData.coachPlanner[day].filter(task => task && matchesCatId(task.categoryId));
+                        deletedCoachPlanner[day] = activeData.coachPlanner[day].filter(matchesCoachTask);
                     }
                 });
             }
@@ -172,11 +182,18 @@ export const createCategorySlice = (set) => ({
             }
         }
 
+        const matchesCoachItem = (item) => Boolean(
+            item && (
+                matchesCatId(item.categoryId) ||
+                (normName && normalize(item.subject || item.category || item.categoryName || item.catName || '') === normName)
+            )
+        );
+
         if (activeData.coachPlanner) {
             Object.keys(activeData.coachPlanner).forEach(day => {
                 if (Array.isArray(activeData.coachPlanner[day])) {
                     activeData.coachPlanner[day] = activeData.coachPlanner[day].filter(item =>
-                        !matchesCatId(item.categoryId)
+                        !matchesCoachItem(item)
                     );
                 }
             });
@@ -184,7 +201,7 @@ export const createCategorySlice = (set) => ({
 
         if (Array.isArray(activeData.coachPlan)) {
             activeData.coachPlan = activeData.coachPlan.filter(
-                task => !matchesCatId(task.categoryId)
+                task => !matchesCoachItem(task)
             );
         }
 
@@ -238,10 +255,12 @@ export const createCategorySlice = (set) => ({
         activeData.lastUpdated = nowIso;
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = nowIso;
+        clearCoachCaches();
         markStorageDirty();
     }),
 
     updateCategoryFields: (id, fields) => set((state) => {
+        if (!fields || typeof fields !== 'object') return;
         const activeData = state.appState.contests[state.appState.activeId];
         if (!activeData) return;
         if (!Array.isArray(activeData.categories)) {
@@ -255,10 +274,44 @@ export const createCategorySlice = (set) => ({
             const targetId = category.id;
             const matchesCatId = (candId) => Boolean(candId) && (candId === targetId || candId === id);
             const oldName = category.name;
-            Object.assign(category, fields);
-            if (fields.name) {
-                removeCategoryTombstone(category.id, fields.name, state.appState.activeId);
-                if (oldName && fields.name !== oldName) {
+            const sanitizedFields = { ...fields };
+            if (typeof sanitizedFields.name === 'string') {
+                const trimmed = sanitizedFields.name.trim();
+                if (!trimmed) {
+                    delete sanitizedFields.name;
+                } else {
+                    const normTarget = normalize(trimmed);
+                    const hasDuplicate = activeData.categories.some(
+                        c => c && c !== category && c.id !== category.id && normalize(c.name || '') === normTarget
+                    );
+                    if (hasDuplicate) {
+                        console.warn(`[Store] Duplicate category rename rejected: "${trimmed}".`);
+                        return;
+                    }
+                    sanitizedFields.name = trimmed;
+                }
+            }
+            Object.assign(category, sanitizedFields);
+            if (sanitizedFields.weight !== undefined) {
+                const parsedWeight = Number(sanitizedFields.weight);
+                if (Number.isFinite(parsedWeight) && parsedWeight > 0) {
+                    category.weight = parsedWeight;
+                    const isEqualMode = typeof activeData.mcEqualWeights === 'boolean'
+                        ? activeData.mcEqualWeights
+                        : Boolean(state.appState?.mcEqualWeights);
+                    if (!isEqualMode && activeData.mcWeights && typeof activeData.mcWeights === 'object') {
+                        if (targetId && activeData.mcWeights[targetId] !== undefined) {
+                            activeData.mcWeights[targetId] = parsedWeight;
+                        }
+                        if (category.name && activeData.mcWeights[category.name] !== undefined) {
+                            activeData.mcWeights[category.name] = parsedWeight;
+                        }
+                    }
+                }
+            }
+            if (sanitizedFields.name) {
+                removeCategoryTombstone(category.id, sanitizedFields.name, state.appState.activeId);
+                if (oldName && sanitizedFields.name !== oldName) {
                     const toIterableList = (col) => (
                         Array.isArray(col)
                             ? col
@@ -266,7 +319,7 @@ export const createCategorySlice = (set) => ({
                     );
                     if (activeData.mcWeights) {
                         if (activeData.mcWeights[oldName] !== undefined) {
-                            activeData.mcWeights[fields.name] = activeData.mcWeights[oldName];
+                            activeData.mcWeights[sanitizedFields.name] = activeData.mcWeights[oldName];
                             delete activeData.mcWeights[oldName];
                         }
                     }
@@ -274,7 +327,7 @@ export const createCategorySlice = (set) => ({
                     if (rowsList) {
                         rowsList.forEach(r => {
                             if (r && (matchesCatId(r.categoryId) || normalize(r.subject || '') === normalize(oldName))) {
-                                r.subject = fields.name;
+                                r.subject = sanitizedFields.name;
                             }
                         });
                     }
@@ -283,14 +336,14 @@ export const createCategorySlice = (set) => ({
                         simsList.forEach(s => {
                             if (!s) return;
                             if (matchesCatId(s.categoryId) || normalize(s.subject || '') === normalize(oldName)) {
-                                s.subject = fields.name;
+                                s.subject = sanitizedFields.name;
                             }
                             if (s.categoryScores && typeof s.categoryScores === 'object' && !Array.isArray(s.categoryScores)) {
                                 const matchingKey = Object.keys(s.categoryScores).find(
                                     k => k === oldName || normalize(k) === normalize(oldName)
                                 );
-                                if (matchingKey && matchingKey !== fields.name) {
-                                    s.categoryScores[fields.name] = s.categoryScores[matchingKey];
+                                if (matchingKey && matchingKey !== sanitizedFields.name) {
+                                    s.categoryScores[sanitizedFields.name] = s.categoryScores[matchingKey];
                                     delete s.categoryScores[matchingKey];
                                 }
                             }
@@ -300,9 +353,9 @@ export const createCategorySlice = (set) => ({
                     if (logsList) {
                         logsList.forEach(l => {
                             if (l && (matchesCatId(l.categoryId) || normalize(l.subject || l.category || l.categoryName || '') === normalize(oldName))) {
-                                if (l.subject) l.subject = fields.name;
-                                if (l.category) l.category = fields.name;
-                                if (l.categoryName) l.categoryName = fields.name;
+                                if (l.subject) l.subject = sanitizedFields.name;
+                                if (l.category) l.category = sanitizedFields.name;
+                                if (l.categoryName) l.categoryName = sanitizedFields.name;
                             }
                         });
                     }
@@ -310,23 +363,23 @@ export const createCategorySlice = (set) => ({
                     if (sessionsList) {
                         sessionsList.forEach(s => {
                             if (s && (matchesCatId(s.categoryId) || normalize(s.subject || s.category || s.categoryName || '') === normalize(oldName))) {
-                                if (s.subject) s.subject = fields.name;
-                                if (s.category) s.category = fields.name;
-                                if (s.categoryName) s.categoryName = fields.name;
+                                if (s.subject) s.subject = sanitizedFields.name;
+                                if (s.category) s.category = sanitizedFields.name;
+                                if (s.categoryName) s.categoryName = sanitizedFields.name;
                             }
                         });
                     }
                     const activeSub = state.appState.pomodoro?.activeSubject;
                     if (activeSub && (matchesCatId(activeSub.categoryId) || normalize(activeSub.category || '') === normalize(oldName))) {
-                        activeSub.category = fields.name;
+                        activeSub.category = sanitizedFields.name;
                     }
                     if (activeData.coachPlan) {
                         const planList = Array.isArray(activeData.coachPlan) ? activeData.coachPlan : Object.values(activeData.coachPlan || {});
                         planList.forEach(item => {
                             if (item && (matchesCatId(item.categoryId) || normalize(item.subject || item.category || item.categoryName || '') === normalize(oldName))) {
-                                if (item.subject) item.subject = fields.name;
-                                if (item.category) item.category = fields.name;
-                                if (item.categoryName) item.categoryName = fields.name;
+                                if (item.subject) item.subject = sanitizedFields.name;
+                                if (item.category) item.category = sanitizedFields.name;
+                                if (item.categoryName) item.categoryName = sanitizedFields.name;
                             }
                         });
                     }
@@ -335,9 +388,9 @@ export const createCategorySlice = (set) => ({
                             if (Array.isArray(dayTasks)) {
                                 dayTasks.forEach(item => {
                                     if (item && (matchesCatId(item.categoryId) || normalize(item.subject || item.category || item.categoryName || '') === normalize(oldName))) {
-                                        if (item.subject) item.subject = fields.name;
-                                        if (item.category) item.category = fields.name;
-                                        if (item.categoryName) item.categoryName = fields.name;
+                                        if (item.subject) item.subject = sanitizedFields.name;
+                                        if (item.category) item.category = sanitizedFields.name;
+                                        if (item.categoryName) item.categoryName = sanitizedFields.name;
                                     }
                                 });
                             }
@@ -347,11 +400,23 @@ export const createCategorySlice = (set) => ({
                         const decks = Array.isArray(activeData.flashcardDecks) ? activeData.flashcardDecks : Object.values(activeData.flashcardDecks || {});
                         decks.forEach(deck => {
                             if (deck && (matchesCatId(deck.categoryId) || normalize(deck.subject || deck.category || deck.categoryName || '') === normalize(oldName))) {
-                                if (deck.subject) deck.subject = fields.name;
-                                if (deck.category) deck.category = fields.name;
-                                if (deck.categoryName) deck.categoryName = fields.name;
+                                if (deck.subject) deck.subject = sanitizedFields.name;
+                                if (deck.category) deck.category = sanitizedFields.name;
+                                if (deck.categoryName) deck.categoryName = sanitizedFields.name;
                             }
                         });
+                    }
+                    if (activeData.agenda) {
+                        const agendaList = toIterableList(activeData.agenda);
+                        if (agendaList) {
+                            agendaList.forEach(ev => {
+                                if (ev && (matchesCatId(ev.categoryId) || normalize(ev.subject || ev.category || ev.categoryName || '') === normalize(oldName))) {
+                                    if (ev.subject) ev.subject = sanitizedFields.name;
+                                    if (ev.category) ev.category = sanitizedFields.name;
+                                    if (ev.categoryName) ev.categoryName = sanitizedFields.name;
+                                }
+                            });
+                        }
                     }
                 }
             }
@@ -361,6 +426,7 @@ export const createCategorySlice = (set) => ({
             activeData.lastUpdated = nowIso;
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = nowIso;
+            clearCoachCaches();
             markStorageDirty();
         }
     }),
@@ -680,8 +746,9 @@ export const createCategorySlice = (set) => ({
                 average: 0,
                 lastAttempt: 0,
                 trend: 'stable',
-                level: 'BAIXO'
+                level: '-'
             };
+            importedCat.deletedTaskIds = [];
 
             const nowIso = new Date().toISOString();
             importedCat.createdAt = nowIso;
@@ -707,6 +774,7 @@ export const createCategorySlice = (set) => ({
             activeData.lastUpdated = nowIso;
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = nowIso;
+            clearCoachCaches();
             markStorageDirty();
             result = true;
         });

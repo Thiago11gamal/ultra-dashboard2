@@ -5,50 +5,63 @@ import { PRIORITY_CONFIG, normalizePriority } from '../utils/colorHelper';
 
 const priorityColors = PRIORITY_CONFIG;
 
-    function PriorityProgress({ categories = [] }) {
-        const stats = useMemo(() => {
-            const taskCounts = {
-                high: { total: 0, completed: 0 },
-                medium: { total: 0, completed: 0 },
-                low: { total: 0, completed: 0 }
-            };
-            const weightedCounts = {
-                high: { total: 0, completed: 0 },
-                medium: { total: 0, completed: 0 },
-                low: { total: 0, completed: 0 }
-            };
-            let totalRealTasks = 0;
-            let totalRealCompleted = 0;
-            let totalWeightedTasks = 0;
-            let totalWeightedCompleted = 0;
+function PriorityProgress({ categories = [], activePriority = 'all', onSelectPriority = null }) {
+    const stats = useMemo(() => {
+        const taskCounts = {
+            high: { total: 0, completed: 0 },
+            medium: { total: 0, completed: 0 },
+            low: { total: 0, completed: 0 }
+        };
+        const weightedCounts = {
+            high: { total: 0, completed: 0 },
+            medium: { total: 0, completed: 0 },
+            low: { total: 0, completed: 0 }
+        };
+        let totalRealTasks = 0;
+        let totalRealCompleted = 0;
+        let totalWeightedTasks = 0;
+        let totalWeightedCompleted = 0;
+        const distinctWeights = new Set();
 
-            toArray(categories).forEach(cat => {
-                const weight = Number(cat?.weight) || 5; // padrão 5 se ausente
-                    toArray(cat?.tasks)
-                        .filter(task => task && typeof task === 'object' && (task.title || task.text || task.id))
-                        .forEach(task => {
-                            const priorityKey = normalizePriority(task?.priority);
+        toArray(categories).forEach(cat => {
+            const parsedW = Number(cat?.weight);
+            const weight = Number.isFinite(parsedW) && parsedW > 0 ? parsedW : 5; // padrão 5 se ausente
+            const validTasks = toArray(cat?.tasks)
+                .filter(task => task && typeof task === 'object' && (task.title || task.text || task.id));
+            if (validTasks.length > 0) {
+                distinctWeights.add(weight);
+            }
+            validTasks.forEach(task => {
+                const priorityKey = normalizePriority(task?.priority);
 
-                            taskCounts[priorityKey].total += 1;
-                            totalRealTasks += 1;
+                taskCounts[priorityKey].total += 1;
+                totalRealTasks += 1;
 
-                            weightedCounts[priorityKey].total += weight;
-                            totalWeightedTasks += weight;
+                weightedCounts[priorityKey].total += weight;
+                totalWeightedTasks += weight;
 
-                                if (task?.completed) {
-                                    taskCounts[priorityKey].completed += 1;
-                                    totalRealCompleted += 1;
+                if (task?.completed) {
+                    taskCounts[priorityKey].completed += 1;
+                    totalRealCompleted += 1;
 
                     weightedCounts[priorityKey].completed += weight;
                     totalWeightedCompleted += weight;
                 }
-                });
+            });
         });
 
-        return { taskCounts, weightedCounts, totalRealTasks, totalRealCompleted, totalWeightedTasks, totalWeightedCompleted };
+        return {
+            taskCounts,
+            weightedCounts,
+            totalRealTasks,
+            totalRealCompleted,
+            totalWeightedTasks,
+            totalWeightedCompleted,
+            hasDistinctWeights: distinctWeights.size > 1
+        };
     }, [categories]);
 
-    const { taskCounts, totalRealTasks, totalRealCompleted } = stats;
+    const { taskCounts, totalRealTasks, totalRealCompleted, totalWeightedTasks, totalWeightedCompleted, hasDistinctWeights } = stats;
     const priorities = ['high', 'medium', 'low'];
 
     if (totalRealTasks === 0) return null;
@@ -56,6 +69,12 @@ const priorityColors = PRIORITY_CONFIG;
     const globalPct = totalRealTasks > 0
         ? Math.round((totalRealCompleted / totalRealTasks) * 100)
         : 0;
+    const weightedPct = totalWeightedTasks > 0
+        ? Math.round((totalWeightedCompleted / totalWeightedTasks) * 100)
+        : globalPct;
+    const globalDisplayPct = totalRealCompleted > 0 && globalPct === 0 ? '< 1%' : `${globalPct}%`;
+    const globalBarWidth = totalRealCompleted > 0 ? Math.max(2, globalPct) : 0;
+    const isInteractive = typeof onSelectPriority === 'function';
 
     return (
         <div className="space-y-4">
@@ -86,14 +105,24 @@ const priorityColors = PRIORITY_CONFIG;
                                 </span>
                             </span>
 
-                            <h3 className="text-xl font-bold text-white tracking-tight leading-tight">
-                                Conclusão de assuntos
-                            </h3>
+                            <div className="flex items-center gap-2.5 flex-wrap">
+                                <h3 className="text-xl font-bold text-white tracking-tight leading-tight">
+                                    Conclusão de assuntos
+                                </h3>
+                                {hasDistinctWeights && weightedPct !== globalPct && (
+                                    <span
+                                        className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-indigo-500/15 border border-indigo-400/30 text-indigo-200 tabular-nums"
+                                        title="Percentual ponderado pelo peso de cada disciplina no edital"
+                                    >
+                                        Ponderado: {weightedPct}%
+                                    </span>
+                                )}
+                            </div>
                         </div>
 
                         <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between w-full sm:w-auto border-t sm:border-t-0 border-white/5 pt-3 sm:pt-0">
                             <span className="text-[1.75rem] font-bold leading-none tabular-nums tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-blue-400">
-                                {globalPct}%
+                                {globalDisplayPct}
                             </span>
 
                             <p className="text-[13px] text-slate-400 sm:mt-1.5 tabular-nums">
@@ -110,10 +139,10 @@ const priorityColors = PRIORITY_CONFIG;
                         aria-valuenow={globalPct}
                         className="w-full h-4 bg-black/40 rounded-full overflow-hidden border border-white/10 shadow-inner p-[2px]"
                     >
-                        {globalPct > 0 ? (
+                        {globalBarWidth > 0 ? (
                             <div
                                 className="h-full rounded-full bg-gradient-to-r from-purple-600 to-blue-500 transition-all duration-1000 ease-out shadow-[0_0_20px_rgba(168,85,247,0.5)] relative overflow-hidden"
-                                style={{ width: `${globalPct}%` }}
+                                style={{ width: `${globalBarWidth}%` }}
                             >
                                 <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full animate-[shimmer_2s_infinite]" />
                             </div>
@@ -129,12 +158,34 @@ const priorityColors = PRIORITY_CONFIG;
                 {priorities.map(p => {
                     const { total, completed } = taskCounts[p];
                     const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+                    const displayPct = completed > 0 && pct === 0 ? '< 1%' : `${pct}%`;
+                    const barWidth = completed > 0 ? Math.max(2, pct) : 0;
                     const conf = priorityColors[p];
+                    const isSelected = activePriority === p;
+
+                    const handleCardClick = () => {
+                        if (!isInteractive) return;
+                        onSelectPriority(isSelected ? 'all' : p);
+                    };
+
+                    const handleCardKeyDown = (e) => {
+                        if (!isInteractive) return;
+                        if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            handleCardClick();
+                        }
+                    };
 
                     return (
                         <div
                             key={p}
-                            className={`p-5 rounded-2xl border transition-all duration-500 group shadow-lg relative ${conf.border} ${conf.bg} backdrop-blur-xl hover:bg-white/[0.07] hover:shadow-2xl hover:-translate-y-1`}
+                            role={isInteractive ? 'button' : undefined}
+                            tabIndex={isInteractive ? 0 : undefined}
+                            aria-pressed={isInteractive ? isSelected : undefined}
+                            onClick={isInteractive ? handleCardClick : undefined}
+                            onKeyDown={isInteractive ? handleCardKeyDown : undefined}
+                            title={isInteractive ? (isSelected ? 'Clique para remover o filtro de prioridade' : `Filtrar edital por prioridade ${conf.label.toLowerCase()}`) : undefined}
+                            className={`p-5 rounded-2xl border transition-all duration-500 group shadow-lg relative ${conf.border} ${conf.bg} backdrop-blur-xl hover:bg-white/[0.07] hover:shadow-2xl hover:-translate-y-1 ${isInteractive ? 'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/60' : ''} ${isSelected ? 'ring-2 ring-white/70 bg-white/[0.08] -translate-y-0.5' : ''}`}
                         >
                             <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
                                 <div className={`absolute -top-12 -left-12 w-32 h-32 rounded-full blur-[50px] opacity-20 transition-all duration-700 group-hover:opacity-40 ${p === 'high'
@@ -153,13 +204,14 @@ const priorityColors = PRIORITY_CONFIG;
                                         <span
                                             className="relative group/tooltip cursor-help ml-1 inline-flex focus-visible:outline-none rounded"
                                             tabIndex={0}
+                                            onClick={(e) => e.stopPropagation()}
                                         >
                                             <Info
                                                 size={14}
                                                 className={`${conf.text} opacity-50 hover:opacity-100 transition-opacity`}
                                             />
 
-                                            <span className="absolute top-full left-0 mt-2 w-60 p-3 bg-slate-900/95 backdrop-blur-md text-xs text-slate-300 rounded-xl shadow-2xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible group-focus-within/tooltip:opacity-100 group-focus-within/tooltip:visible transition-all duration-300 z-[60] pointer-events-none border border-slate-700/80 leading-relaxed font-normal tracking-normal normal-case">
+                                            <span className={`absolute top-full mt-2 w-60 p-3 bg-slate-900/95 backdrop-blur-md text-xs text-slate-300 rounded-xl shadow-2xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible group-focus-within/tooltip:opacity-100 group-focus-within/tooltip:visible transition-all duration-300 z-[60] pointer-events-none border border-slate-700/80 leading-relaxed font-normal tracking-normal normal-case ${p === 'low' ? 'right-0 md:right-0' : 'left-0'}`}>
                                                 <strong className="text-white">{conf.label}:</strong>{' '}
                                                 {p === 'high'
                                                     ? 'Tarefas mais urgentes e importantes. Priorize-as primeiro.'
@@ -183,11 +235,11 @@ const priorityColors = PRIORITY_CONFIG;
                                     aria-valuenow={pct}
                                     className="w-full h-2.5 bg-black/40 rounded-full overflow-hidden border border-white/10 shadow-inner relative"
                                 >
-                                    {pct > 0 ? (
+                                    {barWidth > 0 ? (
                                         <div
                                             className={`h-full rounded-full ${conf.bar} transition-all duration-1000 ease-out`}
                                             style={{
-                                                width: `${pct}%`,
+                                                width: `${barWidth}%`,
                                                 boxShadow: `0 0 15px ${conf.glow}`
                                             }}
                                         />
@@ -196,9 +248,18 @@ const priorityColors = PRIORITY_CONFIG;
                                     )}
                                 </div>
 
-                                <div className="flex justify-end">
+                                <div className="flex items-center justify-between">
+                                    {isSelected ? (
+                                        <span className="text-[11px] font-semibold text-white/90 bg-white/10 px-2 py-0.5 rounded-full">
+                                            Filtro ativo
+                                        </span>
+                                    ) : (
+                                        <span className="text-[11px] text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            {isInteractive ? 'Filtrar lista' : ''}
+                                        </span>
+                                    )}
                                     <span className={`text-[13px] font-semibold ${conf.text} leading-none tabular-nums`}>
-                                        {pct}% concluído
+                                        {displayPct} concluído
                                     </span>
                                 </div>
                             </div>

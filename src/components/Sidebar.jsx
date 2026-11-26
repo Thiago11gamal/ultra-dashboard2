@@ -153,16 +153,16 @@ const Sidebar = React.memo(function Sidebar({
         }
     }, [collapsed]);
 
-    // FIX (E-24): Travar scroll do body no mobile quando sidebar estiver aberta
+    // FIX (E-24): Travar scroll do body no mobile quando sidebar estiver aberta (efeito único sem clobber)
     useEffect(() => {
         if (typeof window === 'undefined') return;
+        if (!isOpen || window.innerWidth >= 1024) return;
 
-        const shouldLock = Boolean(isOpen && window.innerWidth < 1024);
-
-        document.body.style.overflow = shouldLock ? 'hidden' : '';
+        const originalOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
 
         return () => {
-            document.body.style.overflow = '';
+            document.body.style.overflow = originalOverflow;
         };
     }, [isOpen]);
 
@@ -227,18 +227,6 @@ const Sidebar = React.memo(function Sidebar({
             setCollapsed(false);
         }
     }, [collapsed, isOpen, setCollapsed]);
-
-    // Prevenir scroll do background no mobile quando o drawer estiver aberto
-    useEffect(() => {
-        if (typeof window === 'undefined') return;
-        if (isOpen && window.innerWidth < 1024) {
-            const originalOverflow = document.body.style.overflow;
-            document.body.style.overflow = 'hidden';
-            return () => {
-                document.body.style.overflow = originalOverflow;
-            };
-        }
-    }, [isOpen]);
 
     // Tratar cliques fora de popovers flutuantes no modo recolhido
     useEffect(() => {

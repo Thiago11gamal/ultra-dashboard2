@@ -19,6 +19,58 @@ import { getXPProgress } from '../utils/gamification';
 import { formatValue } from '../utils/scoreHelper';
 import { parseGoalDateUnified, parseNoonLocal, getDateKey } from '../utils/dateHelper';
 
+const EFFICIENCY_LABELS = {
+    excelente: 'Excelente',
+    boa: 'Boa',
+    regular: 'Regular',
+    precisa_melhorar: 'Precisa melhorar',
+    sem_dados: 'Sem dados'
+};
+
+const BALANCE_LABELS = {
+    excelente: 'Excelente',
+    atencao: 'Atenção',
+    alerta: 'Alerta',
+    sem_dados: 'Sem dados'
+};
+
+const getBalanceTheme = (status) => {
+    if (status === 'excelente') {
+        return {
+            glow: 'bg-emerald-500/10 group-hover:bg-emerald-500/20',
+            gradient: 'from-emerald-500/[0.02]',
+            iconBg: 'bg-emerald-500/10 group-hover/tooltip:bg-emerald-500/20',
+            iconColor: 'text-emerald-400',
+            accentText: 'text-emerald-400'
+        };
+    }
+    if (status === 'atencao') {
+        return {
+            glow: 'bg-amber-500/10 group-hover:bg-amber-500/20',
+            gradient: 'from-amber-500/[0.02]',
+            iconBg: 'bg-amber-500/10 group-hover/tooltip:bg-amber-500/20',
+            iconColor: 'text-amber-400',
+            accentText: 'text-amber-400'
+        };
+    }
+    if (status === 'alerta') {
+        return {
+            glow: 'bg-rose-500/10 group-hover:bg-rose-500/20',
+            gradient: 'from-rose-500/[0.03]',
+            iconBg: 'bg-rose-500/10 group-hover/tooltip:bg-rose-500/20',
+            iconColor: 'text-rose-400',
+            accentText: 'text-rose-400'
+        };
+    }
+    return {
+        glow: 'bg-blue-500/10 group-hover:bg-blue-500/20',
+        gradient: 'from-blue-500/[0.02]',
+        iconBg: 'bg-blue-500/10 group-hover/tooltip:bg-blue-500/20',
+        iconColor: 'text-blue-400',
+        accentText: 'text-blue-400'
+    };
+};
+
 const getEfficiencyTheme = (score) => {
     if (!Number.isFinite(score) || score === null) {
         return {
@@ -37,8 +89,18 @@ const getEfficiencyTheme = (score) => {
             glow: 'bg-emerald-500/10',
             glowHover: 'group-hover:bg-emerald-500/20',
             gradient: 'from-emerald-500/[0.02]',
-            iconBg: 'bg-green-500/10 group-hover:bg-green-500/20',
-            iconColor: 'text-green-400',
+            iconBg: 'bg-emerald-500/10 group-hover:bg-emerald-500/20',
+            iconColor: 'text-emerald-400',
+        };
+    }
+
+    if (score >= 75) {
+        return {
+            glow: 'bg-sky-500/10',
+            glowHover: 'group-hover:bg-sky-500/20',
+            gradient: 'from-sky-500/[0.02]',
+            iconBg: 'bg-sky-500/10 group-hover:bg-sky-500/20',
+            iconColor: 'text-sky-400',
         };
     }
 
@@ -144,9 +206,12 @@ const StatCard = ({
     </div>
 );
 
-const StatsCards = ({ data, onUpdateGoalDate }) => {
+const StatsCards = ({ data, onUpdateGoalDate, dayTick = null }) => {
     const dateInputRef = useRef(null);
-    const minGoalDate = getTodayDateKey();
+    const minGoalDate = useMemo(() => {
+        void dayTick;
+        return getTodayDateKey();
+    }, [dayTick]);
 
     // FIX CORRIGIDO: data.studyLogs pode vir como OBJETO do Firebase,
     // não apenas array. calculateStudyStreak espera array.
@@ -155,10 +220,10 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
         return Array.isArray(logs) ? logs : Object.values(logs || {});
     }, [data.studyLogs]);
 
-    const streak = useMemo(
-        () => calculateStudyStreak(normalizedStudyLogs),
-        [normalizedStudyLogs]
-    );
+    const streak = useMemo(() => {
+        void dayTick;
+        return calculateStudyStreak(normalizedStudyLogs);
+    }, [normalizedStudyLogs, dayTick]);
 
     const balance = useMemo(
         () => analyzeSubjectBalance(data.categories || []),
@@ -173,6 +238,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
     // P04 PERF FIX: Granular dependencies instead of [data] which changes every render
     const fcStats = useMemo(
         () => {
+            void dayTick;
             const safeData = {
                 categories: data.categories,
                 simuladoRows: data.simuladoRows,
@@ -188,7 +254,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
             };
             return buildAchievementStats(safeData) || {};
         },
-        [data.categories, data.simuladoRows, data.simulados, data.pomodorosCompleted, data.flashcardDecks, data.studyLogs, data.studySessions, data.user, data.settings]
+        [data.categories, data.simuladoRows, data.simulados, data.pomodorosCompleted, data.flashcardDecks, data.studyLogs, data.studySessions, data.user, data.settings, dayTick]
     );
 
     const user = data.user || { xp: 0, level: 1 };
@@ -218,14 +284,6 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
         return getEfficiencyTheme(efficiency?.score ?? 0);
     }, [efficiency, hasEffData]);
 
-    const daysRemaining = useMemo(() => {
-        if (!user.goalDate) return null;
-        const target = parseNoonLocal(user.goalDate);
-        const today = parseNoonLocal(new Date());
-        if (!target || !today) return null;
-        return Math.round((target.getTime() - today.getTime()) / 86400000);
-    }, [user.goalDate]);
-
     const dateValue = useMemo(() => {
         if (!user.goalDate) return '';
         const key = getDateKey(user.goalDate);
@@ -234,6 +292,15 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
         if (!d || Number.isNaN(d.getTime())) return '';
         return getDateKey(d) || '';
     }, [user.goalDate]);
+
+    const daysRemaining = useMemo(() => {
+        void dayTick;
+        if (!dateValue) return null;
+        const target = parseNoonLocal(dateValue);
+        const today = parseNoonLocal(minGoalDate || new Date());
+        if (!target || !today) return null;
+        return Math.round((target.getTime() - today.getTime()) / 86400000);
+    }, [dateValue, minGoalDate, dayTick]);
 
     const displayDate = useMemo(() => {
         if (!dateValue) return 'Definir data';
@@ -277,15 +344,19 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
         }
     }, []);
 
-    const efficiencyLabel = typeof efficiency?.efficiency === 'string'
-        ? capitalize(efficiency.efficiency.replace(/_/g, ' '))
-        : 'Sem dados';
+    const efficiencyLabel = EFFICIENCY_LABELS[efficiency?.efficiency]
+        || (typeof efficiency?.efficiency === 'string'
+            ? capitalize(efficiency.efficiency.replace(/_/g, ' '))
+            : 'Sem dados');
 
-    const balanceLabel = balance?.status
-        ? capitalize(balance.status.replace(/_/g, ' '))
-        : 'Sem dados';
+    const balanceLabel = BALANCE_LABELS[balance?.status]
+        || (balance?.status
+            ? capitalize(balance.status.replace(/_/g, ' '))
+            : 'Sem dados');
 
     const hasBalanceData = Boolean(balance?.status && balance.status !== 'sem_dados');
+    const balanceTheme = useMemo(() => getBalanceTheme(balance?.status), [balance?.status]);
+    const xpRemainingToNext = Math.max(0, (progress?.needed || 0) - (progress?.current || 0));
 
     const examStatusLabel = daysRemaining === null
         ? 'Sem data'
@@ -344,6 +415,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                 glow={`${effTheme.glow} ${effTheme.glowHover}`}
                 gradient={effTheme.gradient}
                 label="Eficiência"
+                tooltipAlign="auto"
                 tooltip={(
                     <>
                         <strong className="text-white">{efficiencyLabel}:</strong>{' '}
@@ -397,10 +469,10 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
             {/* ── Equilíbrio ─────────────────────────────────────────────── */}
             <StatCard
                 icon={BarChart2}
-                iconColor="text-blue-400"
-                iconBg="bg-blue-500/10 group-hover/tooltip:bg-blue-500/20"
-                glow="bg-blue-500/10 group-hover:bg-blue-500/20"
-                gradient="from-blue-500/[0.02]"
+                iconColor={balanceTheme.iconColor}
+                iconBg={balanceTheme.iconBg}
+                glow={balanceTheme.glow}
+                gradient={balanceTheme.gradient}
                 label="Equilíbrio"
                 tooltip={(
                     <>
@@ -423,7 +495,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                         )}
 
                         {balance?.metrics?.activeSubjects > 0 && (
-                            <span className="text-blue-400 font-semibold shrink-0 tabular-nums">
+                            <span className={`${balanceTheme.accentText} font-semibold shrink-0 tabular-nums`}>
                                 {balance.metrics.activeSubjects}/{balance.metrics.totalSubjects} {balance.metrics.activeSubjects === 1 ? 'ativa' : 'ativas'}
                             </span>
                         )}
@@ -431,7 +503,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                 )}
             >
                 {hasBalanceData ? (
-                    <span className="text-xl font-bold text-white leading-tight truncate" title={balanceLabel}>
+                    <span className={`text-xl font-bold leading-tight truncate ${balance?.status === 'alerta' ? 'text-rose-300' : balance?.status === 'atencao' ? 'text-amber-300' : 'text-white'}`} title={balanceLabel}>
                         {balanceLabel}
                     </span>
                 ) : (
@@ -447,6 +519,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                 glow="bg-amber-500/10 group-hover:bg-amber-500/20"
                 gradient="from-amber-500/[0.02]"
                 label="Flashcards"
+                tooltipAlign="auto"
                 tooltip={(
                     <>
                         <strong className="text-white">Indicadores SRS:</strong> Revisões totais, taxa de retenção e cartões pendentes de hoje via repetição espaçada.
@@ -469,6 +542,8 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                         <span className="shrink-0">
                             {(fcStats.flashcardDueToday || 0) > 0 && (fcStats.flashcardReviewsToday || 0) === 0 ? (
                                 <>Pendentes: <strong className="font-semibold text-amber-400 tabular-nums">{fcStats.flashcardDueToday}</strong></>
+                            ) : (fcStats.flashcardDueToday || 0) > 0 ? (
+                                <>Hoje: <strong className="font-semibold text-slate-200 tabular-nums">{fcStats.flashcardReviewsToday || 0}</strong> <span className="text-amber-400/90 tabular-nums">({fcStats.flashcardDueToday} pend.)</span></>
                             ) : (
                                 <>Hoje: <strong className="font-semibold text-slate-200 tabular-nums">{fcStats.flashcardReviewsToday || 0}</strong></>
                             )}
@@ -492,6 +567,11 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                 tooltip={(
                     <>
                         <strong className="text-white">Nível {progress.level}:</strong> Sua experiência global. Conclua tarefas e ciclos de estudo para avançar de patente!
+                        {xpRemainingToNext > 0 && (
+                            <span className="block mt-1 text-purple-300 font-medium tabular-nums">
+                                • Faltam {xpRemainingToNext.toLocaleString('pt-BR')} XP para o nível {(progress?.level || 1) + 1}.
+                            </span>
+                        )}
                     </>
                 )}
                 footerLayout="flex flex-col gap-1.5"
@@ -515,9 +595,9 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
             >
                 <span
                     className={`${VALUE_CLS} text-white truncate`}
-                    title={`${(user.xp || 0).toLocaleString('pt-BR')} XP`}
+                    title={`${(progress.total || 0).toLocaleString('pt-BR')} XP`}
                 >
-                    {(user.xp || 0).toLocaleString('pt-BR')}
+                    {(progress.total || 0).toLocaleString('pt-BR')}
                 </span>
                 <span className={UNIT_CLS}>XP</span>
             </StatCard>
@@ -527,9 +607,9 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                 icon={Calendar}
                 iconColor="text-rose-400"
                 iconBg="bg-rose-500/10 group-hover/tooltip:bg-rose-500/20"
-                glow={!user.goalDate ? 'bg-slate-500/10' : 'bg-rose-500/10 group-hover:bg-rose-500/20'}
+                glow={!dateValue ? 'bg-slate-500/10' : 'bg-rose-500/10 group-hover:bg-rose-500/20'}
                 gradient={isExamClose ? 'from-rose-500/[0.06]' : null}
-                className={!user.goalDate ? 'border-slate-500/30' : 'border-white/10 hover:border-rose-500/30'}
+                className={!dateValue ? 'border-slate-500/30' : 'border-white/10 hover:border-rose-500/30'}
                 label="Prova"
                 tooltipAlign="right"
                 tooltip={(
@@ -538,10 +618,10 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                         {daysRemaining === null
                             ? 'Nenhuma data alvo definida no momento.'
                             : daysRemaining < 0
-                                ? 'A data agendada para a prova já passou.'
+                                ? `A data agendada para a prova passou há ${Math.abs(daysRemaining)} ${Math.abs(daysRemaining) === 1 ? 'dia' : 'dias'}.`
                                 : daysRemaining === 0
                                     ? 'O dia do seu objetivo chegou. Boa sorte!'
-                                    : `Faltam ${daysRemaining} dias de preparação para a sua prova.`}
+                                    : `Faltam ${daysRemaining} ${daysRemaining === 1 ? 'dia' : 'dias'} de preparação para a sua prova.`}
                     </>
                 )}
                 footerProps={{
@@ -562,6 +642,9 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                             }}
                             onClick={(e) => {
                                 e.stopPropagation();
+                                if (typeof e.currentTarget.showPicker === 'function') {
+                                    try { e.currentTarget.showPicker(); } catch { /* native fallback */ }
+                                }
                             }}
                             onChange={(e) => {
                                 const selected = e.target.value;
@@ -578,7 +661,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
 
                         <span className="flex items-center gap-1.5 text-slate-200 font-medium group-hover/date:text-rose-400 transition-colors truncate pointer-events-none tabular-nums">
                             <Calendar size={13} className="text-rose-400 shrink-0" />
-                            {user.goalDate ? displayDate : 'Definir data'}
+                            {dateValue ? displayDate : 'Definir data'}
                         </span>
 
                         <div className="flex items-center gap-1.5 shrink-0">
@@ -589,7 +672,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                                     : 'text-slate-400'}`}>
                                 {daysRemaining === null ? 'Editar' : daysRemaining < 0 ? 'Atrasado' : daysRemaining === 0 ? 'Hoje' : 'Alvo'}
                             </span>
-                            {user.goalDate && typeof onUpdateGoalDate === 'function' && (
+                            {(dateValue || user.goalDate) && typeof onUpdateGoalDate === 'function' && (
                                 <button
                                     type="button"
                                     onClick={(e) => {
@@ -597,7 +680,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                                         e.preventDefault();
                                         onUpdateGoalDate('');
                                     }}
-                                    className="relative z-[55] p-0.5 rounded hover:bg-rose-500/20 text-slate-500 hover:text-rose-400 transition-colors pointer-events-auto"
+                                    className="relative z-[55] p-0.5 rounded hover:bg-rose-500/20 text-slate-500 hover:text-rose-400 transition-colors pointer-events-auto cursor-pointer"
                                     title="Limpar data da prova"
                                     aria-label="Limpar data da prova"
                                 >
@@ -609,18 +692,27 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                 )}
             >
                 {daysRemaining !== null ? (
-                    <>
-                        <span className={`${VALUE_CLS} ${daysRemaining < 0
-                            ? 'text-slate-500'
-                            : daysRemaining <= 15
-                                ? 'text-rose-400'
-                                : 'text-white'}`}>
-                            {Math.abs(daysRemaining)}
-                        </span>
-                        <span className={UNIT_CLS}>
-                            {Math.abs(daysRemaining) === 1 ? 'dia' : 'dias'}
-                        </span>
-                    </>
+                    daysRemaining === 0 ? (
+                        <>
+                            <span className={`${VALUE_CLS} text-rose-400`}>Hoje!</span>
+                            <span className={UNIT_CLS}>dia D</span>
+                        </>
+                    ) : (
+                        <>
+                            <span className={`${VALUE_CLS} ${daysRemaining < 0
+                                ? 'text-slate-500'
+                                : daysRemaining <= 15
+                                    ? 'text-rose-400'
+                                    : 'text-white'}`}>
+                                {Math.abs(daysRemaining)}
+                            </span>
+                            <span className={UNIT_CLS}>
+                                {daysRemaining < 0
+                                    ? (Math.abs(daysRemaining) === 1 ? 'dia atrás' : 'dias atrás')
+                                    : (Math.abs(daysRemaining) === 1 ? 'dia' : 'dias')}
+                            </span>
+                        </>
+                    )
                 ) : (
                     <span className={EMPTY_VALUE_CLS}>Sem data</span>
                 )}

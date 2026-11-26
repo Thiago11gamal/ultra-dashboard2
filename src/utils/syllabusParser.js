@@ -7,9 +7,9 @@
  */
 
 const GROUP_HEADERS = [
-  { regex: /conhecimentos?\s+b[aá]sicos?|bloco\s*1|gerais/i, group: 'basicos' },
-  { regex: /conhecimentos?\s+espec[ií]ficos?|bloco\s*2/i, group: 'especificos' },
-  { regex: /prova\s+discursiva|discursiva|reda[cç][aã]o/i, group: 'discursiva' },
+  { regex: /^(?:bloco\s*(?:1|i)\b|conhecimentos?\s+(?:b[aá]sicos?|gerais))\b/i, group: 'basicos' },
+  { regex: /^(?:bloco\s*(?:2|ii)\b|conhecimentos?\s+espec[ií]ficos?)\b/i, group: 'especificos' },
+  { regex: /^(?:prova\s+discursiva|prova\s+de\s+reda[cç][aã]o|discursiva|reda[cç][aã]o)\s*:?$/i, group: 'discursiva' },
 ];
 
 const PALETTE = [
@@ -30,8 +30,8 @@ function isLikelySubjectHeader(rawLine, nextLine = '') {
   if (!line || line.length > 90) return false;
   // Explicit markdown heading or trailing colon: "## Direito Penal" or "DIREITO PENAL:"
   if (/^#{1,3}\s+/.test(line) || /:$/.test(line)) return true;
-  // Explicit weight tag on a non-bullet line
-  if (/\bpeso\s*[:=]?\s*\d+/i.test(line) && !/^[-•*]|\d+\./.test(line)) return true;
+  // Explicit weight tag on a non-bullet line (parenthesized alternation so ^ anchors both branches)
+  if (/\bpeso\s*[:=]?\s*\d+/i.test(line) && !/^(?:[-•*]|\d+[.)])\s*/.test(line)) return true;
   // ALL CAPS title without bullet prefix (e.g. "LÍNGUA PORTUGUESA")
   const letters = line.replace(/[^A-Za-zÀ-ÖØ-öø-ÿ]/g, '');
   if (
@@ -112,7 +112,7 @@ export function parseVerticalizedSyllabus(rawText = '') {
 
     // Check if it is a pure exam-group section header (e.g. "CONHECIMENTOS BÁSICOS")
     const matchedGroup = GROUP_HEADERS.find((g) => g.regex.test(line) && line.length <= 45);
-    if (matchedGroup && !/^[-•*]|\d+\./.test(line)) {
+    if (matchedGroup && !/^(?:[-•*]|\d+[.)])\s*/.test(line)) {
       currentGroup = matchedGroup.group;
       continue;
     }

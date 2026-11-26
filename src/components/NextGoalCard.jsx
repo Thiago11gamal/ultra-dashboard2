@@ -3,8 +3,12 @@ import { Target, Play, Clock, Info, Sparkles } from 'lucide-react';
 import { resolveCanonicalNextMission } from '../utils/canonicalNextMission';
 import { toArray } from '../utils/normalize';
 import { normalizePriority, getPriorityConfig } from '../utils/colorHelper';
+import { isSubjectMatch } from '../utils/normalization';
+import { parseNoonLocal } from '../utils/dateHelper';
 import { useAppStore } from '../store/useAppStore';
 import { resolveUserTargetScorePoints } from '../utils/scoreHelper';
+
+const EMPTY_SIMULADOS = Object.freeze([]);
 
 function renderBoldText(text) {
     const safeText = String(text || '');
@@ -19,7 +23,7 @@ function renderBoldText(text) {
 
 function NextGoalCard({
     categories = [],
-    simulados = [],
+    simulados: propSimulados,
     studyLogs = [],
     onStartStudying,
     maxScore: propMaxScore,
@@ -29,7 +33,8 @@ function NextGoalCard({
     contestId: propContestId,
     simuladoRows: propSimuladoRows,
     calibrationHistoryByCategory: propCalibrationHistory,
-    flashcardDecks: propFlashcardDecks
+    flashcardDecks: propFlashcardDecks,
+    dayTick = null
 }) {
     const storeActiveId = useAppStore(state => state.appState?.activeId);
     const storeContest = useAppStore(state =>
@@ -59,7 +64,10 @@ function NextGoalCard({
         0.85
     );
     const effectiveSimuladoRows = propSimuladoRows ?? storeContest?.simuladoRows;
-    const effectiveAllSimulados = storeContest?.simulados ?? simulados;
+    const effectiveAllSimulados = useMemo(
+        () => (propSimulados !== undefined ? propSimulados : (storeContest?.simulados ?? EMPTY_SIMULADOS)),
+        [propSimulados, storeContest?.simulados]
+    );
     const effectiveCalibHistory = propCalibrationHistory ?? storeContest?.calibrationHistoryByCategory;
     const effectiveFlashcardDecks = propFlashcardDecks ?? storeContest?.flashcardDecks;
     const effectiveCoachPlan = storeContest?.coachPlan;
@@ -68,9 +76,17 @@ function NextGoalCard({
     const adaptiveCalibrationEnabled = storeContest?.settings?.adaptiveCalibrationEnabled !== false;
 
     const rawCategories = useMemo(() => toArray(categories), [categories]);
-    const hasAnyTasks = useMemo(() => {
-        return rawCategories.some(cat => toArray(cat?.tasks).length > 0);
+    const taskTotals = useMemo(() => {
+        let total = 0;
+        let completed = 0;
+        rawCategories.forEach(cat => {
+            const tasks = toArray(cat?.tasks);
+            total += tasks.length;
+            completed += tasks.filter(t => t && t.completed).length;
+        });
+        return { total, completed };
     }, [rawCategories]);
+    const hasAnyTasks = taskTotals.total > 0;
 
     const [isLoading, setIsLoading] = useState(true);
     const [suggestion, setSuggestion] = useState(null);
@@ -78,6 +94,7 @@ function NextGoalCard({
     useEffect(() => { rawCategoriesRef.current = rawCategories; }, [rawCategories]);
 
     useEffect(() => {
+        void dayTick;
         // Usa setTimeout para não bloquear o render inicial e evitar setState síncrono no efeito
         const timer = setTimeout(() => {
             const currentCats = rawCategoriesRef.current || [];
@@ -87,7 +104,6 @@ function NextGoalCard({
                 return;
             }
 
-            setIsLoading(true);
             try {
                 const normalizedCategories = currentCats.map(category => ({
                     ...category,
@@ -123,19 +139,21 @@ function NextGoalCard({
                 }
                 const suggestedCategory = resolvedMission.category;
                 const nextTask = resolvedMission.task;
-                const fullText = nextTask.title || nextTask.text || 'Estudo';
-                const parts = fullText.split(':');
-                const hasDetails = parts.length > 1;
-                let actionPart = hasDetails
-                    ? parts.slice(1).join(':').trim()
-                    : fullText.trim();
+                const fullText = String(nextTask.title || nextTask.text || 'Estudo').trim();
+                const colonIdx = fullText.indexOf(':');
+                let actionPart = fullText;
+                // Remove prefixo antes de ':' apenas quando repete redundantemente o nome da matéria
+                if (colonIdx > 0) {
+                    const prefix = fullText.slice(0, colonIdx).trim();
+                    const remainder = fullText.slice(colonIdx + 1).trim();
+                    if (remainder && suggestedCategory?.name && isSubjectMatch(prefix, suggestedCategory.name)) {
+                        actionPart = remainder;
+                    }
+                }
                 actionPart = actionPart.replace(/^\[(.*?)\]\s*/i, '').trim();
                 if (!actionPart) {
                     actionPart = fullText.replace(/^\[(.*?)\]\s*/i, '').trim() || 'Estudo';
                 }
-                const meta = hasDetails
-                    ? (parts[0]?.trim() || 'Revisão e exercícios')
-                    : 'Revisão e exercícios';
                 const taskPriority = normalizePriority(nextTask.priority);
                 setSuggestion({
                     category: suggestedCategory,
@@ -147,7 +165,7 @@ function NextGoalCard({
                         assunto: actionPart.length > 80
                             ? `${actionPart.substring(0, 77)}...`
                             : actionPart,
-                        meta
+                        fullAssunto: actionPart
                     }
                 });
             } catch (err) {
@@ -162,7 +180,6 @@ function NextGoalCard({
     }, [
         rawCategories,
         hasAnyTasks,
-        simulados,
         studyLogs,
         effectiveContestId,
         effectiveUser,
@@ -176,7 +193,8 @@ function NextGoalCard({
         effectiveAgenda,
         effectiveSimuladoRows,
         effectiveAllSimulados,
-        adaptiveCalibrationEnabled
+        adaptiveCalibrationEnabled,
+        dayTick
     ]);
 
     if (rawCategories.length === 0 || !hasAnyTasks) {
@@ -213,7 +231,9 @@ function NextGoalCard({
                         Tudo em dia! 🎉
                     </h3>
                     <p className="text-sm text-slate-400">
-                        Nenhuma tarefa urgente.
+                        {taskTotals.completed > 0 && taskTotals.completed >= taskTotals.total
+                            ? `Todos os ${taskTotals.total} ${taskTotals.total === 1 ? 'assunto cadastrado foi concluído' : 'assuntos cadastrados foram concluídos'}! Aproveite para revisar Flashcards ou fazer um Simulado.`
+                            : 'Nenhuma tarefa urgente.'}
                     </p>
                 </div>
             </div>
@@ -226,9 +246,23 @@ function NextGoalCard({
     const rawUrgencyScore = urgency?.normalizedScore ?? urgency?.score ?? 0;
     const urgencyScore = Number.isFinite(rawUrgencyScore) ? rawUrgencyScore : 0;
     const hasSimuladoData = Boolean(urgency?.details?.hasData);
-    const daysSinceLastStudy = Number(urgency?.details?.daysSinceLastStudy || 0);
+    const urgencyDaysRaw = urgency?.details?.daysSinceLastStudy;
+    const hasUrgencyDays = urgencyDaysRaw !== null && urgencyDaysRaw !== undefined && Number.isFinite(Number(urgencyDaysRaw));
+    const fallbackDaysFromCategory = (() => {
+        if (!category?.lastStudiedAt) return null;
+        const last = parseNoonLocal(category.lastStudiedAt);
+        const today = parseNoonLocal(new Date());
+        if (!last || !today) return null;
+        return Math.max(0, Math.round((today.getTime() - last.getTime()) / 86400000));
+    })();
+    const recencyExplicitUnknown = urgency?.details?.recencyUnknown === true;
     const recencyKnown = urgency?.details?.recencyUnknown === false;
-    const hasStudyHistory = hasSimuladoData || recencyKnown || daysSinceLastStudy > 0 || Boolean(category?.lastStudiedAt);
+    const hasStudyHistory = recencyExplicitUnknown
+        ? fallbackDaysFromCategory !== null
+        : (recencyKnown || (hasUrgencyDays && Number(urgencyDaysRaw) > 0) || fallbackDaysFromCategory !== null || (hasSimuladoData && hasUrgencyDays));
+    const daysSinceLastStudy = !recencyExplicitUnknown && hasUrgencyDays
+        ? Math.max(0, Math.round(Number(urgencyDaysRaw)))
+        : (fallbackDaysFromCategory ?? 0);
 
     let urgencyStyle = {
         gradient: 'from-blue-500/15 via-blue-500/5 to-transparent',
@@ -359,7 +393,7 @@ function NextGoalCard({
                                         size={14}
                                         className={`${urgencyStyle.textHighlight} flex-shrink-0`}
                                     />
-                                    <span className="truncate text-slate-200" title={display.assunto}>
+                                    <span className="truncate text-slate-200" title={display.fullAssunto || display.assunto}>
                                         {display.assunto}
                                     </span>
                                 </div>

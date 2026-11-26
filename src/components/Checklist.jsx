@@ -23,7 +23,8 @@ import {
     Pencil,
     StickyNote,
     Search,
-    ChevronsUpDown
+    ChevronsUpDown,
+    FileText
 } from 'lucide-react';
 import PromptModal from './PromptModal';
 import CategoryEditor from './CategoryEditor';
@@ -33,51 +34,51 @@ import { toArray } from '../utils/normalize';
 import { useModalAccessibility } from '../hooks/useModalAccessibility';
 import { getContestDisplayName } from './sidebarUtils';
 import { normalize } from '../utils/normalization';
+import { sanitizePlainText } from '../utils/sanitizeText';
 import { useToast } from '../hooks/useToast';
 import { useNavigate } from 'react-router-dom';
 import {
     normalizeHexColor,
     getCategoryColorStyles,
     getPriorityConfig,
+    normalizePriority,
     normalizeSimuladoLevel
 } from '../utils/colorHelper';
 import { pointsToPct, getSafeScore } from '../utils/scoreHelper';
-import { normalizeDate } from '../utils/dateHelper';
+import { normalizeDate, formatDatePtBR } from '../utils/dateHelper';
+
+const EXAM_GROUP_LABELS = {
+    basicos: 'Básicos',
+    especificos: 'Específicos',
+    discursiva: 'Discursiva',
+};
 
 const getHistoryDateLabel = (h) => {
     try {
-        const raw = typeof h.date === 'string'
-            ? (h.date.includes('T') ? h.date : `${h.date}T12:00:00`)
-            : (h.date || h.createdAt || Date.now());
-
-        const parsed = new Date(raw);
-
-        if (Number.isNaN(parsed.getTime())) {
-            return '-';
-        }
-
-        return parsed.toLocaleDateString('pt-BR');
+        const formatted = formatDatePtBR(h?.date || h?.createdAt);
+        return formatted && formatted !== '--/--/----' ? formatted : '-';
     } catch {
         return '-';
     }
 };
 
-    const PerformancePanel = React.memo(function PerformancePanel({ stats = {}, color, maxScore = 100, minScore = 0 }) {
-        const navigate = useNavigate();
-        const safeStats = stats && typeof stats === 'object' ? stats : {};
+const PerformancePanel = React.memo(function PerformancePanel({ stats = {}, color, maxScore = 100, minScore = 0 }) {
+    const navigate = useNavigate();
+    const safeStats = stats && typeof stats === 'object' ? stats : {};
 
-        const {
-            average = null,
-            lastAttempt = null,
-            trend = 'stable',
-            level = '-',
-            history: rawHistory = []
+    const {
+        average = null,
+        lastAttempt = null,
+        trend = 'stable',
+        level = '-',
+        history: rawHistory = []
     } = safeStats;
 
     const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
-    const safeMax = Math.max(safeMin + 1, Number(maxScore) || 100);
+    const rawMax = Number(maxScore);
+    const safeMax = Number.isFinite(rawMax) && rawMax > safeMin ? rawMax : safeMin + 1;
     const history = useMemo(() => {
-        const unsorted = toArray(rawHistory).filter(Boolean);
+        const unsorted = toArray(rawHistory).filter(h => h && h.valid !== false && h.validated !== false);
         if (unsorted.length <= 1) return unsorted;
         return unsorted
             .map((item) => {
@@ -215,8 +216,10 @@ const getHistoryDateLabel = (h) => {
         : null;
 
     return (
-        <div className="relative p-4 mx-4 mb-3 bg-white/[0.02] rounded-xl border border-white/5 group overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-white/[0.01] to-transparent pointer-events-none" />
+        <div className="relative p-4 mx-4 mb-3 bg-white/[0.02] rounded-xl border border-white/5 group overflow-visible">
+            <div className="absolute inset-0 rounded-xl overflow-hidden pointer-events-none">
+                <div className="absolute inset-0 bg-gradient-to-br from-white/[0.01] to-transparent" />
+            </div>
             <div className="relative z-10 flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2 text-slate-200 text-sm font-semibold">
                     <BarChart2 size={16} style={{ color: colorStyles.text }} />
@@ -317,8 +320,14 @@ const getHistoryDateLabel = (h) => {
                             ? `${formattedHScore}% (${dateLabel})`
                             : `${formattedHScore} pts (${hPct}%) (${dateLabel})`;
 
+                        const isFirst = i === 0;
                         const isLast = i === arr.length - 1;
                         const barOpacity = isLast ? 1 : Math.max(0.35, 0.35 + (i / arr.length) * 0.45);
+                        const barTooltipPos = isFirst
+                            ? 'left-0'
+                            : isLast
+                                ? 'right-0'
+                                : 'left-1/2 -translate-x-1/2';
 
                         return (
                             <div
@@ -336,7 +345,7 @@ const getHistoryDateLabel = (h) => {
                                     }}
                                 />
 
-                                <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-900/95 border border-white/10 text-white text-xs px-2 py-1 rounded-md opacity-0 group-hover/bar:opacity-100 group-focus-within/bar:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-20 tabular-nums shadow-lg">
+                                <div className={`absolute -top-8 ${barTooltipPos} bg-slate-900/95 border border-white/10 text-white text-xs px-2 py-1 rounded-md opacity-0 group-hover/bar:opacity-100 group-focus-within/bar:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-20 tabular-nums shadow-lg`}>
                                     {labelTooltip}
                                 </div>
                             </div>
@@ -363,6 +372,16 @@ const TaskItem = ({
     const [editTitle, setEditTitle] = useState(taskTitle);
     const [editNotes, setEditNotes] = useState(task?.notes || '');
     const [showNotesField, setShowNotesField] = useState(Boolean(task?.notes));
+    const titleClickTimerRef = useRef(null);
+
+    useEffect(() => {
+        return () => {
+            if (titleClickTimerRef.current) {
+                clearTimeout(titleClickTimerRef.current);
+                titleClickTimerRef.current = null;
+            }
+        };
+    }, []);
 
     if (!task) return null;
 
@@ -370,10 +389,32 @@ const TaskItem = ({
 
     const handleStartEditing = (e) => {
         if (e) e.stopPropagation();
+        if (titleClickTimerRef.current) {
+            clearTimeout(titleClickTimerRef.current);
+            titleClickTimerRef.current = null;
+        }
         setEditTitle(taskTitle);
         setEditNotes(task.notes || '');
         setShowNotesField(Boolean(task.notes));
         setIsEditing(true);
+    };
+
+    const handleTitleClick = (e) => {
+        if (e?.detail >= 2) {
+            if (titleClickTimerRef.current) {
+                clearTimeout(titleClickTimerRef.current);
+                titleClickTimerRef.current = null;
+            }
+            return;
+        }
+        if (titleClickTimerRef.current) {
+            clearTimeout(titleClickTimerRef.current);
+        }
+        const targetId = task.id || task.text || task.title;
+        titleClickTimerRef.current = setTimeout(() => {
+            titleClickTimerRef.current = null;
+            onToggle(targetId);
+        }, 220);
     };
 
     const handleSave = (e) => {
@@ -508,7 +549,7 @@ const TaskItem = ({
                         <div className="flex items-center gap-2 flex-wrap">
                             <button
                                 type="button"
-                                onClick={() => onToggle(task.id || task.text || task.title)}
+                                onClick={handleTitleClick}
                                 onDoubleClick={handleStartEditing}
                                 className="text-left group/title focus:outline-none cursor-pointer"
                                 title="Clique para alternar ou duplo clique para editar"
@@ -628,7 +669,7 @@ const CategoryAccordion = React.memo(({
     onTogglePriority,
     onPlayContext,
     showSimuladoStats,
-    _filter,
+    hasActiveSearch = false,
     forceExpandState,
     onOpenTaskModal,
     onOpenDeleteCategoryModal,
@@ -643,6 +684,8 @@ const CategoryAccordion = React.memo(({
             setIsOpen(forceExpandState.expanded);
         }
     }, [forceExpandState]);
+
+    const effectiveIsOpen = isOpen || hasActiveSearch;
 
     const originalTasks = useMemo(
         () => toArray(category.originalTasks ?? category.tasks),
@@ -659,9 +702,14 @@ const CategoryAccordion = React.memo(({
     const progress = originalTasks.length > 0
         ? Math.round((completedCount / originalTasks.length) * 100)
         : 0;
+    const progressDisplay = completedCount > 0 && progress === 0 ? '< 1%' : `${progress}%`;
+    const progressBarWidth = completedCount > 0 ? Math.max(2, progress) : 0;
 
     const panelId = `category-panel-${category.id || 'unknown'}`;
     const catStyles = getCategoryColorStyles(category.color, '#a855f7');
+    const examGroupLabel = category.examGroup ? EXAM_GROUP_LABELS[category.examGroup] : null;
+    const categoryWeight = Number(category.weight);
+    const hasCustomWeight = Number.isFinite(categoryWeight) && categoryWeight > 0 && categoryWeight !== 10;
 
     const toggleOpen = () => setIsOpen(v => !v);
 
@@ -673,7 +721,7 @@ const CategoryAccordion = React.memo(({
                 <button
                     type="button"
                     onClick={toggleOpen}
-                    aria-expanded={isOpen}
+                    aria-expanded={effectiveIsOpen}
                     aria-controls={panelId}
                     className="flex items-center gap-3 sm:gap-4 flex-1 min-w-[220px] cursor-pointer text-left"
                 >
@@ -703,6 +751,21 @@ const CategoryAccordion = React.memo(({
                                 </span>
                             )}
 
+                            {hasCustomWeight && (
+                                <span
+                                    className="hidden md:inline-flex text-[10px] font-semibold tabular-nums text-slate-300 bg-white/[0.04] border border-white/10 px-1.5 py-0.5 rounded-md"
+                                    title={`Peso no edital: ${categoryWeight}`}
+                                >
+                                    Peso {Number.isInteger(categoryWeight) ? categoryWeight : categoryWeight.toFixed(1)}
+                                </span>
+                            )}
+
+                            {examGroupLabel && (
+                                <span className="hidden md:inline-flex text-[10px] font-semibold text-indigo-300 bg-indigo-500/10 border border-indigo-400/25 px-1.5 py-0.5 rounded-md">
+                                    {examGroupLabel}
+                                </span>
+                            )}
+
                             <span
                                 className="sm:hidden text-[11px] font-bold tabular-nums px-1.5 py-0.5 rounded-md border"
                                 style={{
@@ -711,7 +774,7 @@ const CategoryAccordion = React.memo(({
                                     borderColor: catStyles.border30
                                 }}
                             >
-                                {progress}%
+                                {progressDisplay}
                             </span>
                         </div>
 
@@ -728,7 +791,7 @@ const CategoryAccordion = React.memo(({
                             e.stopPropagation();
                             setIsCategoryEditorOpen(true);
                         }}
-                        className="flex items-center justify-center w-8 h-8 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-slate-400 hover:text-white transition-all transform hover:scale-110 active:scale-95 flex-shrink-0 border border-white/5"
+                        className="flex items-center justify-center w-8 h-8 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-slate-400 hover:text-white transition-all transform hover:scale-110 active:scale-95 flex-shrink-0 border border-white/5 cursor-pointer"
                         title="Configurar Disciplina"
                         aria-label={`Configurar disciplina ${category.name || 'sem nome'}`}
                     >
@@ -741,7 +804,7 @@ const CategoryAccordion = React.memo(({
                             e.stopPropagation();
                             onOpenDeleteCategoryModal(category.id || category.name, category.name);
                         }}
-                        className="flex items-center justify-center w-8 h-8 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-all transform hover:scale-110 active:scale-95 flex-shrink-0 border border-red-500/20"
+                        className="flex items-center justify-center w-8 h-8 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-all transform hover:scale-110 active:scale-95 flex-shrink-0 border border-red-500/20 cursor-pointer"
                         title="Excluir Disciplina (Mover para Lixeira)"
                         aria-label={`Excluir disciplina ${category.name || 'sem nome'}`}
                     >
@@ -754,7 +817,7 @@ const CategoryAccordion = React.memo(({
                         <div
                             className="h-full rounded-full transition-all duration-500"
                             style={{
-                                width: `${progress}%`,
+                                width: `${progressBarWidth}%`,
                                 backgroundColor: catStyles.hex
                             }}
                         />
@@ -764,23 +827,23 @@ const CategoryAccordion = React.memo(({
                         className="text-sm font-semibold tabular-nums flex-shrink-0 w-10 sm:w-11 text-right inline-block"
                         style={{ color: catStyles.hex }}
                     >
-                        {progress}%
+                        {progressDisplay}
                     </span>
                 </div>
 
                 <button
                     type="button"
                     onClick={toggleOpen}
-                    className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-white/10 transition-colors flex-shrink-0"
-                    aria-label={isOpen ? 'Recolher disciplina' : 'Expandir disciplina'}
+                    className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-white/10 transition-colors flex-shrink-0 cursor-pointer"
+                    aria-label={effectiveIsOpen ? 'Recolher disciplina' : 'Expandir disciplina'}
                 >
-                    {isOpen
+                    {effectiveIsOpen
                         ? <ChevronUp size={18} />
                         : <ChevronDown size={18} />}
                 </button>
             </div>
 
-            {isOpen && (
+            {effectiveIsOpen && (
                 <div
                     id={panelId}
                     className="border-t border-white/10"
@@ -877,6 +940,9 @@ function Checklist({
     showSimuladoStats,
     filter,
     setFilter,
+    priorityFilter = 'all',
+    onClearPriorityFilter = null,
+    onOpenSyllabusImporter = null,
     contests,
     activeId,
     onImportCategory
@@ -943,7 +1009,11 @@ function Checklist({
             return;
         }
         if (typeof onImportCategory === 'function') {
-            onImportCategory(sourceContestId, categoryId);
+            const didImport = onImportCategory(sourceContestId, categoryId);
+            if (didImport === false) {
+                showToast(`Não foi possível importar "${catToImport.name}".`, 'warning');
+                return;
+            }
         }
         showToast(`Disciplina "${catToImport.name}" importada com sucesso! ✨`, 'success');
     }, [contests, categories, onImportCategory, showToast]);
@@ -976,105 +1046,125 @@ function Checklist({
         }));
     }, [categories]);
 
+    const safeCategoriesRef = useRef(safeCategories);
+    useEffect(() => { safeCategoriesRef.current = safeCategories; }, [safeCategories]);
+
+    const hasPriorityFilter = priorityFilter && priorityFilter !== 'all';
+    const hasSearchQuery = Boolean(searchQuery.trim());
+
     const filteredCategories = useMemo(() => {
-                const normQuery = normalize(searchQuery.trim());
-                return safeCategories
-                    .map(cat => {
-                        const catMatches = normQuery ? normalize(cat?.name || '').includes(normQuery) : true;
-                        const filteredTasks = (cat.tasks || []).filter(task => {
-                            if (!task) return false;
-                            if (filter === 'active' && task.completed) return false;
-                            if (filter === 'completed' && !task.completed) return false;
-                            if (normQuery && !catMatches) {
-                                const tText = normalize(String(task.title || task.text || ''));
-                                const tNotes = normalize(String(task.notes || ''));
-                                return tText.includes(normQuery) || tNotes.includes(normQuery);
-                            }
-                            return true;
-                        });
-                        return {
-                            ...cat,
-                            originalTasks: cat.tasks || [],
-                            tasks: filteredTasks,
-                            _matchesSearch: !normQuery || catMatches || filteredTasks.length > 0
-                        };
-                    })
-            .filter(cat => cat._matchesSearch);
-}, [safeCategories, filter, searchQuery]);
+        const normQuery = normalize(searchQuery.trim());
+        const isFilteringTasks = filter === 'active' || filter === 'completed' || hasPriorityFilter;
+        return safeCategories
+            .map(cat => {
+                const catMatches = normQuery ? normalize(cat?.name || '').includes(normQuery) : false;
+                const filteredTasks = (cat.tasks || []).filter(task => {
+                    if (!task) return false;
+                    if (filter === 'active' && task.completed) return false;
+                    if (filter === 'completed' && !task.completed) return false;
+                    if (hasPriorityFilter && normalizePriority(task.priority) !== priorityFilter) return false;
+                    if (normQuery && !catMatches) {
+                        const tText = normalize(String(task.title || task.text || ''));
+                        const tNotes = normalize(String(task.notes || ''));
+                        return tText.includes(normQuery) || tNotes.includes(normQuery);
+                    }
+                    return true;
+                });
+                const matchesSearch = !normQuery || catMatches || filteredTasks.length > 0;
+                const matchesTaskFilter = !isFilteringTasks || filteredTasks.length > 0 || (normQuery && catMatches);
+                return {
+                    ...cat,
+                    originalTasks: cat.tasks || [],
+                    tasks: filteredTasks,
+                    _visible: matchesSearch && matchesTaskFilter
+                };
+            })
+            .filter(cat => cat._visible);
+    }, [safeCategories, filter, priorityFilter, hasPriorityFilter, searchQuery]);
 
-const handleUpdateTask = useCallback((catId, taskId, updates) => {
-    if (!onUpdateTask || !updates) return false;
-    const trimmedTitle = typeof updates.title === 'string' ? updates.title.trim() : '';
-    if (!trimmedTitle) {
-        showToast('O título do assunto não pode ser vazio.', 'error');
-        return false;
-    }
-    if (trimmedTitle.length > 200) {
-        showToast('O título do assunto é muito longo (máx. 200 caracteres).', 'error');
-        return false;
-    }
-
-    const category = safeCategories.find(c => c && (c.id === catId || c.name === catId));
-    if (category) {
-        const taskIndex = (category.tasks || []).findIndex(t => t && (t.id === taskId || t.text === taskId || t.title === taskId));
-        const normNew = normalize(trimmedTitle);
-        const isDuplicate = (category.tasks || []).some((t, idx) => {
-            if (idx === taskIndex) return false;
-            return normalize(String(t?.text || t?.title || '')) === normNew;
-        });
-        if (isDuplicate) {
-            showToast(`O assunto "${trimmedTitle}" já existe nesta disciplina.`, 'warning');
+    const handleUpdateTask = useCallback((catId, taskId, updates) => {
+        if (!onUpdateTask || !updates) return false;
+        const rawTitle = typeof updates.title === 'string' ? updates.title.trim() : '';
+        const trimmedTitle = sanitizePlainText(rawTitle);
+        if (!trimmedTitle) {
+            showToast('O título do assunto não pode ser vazio.', 'error');
             return false;
         }
-    }
-
-    onUpdateTask(catId, taskId, updates);
-    return true;
-}, [onUpdateTask, safeCategories, showToast]);
-
-const handleAddTask = useCallback((catId, title) => {
-    if (!onAddTask) return false;
-
-    const trimmedTitle = typeof title === 'string' ? title.trim() : '';
-    if (!trimmedTitle) {
-        showToast('O título da tarefa não pode ser vazio.', 'error');
-        return false;
-    }
-    if (trimmedTitle.length > 200) {
-        showToast('O título da tarefa é muito longo (máx. 200 caracteres).', 'error');
-        return false;
-    }
-
-    const category = safeCategories.find(c => c && (c.id === catId || c.name === catId));
-    if (category) {
-        const normNew = normalize(trimmedTitle);
-        const alreadyExists = (category.tasks || []).some(t => {
-            const existing = normalize(String(t.text || t.title || ''));
-            return existing === normNew;
-        });
-        if (alreadyExists) {
-            showToast(`O assunto "${trimmedTitle}" já existe nesta disciplina.`, 'warning');
+        if (trimmedTitle.length > 200) {
+            showToast('O título do assunto é muito longo (máx. 200 caracteres).', 'error');
             return false;
         }
-    }
 
-    onAddTask(catId, trimmedTitle);
-    showToast(`Assunto "${trimmedTitle}" adicionado com sucesso! ✨`, 'success');
+        const sanitizedNotes = typeof updates.notes === 'string'
+            ? sanitizePlainText(updates.notes.trim())
+            : updates.notes;
 
-    if (filter === 'completed') {
-        if (typeof setFilter === 'function') setFilter('all');
-    }
+        const category = (safeCategoriesRef.current || []).find(c => c && (c.id === catId || c.name === catId));
+        if (category) {
+            const taskIndex = (category.tasks || []).findIndex(t => t && (t.id === taskId || t.text === taskId || t.title === taskId));
+            const normNew = normalize(trimmedTitle);
+            const isDuplicate = (category.tasks || []).some((t, idx) => {
+                if (idx === taskIndex) return false;
+                return normalize(String(t?.text || t?.title || '')) === normNew;
+            });
+            if (isDuplicate) {
+                showToast(`O assunto "${trimmedTitle}" já existe nesta disciplina.`, 'warning');
+                return false;
+            }
+        }
 
-    const isLastCategory = safeCategories.length > 0 && (
-        catId === safeCategories[safeCategories.length - 1].id ||
-        catId === safeCategories[safeCategories.length - 1].name
-    );
+        onUpdateTask(catId, taskId, {
+            ...updates,
+            title: trimmedTitle,
+            notes: sanitizedNotes
+        });
+        return true;
+    }, [onUpdateTask, showToast]);
 
-    if (isLastCategory) {
-        scrollToBottom();
-    }
-    return true;
-}, [onAddTask, filter, setFilter, safeCategories, scrollToBottom, showToast]);
+    const handleAddTask = useCallback((catId, title) => {
+        if (!onAddTask) return false;
+
+        const trimmedTitle = sanitizePlainText(typeof title === 'string' ? title.trim() : '');
+        if (!trimmedTitle) {
+            showToast('O título da tarefa não pode ser vazio.', 'error');
+            return false;
+        }
+        if (trimmedTitle.length > 200) {
+            showToast('O título da tarefa é muito longo (máx. 200 caracteres).', 'error');
+            return false;
+        }
+
+        const currentCategories = safeCategoriesRef.current || [];
+        const category = currentCategories.find(c => c && (c.id === catId || c.name === catId));
+        if (category) {
+            const normNew = normalize(trimmedTitle);
+            const alreadyExists = (category.tasks || []).some(t => {
+                const existing = normalize(String(t.text || t.title || ''));
+                return existing === normNew;
+            });
+            if (alreadyExists) {
+                showToast(`O assunto "${trimmedTitle}" já existe nesta disciplina.`, 'warning');
+                return false;
+            }
+        }
+
+        onAddTask(catId, trimmedTitle);
+        showToast(`Assunto "${trimmedTitle}" adicionado com sucesso! ✨`, 'success');
+
+        if (filter === 'completed') {
+            if (typeof setFilter === 'function') setFilter('all');
+        }
+
+        const isLastCategory = currentCategories.length > 0 && (
+            catId === currentCategories[currentCategories.length - 1].id ||
+            catId === currentCategories[currentCategories.length - 1].name
+        );
+
+        if (isLastCategory) {
+            scrollToBottom();
+        }
+        return true;
+    }, [onAddTask, filter, setFilter, scrollToBottom, showToast]);
 
 const handlePlayContext = useCallback((categoryId, taskId) => {
     if (onPlayContext) {
@@ -1160,6 +1250,16 @@ return (
                                 <Plus size={20} className="stroke-[2.5]" />
                                 <span>Criar primeira disciplina</span>
                             </button>
+                            {typeof onOpenSyllabusImporter === 'function' && (
+                                <button
+                                    type="button"
+                                    onClick={onOpenSyllabusImporter}
+                                    className="px-4 py-2.5 bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-200 hover:text-white border border-indigo-400/35 rounded-xl text-xs font-bold transition-all duration-200 hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+                                >
+                                    <FileText size={14} className="text-indigo-300" />
+                                    <span>Colar edital completo</span>
+                                </button>
+                            )}
                             {onAddCategory && (
                                 <button
                                     type="button"
@@ -1268,6 +1368,20 @@ return (
                                                 </button>
                                             )}
 
+                                            {/* Active Priority Filter Pill */}
+                                            {hasPriorityFilter && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => typeof onClearPriorityFilter === 'function' && onClearPriorityFilter()}
+                                                    className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${getPriorityConfig(priorityFilter).bg} ${getPriorityConfig(priorityFilter).text} ${getPriorityConfig(priorityFilter).border}`}
+                                                    title="Remover filtro de prioridade"
+                                                >
+                                                    <span className={`w-1.5 h-1.5 rounded-full ${getPriorityConfig(priorityFilter).dot}`} />
+                                                    <span>Prioridade {getPriorityConfig(priorityFilter).label}</span>
+                                                    <X size={12} />
+                                                </button>
+                                            )}
+
                                             {/* Segmented Control Filter Tabs */}
                                             <div className="inline-flex p-1 rounded-xl bg-slate-900/80 border border-white/10 backdrop-blur-md gap-1 shadow-inner">
                                                 {filters.map(f => {
@@ -1302,14 +1416,26 @@ return (
                                 {filteredCategories.length === 0 ? (
                                     <div className="p-8 rounded-2xl bg-slate-900/40 border border-white/5 text-center space-y-2">
                                         <p className="text-slate-300 font-semibold text-sm">
-                                            Nenhuma disciplina ou assunto encontrado para &ldquo;{searchQuery}&rdquo;
+                                            {hasSearchQuery
+                                                ? `Nenhuma disciplina ou assunto encontrado para “${searchQuery.trim()}”`
+                                                : filter === 'completed'
+                                                    ? 'Nenhum assunto concluído para o filtro selecionado.'
+                                                    : filter === 'active'
+                                                        ? (taskStats.total > 0 && taskStats.active === 0
+                                                            ? 'Todos os assuntos cadastrados foram concluídos! 🎉'
+                                                            : 'Nenhum assunto pendente para o filtro selecionado.')
+                                                        : 'Nenhum assunto encontrado para o filtro de prioridade selecionado.'}
                                         </p>
                                         <button
                                             type="button"
-                                            onClick={() => setSearchQuery('')}
+                                            onClick={() => {
+                                                setSearchQuery('');
+                                                if (filter !== 'all' && typeof setFilter === 'function') setFilter('all');
+                                                if (hasPriorityFilter && typeof onClearPriorityFilter === 'function') onClearPriorityFilter();
+                                            }}
                                             className="text-xs font-semibold text-purple-400 hover:text-purple-300 underline cursor-pointer"
                                         >
-                                            Limpar busca
+                                            {hasSearchQuery && filter === 'all' && !hasPriorityFilter ? 'Limpar busca' : 'Limpar filtros'}
                                         </button>
                                     </div>
                                 ) : (
@@ -1321,13 +1447,10 @@ return (
                                             contestMinScore={contestMinScore}
                                             onToggleTask={onToggleTask}
                                             onUpdateTask={handleUpdateTask}
-                                            onDeleteTask={onDeleteTask}
-                                            onAddTask={handleAddTask}
                                             onTogglePriority={onTogglePriority}
-                                            onDeleteCategory={onDeleteCategory}
                                             onPlayContext={handlePlayContext}
                                             showSimuladoStats={showSimuladoStats}
-                                            filter={filter}
+                                            hasActiveSearch={hasSearchQuery}
                                             forceExpandState={forceExpandState}
                                             onOpenTaskModal={handleOpenTaskModal}
                                             onOpenDeleteCategoryModal={handleOpenDeleteCategoryModal}
@@ -1477,15 +1600,19 @@ return (
                                                                     const toImport = sourceCategories.filter(cat =>
                                                                         !safeCategories.some(c => normalize(c?.name || '') === normalize(cat?.name || ''))
                                                                     );
+                                                                    let importedCount = 0;
                                                                     toImport.forEach(cat => {
                                                                         if (typeof onImportCategory === 'function') {
-                                                                            onImportCategory(importSourceContest, cat.id || cat.name);
+                                                                            const ok = onImportCategory(importSourceContest, cat.id || cat.name);
+                                                                            if (ok !== false) importedCount += 1;
                                                                         }
                                                                     });
-                                                                    if (toImport.length > 0) {
-                                                                        showToast(`${toImport.length} ${toImport.length === 1 ? 'disciplina importada' : 'disciplinas importadas'} com sucesso! ✨`, 'success');
+                                                                    if (importedCount > 0) {
+                                                                        showToast(`${importedCount} ${importedCount === 1 ? 'disciplina importada' : 'disciplinas importadas'} com sucesso! ✨`, 'success');
                                                                         setIsImportModalOpen(false);
                                                                         scrollToBottom();
+                                                                    } else {
+                                                                        showToast('Nenhuma nova disciplina pôde ser importada.', 'info');
                                                                     }
                                                                 }}
                                                                 className="text-xs font-semibold text-purple-400 hover:text-purple-300 transition-colors cursor-pointer"
@@ -1541,7 +1668,10 @@ return (
                                                                         <div className="text-xs text-slate-400 tabular-nums">
                                                                             {exists
                                                                                 ? 'Já existe'
-                                                                                : `${toArray(cat.tasks).length} tarefas`}
+                                                                                : (() => {
+                                                                                    const tCount = toArray(cat.tasks).length;
+                                                                                    return `${tCount} ${tCount === 1 ? 'assunto' : 'assuntos'}`;
+                                                                                })()}
                                                                         </div>
                                                                     </div>
                                                                 </button>
@@ -1610,12 +1740,12 @@ return (
                                     if (typeof onDeleteTask === 'function') {
                                         onDeleteTask(deleteTaskModal.catId, tId);
                                     }
-                                    showToast(`Assunto "${tName}" excluído.`, 'info');
+                                    showToast(`Assunto "${tName}" movido para a lixeira.`, 'info');
                                 }
                                 setDeleteTaskModal(null);
                             }}
                             title="Excluir Assunto?"
-                            message={`Tem certeza que deseja excluir ${deleteTaskModal?.task?.title || deleteTaskModal?.task?.text || 'este assunto'}? Esta ação não pode ser desfeita.`}
+                            message={`Tem certeza que deseja excluir ${deleteTaskModal?.task?.title || deleteTaskModal?.task?.text || 'este assunto'}? Este assunto será movido para a lixeira e poderá ser restaurado depois.`}
                             confirmText="Excluir"
                         />
 
