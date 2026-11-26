@@ -1,7 +1,7 @@
-import React, { useId, useMemo } from 'react';
+import React, { useId, useMemo, useState, useEffect, useRef } from 'react';
 import { formatTime, calculateETA, SPEED_OPTIONS, POMODORO_PRESETS } from '../../utils/pomodoroHelpers';
 import { useLivePomodoroTimeLeft } from '../../utils/pomodoroLiveStore';
-import { Maximize2, Minimize2, Volume2, VolumeX, Bell, BellOff } from 'lucide-react';
+import { Maximize2, Minimize2, Volume2, VolumeX, Bell, BellOff, SlidersHorizontal, Zap, Check, X } from 'lucide-react';
 
 const CLOCK_THEMES = {
     work: {
@@ -58,10 +58,65 @@ export const PomodoroClock = React.memo(function PomodoroClock({
     toggleNotifications,
     onSelectPreset,
     activePresetId,
-    onAdjustTime
+    onAdjustTime,
+    autoAdvance = false,
+    onToggleAutoAdvance,
+    onSaveCustomSettings,
+    onTestSound
 }) {
     const rawId = useId();
     const gradientId = `timerGradient_${rawId.replace(/:/g, '')}`;
+    const [showConfig, setShowConfig] = useState(false);
+    const [draftWork, setDraftWork] = useState(() => String(safeSettings?.pomodoroWork || 25));
+    const [draftBreak, setDraftBreak] = useState(() => String(safeSettings?.pomodoroBreak || 5));
+    const [draftLongBreak, setDraftLongBreak] = useState(() => String(safeSettings?.pomodoroLongBreak || 15));
+    const [draftLongBreakAfter, setDraftLongBreakAfter] = useState(() => String(safeSettings?.longBreakAfter || 4));
+    const configPopoverRef = useRef(null);
+
+    const openConfig = () => {
+        if (!showConfig) {
+            setDraftWork(String(safeSettings?.pomodoroWork || 25));
+            setDraftBreak(String(safeSettings?.pomodoroBreak || 5));
+            setDraftLongBreak(String(safeSettings?.pomodoroLongBreak || 15));
+            setDraftLongBreakAfter(String(safeSettings?.longBreakAfter || 4));
+        }
+        setShowConfig(prev => !prev);
+    };
+
+    useEffect(() => {
+        if (!showConfig) return undefined;
+        const onClickOutside = (e) => {
+            if (configPopoverRef.current && !configPopoverRef.current.contains(e.target)) {
+                setShowConfig(false);
+            }
+        };
+        const onKey = (e) => {
+            if (e.key === 'Escape') {
+                e.stopPropagation();
+                setShowConfig(false);
+            }
+        };
+        document.addEventListener('mousedown', onClickOutside);
+        window.addEventListener('keydown', onKey, true);
+        return () => {
+            document.removeEventListener('mousedown', onClickOutside);
+            window.removeEventListener('keydown', onKey, true);
+        };
+    }, [showConfig]);
+
+    const handleSubmitCustomSettings = (e) => {
+        e.preventDefault();
+        if (typeof onSaveCustomSettings !== 'function') return;
+        const ok = onSaveCustomSettings({
+            work: Number(draftWork),
+            breakMin: Number(draftBreak),
+            longBreak: Number(draftLongBreak),
+            longBreakAfter: Number(draftLongBreakAfter)
+        });
+        if (ok !== false) {
+            setShowConfig(false);
+        }
+    };
 
     const currentTheme = useMemo(() => {
         return CLOCK_THEMES[mode] || CLOCK_THEMES.work;
@@ -142,9 +197,19 @@ export const PomodoroClock = React.memo(function PomodoroClock({
                         </div>
                     )}
 
-                    {/* Ajuste Rápido de Tempo (+1m / +5m) */}
+                    {/* Ajuste Rápido de Tempo (-1m / +1m / +5m) */}
                     {!isProtocolInactive && typeof onAdjustTime === 'function' && (
-                        <div className="flex items-center gap-0.5 bg-black/60 p-0.5 rounded-lg border border-[#3f2e26]/80 shadow-inner backdrop-blur-md" title="Adicionar tempo extra ao bloco atual">
+                        <div className="flex items-center gap-0.5 bg-black/60 p-0.5 rounded-lg border border-[#3f2e26]/80 shadow-inner backdrop-blur-md" title="Ajustar tempo do bloco atual">
+                            <button
+                                type="button"
+                                onClick={() => onAdjustTime(-60)}
+                                disabled={Number(liveTimeLeft) <= 60}
+                                aria-label="Remover 1 minuto"
+                                title="Remover 1 minuto do bloco atual"
+                                className="px-1.5 h-6 sm:h-7 rounded-md text-[9px] sm:text-[10px] font-black text-rose-300/90 hover:text-white hover:bg-rose-500/20 disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-95"
+                            >
+                                -1m
+                            </button>
                             <button
                                 type="button"
                                 onClick={() => onAdjustTime(60)}
@@ -181,6 +246,152 @@ export const PomodoroClock = React.memo(function PomodoroClock({
                             </button>
                         ))}
                     </div>
+
+                    {/* Configurações Rápidas do Cronômetro (Tempos personalizados & Auto-avanço) */}
+                    {(typeof onSaveCustomSettings === 'function' || typeof onToggleAutoAdvance === 'function') && (
+                        <div className="relative" ref={configPopoverRef}>
+                            <button
+                                type="button"
+                                onClick={openConfig}
+                                aria-label="Configurações do cronômetro"
+                                aria-expanded={showConfig}
+                                className={`relative p-1 h-6 w-6 sm:h-7 sm:w-7 flex items-center justify-center border active:scale-90 rounded-lg transition-all shadow-sm backdrop-blur-md ${
+                                    showConfig
+                                        ? 'bg-amber-500/30 border-amber-400 text-amber-200'
+                                        : 'bg-black/40 border-white/10 text-slate-300 hover:text-white hover:border-white/20'
+                                }`}
+                                title="Personalizar tempos e auto-avanço"
+                            >
+                                <SlidersHorizontal size={13} />
+                                {autoAdvance && (
+                                    <span
+                                        className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400 ring-1 ring-black"
+                                        title="Auto-avanço ativo"
+                                    />
+                                )}
+                            </button>
+
+                            {showConfig && (
+                                <div
+                                    className="absolute right-0 top-9 z-50 w-64 sm:w-72 rounded-2xl bg-[#0b1020]/98 border border-white/15 shadow-2xl backdrop-blur-xl p-3.5 text-left"
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-white/10">
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-200">
+                                            Ajustes do Cronômetro
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowConfig(false)}
+                                            aria-label="Fechar ajustes"
+                                            className="p-1 rounded-md text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                                        >
+                                            <X size={12} />
+                                        </button>
+                                    </div>
+
+                                    {typeof onSaveCustomSettings === 'function' && (
+                                        <form onSubmit={handleSubmitCustomSettings} className="space-y-2.5">
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <label className="flex flex-col gap-1">
+                                                    <span className="text-[9.5px] font-bold uppercase tracking-wider text-slate-400">Foco (min)</span>
+                                                    <input
+                                                        type="number"
+                                                        min={1}
+                                                        max={240}
+                                                        disabled={isRunning}
+                                                        value={draftWork}
+                                                        onChange={(e) => setDraftWork(e.target.value)}
+                                                        className="w-full px-2 py-1 rounded-lg bg-slate-900 border border-white/10 text-xs font-mono font-bold text-white focus:outline-none focus:border-indigo-400 disabled:opacity-40"
+                                                    />
+                                                </label>
+                                                <label className="flex flex-col gap-1">
+                                                    <span className="text-[9.5px] font-bold uppercase tracking-wider text-slate-400">Pausa (min)</span>
+                                                    <input
+                                                        type="number"
+                                                        min={1}
+                                                        max={120}
+                                                        disabled={isRunning}
+                                                        value={draftBreak}
+                                                        onChange={(e) => setDraftBreak(e.target.value)}
+                                                        className="w-full px-2 py-1 rounded-lg bg-slate-900 border border-white/10 text-xs font-mono font-bold text-white focus:outline-none focus:border-indigo-400 disabled:opacity-40"
+                                                    />
+                                                </label>
+                                                <label className="flex flex-col gap-1">
+                                                    <span className="text-[9.5px] font-bold uppercase tracking-wider text-slate-400">Pausa Longa</span>
+                                                    <input
+                                                        type="number"
+                                                        min={1}
+                                                        max={180}
+                                                        disabled={isRunning}
+                                                        value={draftLongBreak}
+                                                        onChange={(e) => setDraftLongBreak(e.target.value)}
+                                                        className="w-full px-2 py-1 rounded-lg bg-slate-900 border border-white/10 text-xs font-mono font-bold text-white focus:outline-none focus:border-indigo-400 disabled:opacity-40"
+                                                    />
+                                                </label>
+                                                <label className="flex flex-col gap-1">
+                                                    <span className="text-[9.5px] font-bold uppercase tracking-wider text-slate-400">Longa a cada</span>
+                                                    <input
+                                                        type="number"
+                                                        min={1}
+                                                        max={10}
+                                                        disabled={isRunning}
+                                                        value={draftLongBreakAfter}
+                                                        onChange={(e) => setDraftLongBreakAfter(e.target.value)}
+                                                        className="w-full px-2 py-1 rounded-lg bg-slate-900 border border-white/10 text-xs font-mono font-bold text-white focus:outline-none focus:border-indigo-400 disabled:opacity-40"
+                                                    />
+                                                </label>
+                                            </div>
+                                            {isRunning && (
+                                                <p className="text-[9.5px] text-amber-300/80 font-medium">
+                                                    Pause o cronômetro para alterar os tempos.
+                                                </p>
+                                            )}
+                                            <button
+                                                type="submit"
+                                                disabled={isRunning}
+                                                className="w-full py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all"
+                                            >
+                                                <Check size={12} />
+                                                <span>Aplicar Tempos</span>
+                                            </button>
+                                        </form>
+                                    )}
+
+                                    <div className="mt-3 pt-2.5 border-t border-white/10 space-y-2">
+                                        {typeof onToggleAutoAdvance === 'function' && (
+                                            <button
+                                                type="button"
+                                                onClick={onToggleAutoAdvance}
+                                                role="switch"
+                                                aria-checked={autoAdvance}
+                                                className="w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-xl bg-white/[0.03] hover:bg-white/[0.07] border border-white/5 transition-colors"
+                                            >
+                                                <span className="flex items-center gap-1.5 text-[10.5px] font-bold text-slate-200">
+                                                    <Zap size={12} className={autoAdvance ? 'text-emerald-400' : 'text-slate-500'} />
+                                                    <span>Auto-avançar fases</span>
+                                                </span>
+                                                <span className={`w-8 h-4 rounded-full p-0.5 transition-colors flex items-center ${autoAdvance ? 'bg-emerald-500 justify-end' : 'bg-slate-700 justify-start'}`}>
+                                                    <span className="w-3 h-3 rounded-full bg-white shadow-sm" />
+                                                </span>
+                                            </button>
+                                        )}
+
+                                        {typeof onTestSound === 'function' && (
+                                            <button
+                                                type="button"
+                                                onClick={onTestSound}
+                                                className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-[10px] font-bold text-slate-300 hover:text-white transition-colors"
+                                            >
+                                                <Volume2 size={12} className="text-emerald-400" />
+                                                <span>Testar Alarme Sonoro</span>
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     {/* Botão Notificações do Navegador */}
                     {typeof toggleNotifications === 'function' && (

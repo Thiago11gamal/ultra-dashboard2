@@ -13,7 +13,7 @@
  * - Métricas expandidas de foco e meta
  * ============================================================================
  */
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { motion as Motion, AnimatePresence } from 'framer-motion';
 import {
     Target, Clock, Trophy, TrendingUp, TrendingDown,
@@ -121,7 +121,7 @@ const SessionStatus = React.memo(function SessionStatus({
         const seriesEndDate = new Date(Date.now() + (totalSec * 1000) / safeSpeed);
         const seriesEndStr = seriesEndDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         const totalRemainingMinutes = Math.max(1, Math.round(totalSec / (60 * safeSpeed)));
-        const isFinalCycle = safeCompleted + 1 >= safeTarget;
+        const isFinalCycle = mode === 'work' && safeCompleted + 1 >= safeTarget;
         const remainingWorkBlocks = Math.max(0, safeTarget - safeCompleted - (mode === 'work' ? 1 : 0));
 
         return {
@@ -305,8 +305,16 @@ const SubjectStats = React.memo(function SubjectStats({ category, maxScore = 100
         }
 
         if (!scores.length && Array.isArray(simulados) && simulados.length > 0 && category) {
-            simulados.forEach(sim => {
-                const sub = sim?.subjects?.find(s => s && (s.id === category.id || s.name === category.name || s.categoryId === category.id));
+            const validSims = simulados
+                .filter(sim => sim && sim.valid !== false && sim.validated !== false)
+                .slice()
+                .sort((a, b) => {
+                    const ta = new Date(a?.date || a?.createdAt || 0).getTime() || 0;
+                    const tb = new Date(b?.date || b?.createdAt || 0).getTime() || 0;
+                    return ta - tb;
+                });
+            validSims.forEach(sim => {
+                const sub = sim?.subjects?.find(s => s && (String(s.id) === String(category.id) || s.name === category.name || String(s.categoryId) === String(category.id)));
                 if (sub && Number.isFinite(Number(sub.score ?? sub.accuracy))) {
                     scores.push(Number(sub.score ?? sub.accuracy));
                 } else if (sim?.categoryScores?.[category.id] !== undefined) {
@@ -744,6 +752,20 @@ export const BrainDumpNotes = React.memo(function BrainDumpNotes() {
     });
     const [inputValue, setInputValue] = useState('');
 
+    useEffect(() => {
+        const handleStorage = (e) => {
+            if (e.key !== 'pomodoro_brain_dump') return;
+            try {
+                const parsed = e.newValue ? JSON.parse(e.newValue) : [];
+                setNotes(Array.isArray(parsed) ? parsed : []);
+            } catch {
+                setNotes([]);
+            }
+        };
+        window.addEventListener('storage', handleStorage);
+        return () => window.removeEventListener('storage', handleStorage);
+    }, []);
+
     const saveNotes = (updated) => {
         setNotes(updated);
         try {
@@ -847,8 +869,9 @@ export const BrainDumpNotes = React.memo(function BrainDumpNotes() {
                             <button
                                 type="button"
                                 onClick={() => deleteNote(note.id)}
-                                className="opacity-0 group-hover:opacity-100 p-0.5 text-slate-500 hover:text-red-400 transition-opacity"
+                                className="opacity-60 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 p-0.5 text-slate-500 hover:text-red-400 transition-opacity"
                                 title="Remover"
+                                aria-label="Remover anotação"
                             >
                                 <Trash2 size={11} />
                             </button>
@@ -864,6 +887,7 @@ const SeriesLiveStats = React.memo(function SeriesLiveStats({
     settings,
     targetCycles,
     completedCycles,
+    accumulatedMinutes = null,
     totalTime,
     fallbackTimeLeft,
     mode,
@@ -878,9 +902,12 @@ const SeriesLiveStats = React.memo(function SeriesLiveStats({
     const currentWorkElapsedMin = mode === 'work'
         ? Math.max(0, (safeTotalSec - safeLeftSec) / 60)
         : 0;
-    const totalFocusMin = Math.round((safeCompleted * workMin) + currentWorkElapsedMin);
-    const targetTotalMin = safeTarget * workMin;
-    const metaPct = Math.min(100, Math.max(0, Math.round((((safeCompleted * workMin) + currentWorkElapsedMin) / targetTotalMin) * 100)));
+    const completedFocusMin = (accumulatedMinutes !== null && accumulatedMinutes !== undefined && Number.isFinite(Number(accumulatedMinutes)))
+        ? Math.max(0, Number(accumulatedMinutes))
+        : (safeCompleted * workMin);
+    const totalFocusMin = Math.round(completedFocusMin + currentWorkElapsedMin);
+    const targetTotalMin = Math.max(1, safeTarget * workMin);
+    const metaPct = Math.min(100, Math.max(0, Math.round(((completedFocusMin + currentWorkElapsedMin) / targetTotalMin) * 100)));
 
     return (
         <div className="grid grid-cols-2 gap-2">
@@ -915,14 +942,19 @@ export const SessionFocusPanel = React.memo(function SessionFocusPanel({
     totalTime,
     targetCycles,
     completedCycles,
+    accumulatedMinutes = null,
     settings,
     speed = 1,
     onStartTask
 }) {
     const [showMoreStats, setShowMoreStats] = useState(false);
 
+    const effectiveWorkBlockMinutes = mode === 'work' && Number.isFinite(totalTime) && totalTime > 0
+        ? Math.max(1, Math.round(totalTime / 60))
+        : (Number(settings?.pomodoroWork) || 25);
+
     const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
-    const currentCategory = activeSubject ? safeCats.find(c => c && (c.id === activeSubject.categoryId || (activeSubject.category && c.name === activeSubject.category))) : null;
+    const currentCategory = activeSubject ? safeCats.find(c => c && (String(c.id) === String(activeSubject.categoryId) || (activeSubject.category && c.name === activeSubject.category))) : null;
 
     const parsedTask = useMemo(() => {
         return parseTaskDisplay(activeSubject?.task, activeSubject?.category, currentCategory || safeCats);
@@ -1024,7 +1056,7 @@ export const SessionFocusPanel = React.memo(function SessionFocusPanel({
                         </span>
                         {isRunning && mode === 'work' && (
                             <span className="font-semibold text-emerald-400">
-                                +{(Number(settings?.pomodoroWork) || 25)} min de retenção
+                                +{effectiveWorkBlockMinutes} min de retenção
                             </span>
                         )}
                     </div>
@@ -1081,7 +1113,7 @@ export const SessionFocusPanel = React.memo(function SessionFocusPanel({
                 taskId={activeSubject?.taskId}
                 isRunning={isRunning}
                 mode={mode}
-                nominalWorkMinutes={Number(settings?.pomodoroWork) || 25}
+                nominalWorkMinutes={effectiveWorkBlockMinutes}
             />
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
@@ -1133,6 +1165,7 @@ export const SessionFocusPanel = React.memo(function SessionFocusPanel({
                                     settings={settings}
                                     targetCycles={targetCycles}
                                     completedCycles={completedCycles}
+                                    accumulatedMinutes={accumulatedMinutes}
                                     totalTime={totalTime}
                                     fallbackTimeLeft={timeLeft}
                                     mode={mode}

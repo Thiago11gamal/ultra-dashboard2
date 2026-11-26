@@ -11,7 +11,7 @@ import { useToast } from '../hooks/useToast';
 import {
     CheckCircle2, ChevronRight, Zap,
     Flame, Lock, Unlock, RotateCcw, Loader2, Target,
-    AlertCircle, Clock, BookOpen, Activity
+    AlertCircle, Clock, Activity, Search, X
 } from 'lucide-react';
 import { getBestTask } from '../utils/coachLogic';
 import { resolveCanonicalNextMission } from '../utils/canonicalNextMission';
@@ -82,12 +82,39 @@ const ActionsAndMentorView = React.memo(function ActionsAndMentorView({
     recommendedTask: propRecommendedTask = undefined
 }) {
     const liveTimeLeft = useLivePomodoroTimeLeft(timeLeft, isRunning);
+    const [taskSearch, setTaskSearch] = useState('');
+    const [selectedCategoryId, setSelectedCategoryId] = useState('all');
+
     const recommendedTask = useMemo(() => {
         if (propRecommendedTask !== undefined) return propRecommendedTask;
         const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
         if (!safeCats || safeCats.length === 0) return null;
         return getBestTask(safeCats, null, { contestId, studyLogs });
     }, [propRecommendedTask, categories, contestId, studyLogs]);
+
+    const activeTaskIdStr = activeSubject?.taskId ? String(activeSubject.taskId) : null;
+
+    const allPendingTasks = useMemo(() => {
+        const tasks = [];
+        const priorityRank = { high: 0, medium: 1, low: 2 };
+        (categories || []).filter(Boolean).forEach(cat => {
+            const safeTasks = Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {});
+            safeTasks.filter(t => t && !t.completed).forEach(t => {
+                const tid = String(t.id || t.text || t.title || '');
+                if (!tid || tid === activeTaskIdStr) return;
+                tasks.push({
+                    ...t,
+                    id: t.id || t.text || t.title,
+                    catName: cat.name,
+                    catColor: cat.color,
+                    catId: cat.id,
+                    catIcon: cat.icon,
+                    _prioRank: priorityRank[normalizePriority(t.priority)] ?? 2
+                });
+            });
+        });
+        return tasks.sort((a, b) => a._prioRank - b._prioRank);
+    }, [categories, activeTaskIdStr]);
 
     const highPriorityTasks = useMemo(() => {
         const tasks = [];
@@ -131,9 +158,28 @@ const ActionsAndMentorView = React.memo(function ActionsAndMentorView({
         return tasks;
     }, [categories, recommendedTask, activeSubject, neuralMode, neuralQueue]);
 
-    const pendingCount = highPriorityTasks.filter(t => String(t.id || t.text || t.title) !== String(activeSubject?.taskId)).length;
+    const isFilteringTasks = Boolean(taskSearch.trim()) || selectedCategoryId !== 'all';
+
+    const pendingCount = useMemo(() => {
+        if (neuralMode && neuralQueue && neuralQueue.length > 0) {
+            return highPriorityTasks.filter(t => String(t.id || t.text || t.title) !== String(activeSubject?.taskId)).length;
+        }
+        const highOrMedCount = highPriorityTasks.filter(t => String(t.id || t.text || t.title) !== String(activeSubject?.taskId)).length;
+        if (highOrMedCount > 0) return highOrMedCount;
+        const recommendedId = (!activeSubject && recommendedTask) ? String(recommendedTask.id || recommendedTask.text || recommendedTask.title || '') : null;
+        return allPendingTasks.filter(t => String(t.id || t.text || t.title) !== recommendedId).length;
+    }, [neuralMode, neuralQueue, highPriorityTasks, activeSubject, recommendedTask, allPendingTasks]);
 
     const visibleTasks = useMemo(() => {
+        if (isFilteringTasks) {
+            const q = taskSearch.trim().toLowerCase();
+            return allPendingTasks.filter(t => {
+                if (selectedCategoryId !== 'all' && String(t.catId) !== String(selectedCategoryId)) return false;
+                if (!q) return true;
+                const haystack = `${t.text || ''} ${t.title || ''} ${t.catName || ''}`.toLowerCase();
+                return haystack.includes(q);
+            }).slice(0, 12);
+        }
         const base = [...highPriorityTasks];
         const seen = new Set(base.map(t => String(t?.id || t?.text || t?.title || '')).filter(Boolean));
         const currentActiveTaskId = activeSubject?.taskId ? String(activeSubject.taskId) : null;
@@ -149,11 +195,11 @@ const ActionsAndMentorView = React.memo(function ActionsAndMentorView({
             });
         }
         return base.slice(0, 6);
-    }, [highPriorityTasks, categories, activeSubject]);
+    }, [isFilteringTasks, taskSearch, selectedCategoryId, allPendingTasks, highPriorityTasks, categories, activeSubject]);
 
     const activeTaskStats = useMemo(() => {
         if (!activeSubject) return null;
-        const currentCategory = (categories || []).find(c => c && (c.id === activeSubject.categoryId || (activeSubject.category && c.name === activeSubject.category)));
+        const currentCategory = (categories || []).find(c => c && (String(c.id) === String(activeSubject.categoryId) || (activeSubject.category && c.name === activeSubject.category)));
         const rawTasks = currentCategory?.tasks || [];
         const safeCategoryTasks = Array.isArray(rawTasks) ? rawTasks : Object.values(rawTasks);
         const categoryTasks = safeCategoryTasks.filter(Boolean);
@@ -363,7 +409,7 @@ const ActionsAndMentorView = React.memo(function ActionsAndMentorView({
             )}
 
             <div className="bg-white/[0.015] border border-white/[0.04] rounded-2xl p-4 backdrop-blur-md relative overflow-hidden shadow-inner">
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2.5">
                         <div className="w-6 h-6 rounded-lg bg-indigo-500/15 border border-indigo-500/25 flex items-center justify-center text-indigo-400 shrink-0 shadow-inner">
                             <Target size={13} />
@@ -376,11 +422,66 @@ const ActionsAndMentorView = React.memo(function ActionsAndMentorView({
                         </span>
                     )}
                 </div>
+                {allPendingTasks.length > 0 && (
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5 mb-3">
+                        <div className="relative flex-1 min-w-0">
+                            <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+                            <input
+                                type="text"
+                                value={taskSearch}
+                                onChange={(e) => setTaskSearch(e.target.value)}
+                                placeholder="Buscar assunto ou matéria para estudar..."
+                                aria-label="Buscar assunto para iniciar no cronômetro"
+                                className="w-full pl-7 pr-7 py-1.5 rounded-xl bg-slate-950/70 border border-white/10 text-[11px] text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-indigo-400/50 transition-colors"
+                            />
+                            {taskSearch && (
+                                <button
+                                    type="button"
+                                    onClick={() => setTaskSearch('')}
+                                    aria-label="Limpar busca de assuntos"
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors"
+                                >
+                                    <X size={12} />
+                                </button>
+                            )}
+                        </div>
+                        {(categories || []).length > 1 && (
+                            <select
+                                value={selectedCategoryId}
+                                onChange={(e) => setSelectedCategoryId(e.target.value)}
+                                aria-label="Filtrar ações por disciplina"
+                                className="px-2.5 py-1.5 rounded-xl bg-slate-950/70 border border-white/10 text-[11px] font-semibold text-slate-300 focus:outline-none focus:border-indigo-400/50 max-w-full sm:max-w-[160px] truncate"
+                            >
+                                <option value="all">Todas as matérias</option>
+                                {(categories || []).filter(Boolean).map(cat => (
+                                    <option key={cat.id} value={String(cat.id)}>
+                                        {safeCatName(cat.name)}
+                                    </option>
+                                ))}
+                            </select>
+                        )}
+                    </div>
+                )}
                 {visibleTasks.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-10 text-center bg-white/[0.015] rounded-2xl border border-white/5">
                         <CheckCircle2 size={28} className="text-emerald-500/40 mb-3" />
-                        <p className="text-xs font-bold text-slate-300 tracking-tight">Nenhuma ação pendente</p>
-                        <p className="text-[9px] text-slate-500 mt-1">Todas as missões neurais completas ou em foco.</p>
+                        <p className="text-xs font-bold text-slate-300 tracking-tight">
+                            {isFilteringTasks ? 'Nenhum assunto encontrado' : 'Nenhuma ação pendente'}
+                        </p>
+                        <p className="text-[9px] text-slate-500 mt-1">
+                            {isFilteringTasks
+                                ? 'Tente outro termo ou limpe os filtros.'
+                                : 'Todas as missões neurais completas ou em foco.'}
+                        </p>
+                        {isFilteringTasks && (
+                            <button
+                                type="button"
+                                onClick={() => { setTaskSearch(''); setSelectedCategoryId('all'); }}
+                                className="mt-3 px-3 py-1 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-400/30 text-[10px] font-bold text-indigo-300 transition-colors"
+                            >
+                                Limpar filtros
+                            </button>
+                        )}
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -469,6 +570,7 @@ const PomodoroSidePanel = React.memo(function PomodoroSidePanel({
     totalTime,
     targetCycles,
     completedCycles,
+    accumulatedMinutes = null,
     isLayoutLocked,
     onToggleLock,
     settings,
@@ -538,7 +640,14 @@ const PomodoroSidePanel = React.memo(function PomodoroSidePanel({
     }, []);
 
     const handleDragEnd = (_, info) => {
-        const newPos = { x: uiPosition.x + info.offset.x, y: uiPosition.y + info.offset.y };
+        const rawX = uiPosition.x + info.offset.x;
+        const rawY = uiPosition.y + info.offset.y;
+        const limitX = typeof window !== 'undefined' ? Math.max(80, window.innerWidth - 220) : 800;
+        const limitY = typeof window !== 'undefined' ? Math.max(80, window.innerHeight - 200) : 600;
+        const newPos = {
+            x: Math.max(-limitX, Math.min(limitX, Math.round(rawX))),
+            y: Math.max(-limitY, Math.min(limitY, Math.round(rawY)))
+        };
         setUiPosition(newPos);
         try {
             localStorage.setItem('focusPanelPosition', JSON.stringify(newPos));
@@ -571,6 +680,7 @@ const PomodoroSidePanel = React.memo(function PomodoroSidePanel({
 
         let highCount = 0;
         let mediumCount = 0;
+        let lowCount = 0;
         safeCats.filter(Boolean).forEach(cat => {
             const safeTasks = Array.isArray(cat?.tasks) ? cat.tasks : Object.values(cat?.tasks || {});
             safeTasks.forEach(t => {
@@ -580,10 +690,15 @@ const PomodoroSidePanel = React.memo(function PomodoroSidePanel({
                 const prio = normalizePriority(t.priority);
                 if (prio === 'high') highCount++;
                 else if (prio === 'medium') mediumCount++;
+                else lowCount++;
             });
         });
-        return highCount > 0 ? highCount : mediumCount;
+        if (highCount > 0) return highCount;
+        if (mediumCount > 0) return mediumCount;
+        return lowCount;
     }, [categories, activeSubject, neuralMode, neuralQueue, contestId, studyLogs, propRecommendedTask]);
+
+    const safePanelHeight = clockHeight ? Math.max(540, clockHeight) : null;
 
     return (
         <Motion.div
@@ -593,7 +708,7 @@ const PomodoroSidePanel = React.memo(function PomodoroSidePanel({
             animate={uiPosition}
             onDragEnd={handleDragEnd}
             whileDrag={{ scale: 1.01, zIndex: 100 }}
-            style={clockHeight ? { height: `${clockHeight}px`, maxHeight: `${clockHeight}px` } : undefined}
+            style={safePanelHeight ? { height: `${safePanelHeight}px`, maxHeight: `${safePanelHeight}px` } : undefined}
             className={`flex flex-col w-full relative group p-3.5 sm:p-4 bg-[#08090f]/75 border border-white/10 rounded-2xl sm:rounded-3xl backdrop-blur-xl shadow-2xl overflow-hidden ${!isLayoutLocked ? 'cursor-grab active:cursor-grabbing' : ''}`}
         >
             {/* CABEÇALHO DO PAINEL LATERAL (INTEGRADO, FLUIDO E SEMPRE ACESSÍVEL) */}
@@ -737,6 +852,7 @@ const PomodoroSidePanel = React.memo(function PomodoroSidePanel({
                                 totalTime={totalTime}
                                 targetCycles={targetCycles}
                                 completedCycles={completedCycles}
+                                accumulatedMinutes={accumulatedMinutes}
                                 settings={settings}
                                 simulados={simulados}
                                 speed={speed}
@@ -762,7 +878,8 @@ const PomodoroTopBar = React.memo(function PomodoroTopBar({
     timeLeft = 0,
     targetCycles = 1,
     completedCycles = 0,
-    speed = 1
+    speed = 1,
+    settings = EMPTY_OBJECT
 }) {
     const currentCategory = useMemo(() => {
         if (!activeSubject) return null;
@@ -857,7 +974,9 @@ const PomodoroTopBar = React.memo(function PomodoroTopBar({
                         </span>
                     </div>
                     <span className="text-[9px] sm:text-[10px] font-bold text-[#2d1a12]/80 mt-0.5 tracking-tight">
-                        Ciclo {currentCycleDisplay} de {targetCycles}
+                        {activeSubject
+                            ? `Ciclo ${currentCycleDisplay} de ${targetCycles}`
+                            : `Cadência ${Number(settings?.pomodoroWork) || 25}/${Number(settings?.pomodoroBreak) || 5} min`}
                     </span>
                 </div>
             </div>
@@ -889,6 +1008,7 @@ export default function Pomodoro() {
     const isHydrated = !!activeId && contest !== EMPTY_OBJECT;
 
     const setData = useAppStore(state => state.setData);
+    const updatePomodoroSettings = useAppStore(state => state.updatePomodoroSettings);
     const handleUpdateStudyTime = useAppStore(state => state.handleUpdateStudyTime);
     const [studyMode, setStudyMode] = useState(() => {
         try {
@@ -898,7 +1018,28 @@ export default function Pomodoro() {
             return 'teoria';
         }
     });
-    const [energyLevel, setEnergyLevel] = useState(null);
+    const [energyLevel, setEnergyLevel] = useState(() => {
+        try {
+            const raw = sessionStorage.getItem('pomodoro_energy_level_v1');
+            const num = Number(raw);
+            return Number.isInteger(num) && num >= 1 && num <= 5 ? num : null;
+        } catch {
+            return null;
+        }
+    });
+
+    const handleChangeEnergyLevel = useCallback((lvl) => {
+        setEnergyLevel(prev => {
+            const next = prev === lvl ? null : lvl;
+            try {
+                if (next === null) sessionStorage.removeItem('pomodoro_energy_level_v1');
+                else sessionStorage.setItem('pomodoro_energy_level_v1', String(next));
+            } catch {
+                // ignore
+            }
+            return next;
+        });
+    }, []);
 
     const handleChangeStudyMode = useCallback((modeId) => {
         setStudyMode(modeId);
@@ -1074,14 +1215,14 @@ export default function Pomodoro() {
         }
     });
 
-    const handleTabChange = (newTab) => {
+    const handleTabChange = useCallback((newTab) => {
         setActiveSideTab(newTab);
         try {
             localStorage.setItem('pomodoroSideTab', newTab);
         } catch (e) {
             console.warn('[Pomodoro] Falha ao persistir tab lateral:', e);
         }
-    };
+    }, []);
 
     useEffect(() => {
         if (location.state?.from) {
@@ -1131,19 +1272,21 @@ export default function Pomodoro() {
         return () => window.removeEventListener('storage', handler);
     }, []);
 
-    const toggleLayoutLock = () => {
-        const newState = !isLayoutLocked;
-        setIsLayoutLocked(newState);
-        try {
-            localStorage.setItem('pomodoroLayoutLocked', JSON.stringify(newState));
-            localStorage.setItem('focusPanelLocked', JSON.stringify(newState));
-        } catch (err) {
-            console.warn('[Pomodoro] Falha ao salvar pomodoroLayoutLocked:', err);
+    const toggleLayoutLock = useCallback(() => {
+        setIsLayoutLocked(prev => {
+            const newState = !prev;
             try {
-                sessionStorage.setItem('pomodoroLayoutLocked', JSON.stringify(newState));
-            } catch { /* ignore */ }
-        }
-    };
+                localStorage.setItem('pomodoroLayoutLocked', JSON.stringify(newState));
+                localStorage.setItem('focusPanelLocked', JSON.stringify(newState));
+            } catch (err) {
+                console.warn('[Pomodoro] Falha ao salvar pomodoroLayoutLocked:', err);
+                try {
+                    sessionStorage.setItem('pomodoroLayoutLocked', JSON.stringify(newState));
+                } catch { /* ignore */ }
+            }
+            return newState;
+        });
+    }, []);
 
     const userStats = useMemo(() => {
         if (!contest || contest === EMPTY_OBJECT) {
@@ -1207,16 +1350,16 @@ export default function Pomodoro() {
             const incomingState = location.state;
 
             const isDifferentSubject = !activeSubject ||
-                activeSubject.taskId !== incomingState.taskId ||
-                activeSubject.categoryId !== incomingState.categoryId;
+                String(activeSubject.taskId) !== String(incomingState.taskId) ||
+                String(activeSubject.categoryId) !== String(incomingState.categoryId);
 
             if (isDifferentSubject) {
                 const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
-                const cat = safeCats.find(c => c && (c.id === incomingState.categoryId || c.name === incomingState.categoryId));
+                const cat = safeCats.find(c => c && (String(c.id) === String(incomingState.categoryId) || c.name === incomingState.categoryId));
                 if (!cat) return;
                 const rawTasks = cat.tasks || [];
                 const safeTasks = Array.isArray(rawTasks) ? rawTasks : Object.values(rawTasks);
-                const tsk = safeTasks.find(t => t && (t.id === incomingState.taskId || t.text === incomingState.taskId || t.title === incomingState.taskId));
+                const tsk = safeTasks.find(t => t && (String(t.id) === String(incomingState.taskId) || t.text === incomingState.taskId || t.title === incomingState.taskId));
                 if (cat && tsk) {
                     useAppStore.getState().startPomodoroSession({
                         categoryId: cat.id,
@@ -1287,7 +1430,7 @@ export default function Pomodoro() {
         navigate(returnPath, { replace: Boolean(options.forceDashboard) });
     }, [setData, setPomodoroActiveSubject, navigate]);
 
-    const handleStartTask = (task, forcedSessionId = null, source = 'pomodoro', autoStart = false) => {
+    const handleStartTask = useCallback((task, forcedSessionId = null, source = 'pomodoro', autoStart = false) => {
         const sessionId = forcedSessionId || Date.now().toString();
         const pomodoroState = useAppStore.getState().appState?.pomodoro || {};
         const effectiveSource = (pomodoroState.neuralMode && source !== 'dashboard') ? 'neural_core' : source;
@@ -1300,7 +1443,7 @@ export default function Pomodoro() {
         if (!catId || !catName) {
             const foundCat = safeCats.find(c => {
                 if (!c) return false;
-                if (catId && c.id === catId) return true;
+                if (catId && String(c.id) === String(catId)) return true;
                 if (catName && c.name === catName) return true;
                 const tasks = Array.isArray(c?.tasks) ? c.tasks : Object.values(c?.tasks || {});
                 return tasks.some(t => t && (String(t?.id) === String(taskId) || String(t?.text) === String(taskId) || String(t?.title) === String(taskId)));
@@ -1314,16 +1457,17 @@ export default function Pomodoro() {
         catId = catId || 'geral';
         catName = catName || 'Geral';
 
+        const currentActiveSub = activeSubjectRef.current;
         if (
-            activeSubject &&
-            String(activeSubject.taskId) === String(taskId) &&
-            isActiveSubjectInCategory({ id: catId, name: catName }, activeSubject)
+            currentActiveSub &&
+            String(currentActiveSub.taskId) === String(taskId) &&
+            isActiveSubjectInCategory({ id: catId, name: catName }, currentActiveSub)
         ) {
             showToast('Esta meta já está em foco! 🎯', 'info');
             return;
         }
 
-        const prevSubject = activeSubject || pomodoroState.activeSubject;
+        const prevSubject = currentActiveSub || pomodoroState.activeSubject;
         if (prevSubject) {
             setData(prev => clearStudyingStatusInContest(prev, prevSubject));
         }
@@ -1360,7 +1504,11 @@ export default function Pomodoro() {
         if (autoStart) {
             scheduleAutoStart();
         }
-    };
+    }, [categories, showToast, setData, scheduleAutoStart]);
+
+    const handleStartRecommended = useCallback((task, autoStart = false) => {
+        handleStartTask(task, null, 'neural_core', autoStart);
+    }, [handleStartTask]);
 
     const handleTimerStateChange = useCallback((newState) => {
         setLiveTimerState(prev => {
@@ -1374,6 +1522,7 @@ export default function Pomodoro() {
                 prev.sessions === newState.sessions &&
                 prev.targetCycles === newState.targetCycles &&
                 prev.completedCycles === newState.completedCycles &&
+                prev.accumulatedMinutes === newState.accumulatedMinutes &&
                 prev.speed === newState.speed
             ) {
                 return prev;
@@ -1388,29 +1537,36 @@ export default function Pomodoro() {
         const store = useAppStore.getState();
 
         if (currentSubject) {
-            if (wasNatural) {
-                showToast(`Série finalizada! ${totalMinutes} minutos salvos no histórico. 🚀💎`, 'success');
+            const safeTotalMins = Number.isFinite(Number(totalMinutes)) ? Math.max(0, Number(totalMinutes)) : 0;
+            if (safeTotalMins > 0) {
+                if (wasNatural) {
+                    showToast(`Série finalizada! ${safeTotalMins} minutos salvos no histórico. 🚀💎`, 'success');
+                } else {
+                    showToast(`Série concluída! ${safeTotalMins} minutos salvos no histórico. ⚡`, 'info');
+                }
             } else {
-                showToast(`Série concluída! ${totalMinutes} minutos salvos no histórico. ⚡`, 'info');
+                showToast('Série encerrada sem minutos registrados.', 'info');
             }
             store.setPomodoroAccumulatedMinutes(0);
 
             const activeData = store.appState.contests[store.appState.activeId];
+            const isSyntheticFreeFocus = /^estudo_livre_/i.test(String(currentSubject.taskId || ''));
+            const canAutoCompleteTask = !isSyntheticFreeFocus && (wasNatural || safeTotalMins > 0);
 
-            if (neuralMode || currentSubject.source === 'neural_core') {
+            if (canAutoCompleteTask && (neuralMode || currentSubject.source === 'neural_core')) {
                 const contestSnapshot = activeData || (store.appState?.coachPlan ? { coachPlan: store.appState.coachPlan } : null);
                 const { targetTask } = findSubjectTaskInContest(contestSnapshot, currentSubject);
                 const humanSubjectTitle = cleanTaskTitle(targetTask?.title || targetTask?.text || currentSubject.task, currentSubject.category) || 'Meta';
 
-                if (!targetTask || !targetTask.completed) {
+                if (targetTask && !targetTask.completed) {
                     if (typeof store.toggleNeuralTask === 'function') {
                         store.toggleNeuralTask(currentSubject.taskId);
                     }
                     showToast(`Status: "${humanSubjectTitle}" concluído! ✅`, 'success');
-                } else {
+                } else if (targetTask?.completed) {
                     showToast(`Sessão finalizada: "${humanSubjectTitle}"! ✅`, 'info');
                 }
-            } else {
+            } else if (canAutoCompleteTask) {
                 const contestSnapshot = activeData || (store.appState?.coachPlan ? { coachPlan: store.appState.coachPlan } : null);
                 const { catTask, targetTask } = findSubjectTaskInContest(contestSnapshot, currentSubject);
                 const humanSubjectTitle = cleanTaskTitle(targetTask?.title || targetTask?.text || currentSubject.task, currentSubject.category) || 'Meta';
@@ -1422,7 +1578,7 @@ export default function Pomodoro() {
                         store.toggleTask(currentSubject.categoryId, currentSubject.taskId);
                     }
                     showToast(`Status: "${humanSubjectTitle}" concluído! ✅`, 'success');
-                } else if (typeof store.toggleNeuralTask === 'function') {
+                } else if (targetTask && !targetTask.completed && typeof store.toggleNeuralTask === 'function') {
                     store.toggleNeuralTask(currentSubject.taskId);
                     showToast(`Status: "${humanSubjectTitle}" concluído! ✅`, 'success');
                 }
@@ -1529,6 +1685,7 @@ export default function Pomodoro() {
                             targetCycles={liveTimerState?.targetCycles || pomodoroState.targetCycles || 1}
                             completedCycles={liveTimerState?.completedCycles ?? pomodoroState.completedCycles ?? 0}
                             speed={liveTimerState?.speed || pomodoroState.speed || 1}
+                            settings={settings}
                         />
                         {/* Telemetria leve da sessão: Modo de Estudo + Energia (1-5) + Bloco ACWR */}
                         <div className="w-full px-3 py-2 rounded-2xl bg-slate-900/75 border border-white/10 backdrop-blur-md flex flex-wrap items-center justify-between gap-2 text-[11px]">
@@ -1556,8 +1713,9 @@ export default function Pomodoro() {
                                         <button
                                             key={lvl}
                                             type="button"
-                                            onClick={() => setEnergyLevel(prev => (prev === lvl ? null : lvl))}
+                                            onClick={() => handleChangeEnergyLevel(lvl)}
                                             title={`Energia ${lvl}/5`}
+                                            aria-pressed={energyLevel === lvl}
                                             className={`w-5 h-5 rounded-md text-[10px] font-mono font-bold transition-all border ${energyLevel === lvl
                                                 ? 'bg-emerald-500/25 border-emerald-400/60 text-emerald-200'
                                                 : 'bg-white/[0.03] border-white/10 text-slate-400 hover:text-white'
@@ -1578,13 +1736,21 @@ export default function Pomodoro() {
                                                 return;
                                             }
                                             const mins = acwrSummary.recommendedBlockMinutes;
-                                            setData((prev) => ({
-                                                ...prev,
-                                                settings: {
-                                                    ...(prev?.settings || {}),
-                                                    pomodoroWork: mins,
-                                                },
-                                            }));
+                                            if (Number(settings?.pomodoroWork) === mins) {
+                                                showToast(`Bloco já está calibrado em ${mins} min (ACWR ${acwrSummary.acwr?.toFixed(2)}×).`, 'info');
+                                                return;
+                                            }
+                                            if (typeof updatePomodoroSettings === 'function') {
+                                                updatePomodoroSettings({ pomodoroWork: mins });
+                                            } else {
+                                                setData((prev) => ({
+                                                    ...prev,
+                                                    settings: {
+                                                        ...(prev?.settings || {}),
+                                                        pomodoroWork: mins,
+                                                    },
+                                                }));
+                                            }
                                             showToast(`Bloco Pomodoro adaptado para ${mins} min (ACWR ${acwrSummary.acwr?.toFixed(2)}×)! ⚡`, 'success');
                                         }}
                                         className={`px-2 py-0.5 rounded-lg border text-[10px] font-mono font-bold transition-all hover:brightness-125 active:scale-95 cursor-pointer ${acwrSummary.zone === 'burnout_risk'
@@ -1613,8 +1779,8 @@ export default function Pomodoro() {
                             onToggleLock={toggleLayoutLock}
                             defaultTargetCycles={1}
                             recommendedTask={recommendedTask}
-                            onStartRecommended={(task, autoStart = false) => handleStartTask(task, null, 'neural_core', autoStart)}
-                            onStartFreeFocus={(autoStart = false) => handleStartFreeFocus(autoStart)}
+                            onStartRecommended={handleStartRecommended}
+                            onStartFreeFocus={handleStartFreeFocus}
                             key={activeSubject?.sessionInstanceId || 'idle'}
                         />
                     </div>
@@ -1622,7 +1788,7 @@ export default function Pomodoro() {
                     {/* COLUNA 2: PAINEL LATERAL (MEIO A MEIO) */}
                     <div
                         className="w-full min-w-0 flex flex-col"
-                        style={isDesktop && clockHeight ? { height: `${clockHeight}px`, maxHeight: `${clockHeight}px` } : undefined}
+                        style={isDesktop && clockHeight ? { height: `${Math.max(540, clockHeight)}px`, maxHeight: `${Math.max(540, clockHeight)}px` } : undefined}
                     >
                         <PomodoroSidePanel
                             clockHeight={isDesktop ? clockHeight : undefined}
@@ -1650,6 +1816,7 @@ export default function Pomodoro() {
                             )}
                             targetCycles={liveTimerState?.targetCycles || pomodoroState.targetCycles || 1}
                             completedCycles={liveTimerState?.completedCycles ?? pomodoroState.completedCycles ?? 0}
+                            accumulatedMinutes={liveTimerState?.accumulatedMinutes ?? pomodoroState.accumulatedMinutes ?? 0}
                             isLayoutLocked={isLayoutLocked}
                             onToggleLock={toggleLayoutLock}
                             settings={settings}

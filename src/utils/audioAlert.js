@@ -37,9 +37,13 @@ export function playPomodoroAlarm(options = {}) {
 
         const playChime = () => {
             const now = ctx.currentTime;
-            const notes = options.notes || [587.33, 880, 1174.66]; // D5, A5, D6 harmonic chime
-            const duration = options.duration || 0.35;
-            const interval = options.interval || 0.12;
+            const isBreakEnd = options.phase === 'break' || options.phase === 'long_break';
+            const defaultNotes = isBreakEnd
+                ? [659.25, 880, 1318.51] // E5, A5, E6 crisp focus-ready chime
+                : [587.33, 880, 1174.66]; // D5, A5, D6 celebratory harmonic chime
+            const notes = options.notes || defaultNotes;
+            const duration = options.duration || (isBreakEnd ? 0.28 : 0.35);
+            const interval = options.interval || (isBreakEnd ? 0.1 : 0.12);
 
             notes.forEach((freq, index) => {
                 const startTime = now + (index * interval);

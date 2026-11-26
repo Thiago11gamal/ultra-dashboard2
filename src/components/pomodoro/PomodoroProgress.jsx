@@ -13,10 +13,12 @@ export const PomodoroProgress = React.memo(function PomodoroProgress({
     breakBallsRef,
     mode = 'work',
     timeLeft = 0,
-    totalTime = 25 * 60
+    totalTime = 25 * 60,
+    longBreakAfter = 4
 }) {
     const safeTargetCycles = Math.min(MAX_TARGET_CYCLES, Math.max(1, Math.round(Number(targetCycles) || 1)));
     const safeCompletedCycles = Math.min(safeTargetCycles, Math.max(0, Math.round(Number(completedCycles) || 0)));
+    const safeLongBreakAfter = Math.min(10, Math.max(1, Math.round(Number(longBreakAfter) || 4)));
 
     const persistTargetCycles = (newTarget) => {
         try {
@@ -173,20 +175,30 @@ export const PomodoroProgress = React.memo(function PomodoroProgress({
                                     />
                                 </div>
 
-                                {/* Bolinha Verde de Pausa (transform scaleY para evitar reflow a 60fps) */}
-                                {i < safeTargetCycles - 1 && (
-                                    <div className={`relative ${isCompact ? 'w-4 h-4 sm:w-4.5 sm:h-4.5' : 'w-5 h-5 sm:w-6 sm:h-6'} rounded-full bg-[#2d1a12]/20 border-2 border-[#2d1a12]/35 overflow-hidden shrink-0 shadow-md`}>
+                                {/* Bolinha de Pausa (Verde = curta, Violeta = pausa longa) */}
+                                {i < safeTargetCycles - 1 && (() => {
+                                    const isLongBreakBall = (i + 1) % safeLongBreakAfter === 0;
+                                    return (
                                         <div
-                                            ref={el => {
-                                                if (breakBallsRef?.current && Array.isArray(breakBallsRef.current)) {
-                                                    breakBallsRef.current[i] = el || undefined;
-                                                }
-                                            }}
-                                            style={{ transform: `scaleY(${breakRatio})`, transformOrigin: 'bottom center' }}
-                                            className="absolute inset-0 w-full h-full bg-gradient-to-t from-emerald-600 to-emerald-400 shadow-[0_0_10px_rgba(34,197,94,0.6)]"
-                                        />
-                                    </div>
-                                )}
+                                            title={isLongBreakBall ? `Pausa Longa (após ciclo ${i + 1})` : `Pausa Curta (após ciclo ${i + 1})`}
+                                            className={`relative ${isCompact ? 'w-4 h-4 sm:w-4.5 sm:h-4.5' : 'w-5 h-5 sm:w-6 sm:h-6'} rounded-full bg-[#2d1a12]/20 border-2 ${isLongBreakBall ? 'border-violet-900/50' : 'border-[#2d1a12]/35'} overflow-hidden shrink-0 shadow-md`}
+                                        >
+                                            <div
+                                                ref={el => {
+                                                    if (breakBallsRef?.current && Array.isArray(breakBallsRef.current)) {
+                                                        breakBallsRef.current[i] = el || undefined;
+                                                    }
+                                                }}
+                                                style={{ transform: `scaleY(${breakRatio})`, transformOrigin: 'bottom center' }}
+                                                className={`absolute inset-0 w-full h-full ${
+                                                    isLongBreakBall
+                                                        ? 'bg-gradient-to-t from-violet-600 to-purple-400 shadow-[0_0_10px_rgba(168,85,247,0.6)]'
+                                                        : 'bg-gradient-to-t from-emerald-600 to-emerald-400 shadow-[0_0_10px_rgba(34,197,94,0.6)]'
+                                                }`}
+                                            />
+                                        </div>
+                                    );
+                                })()}
                             </React.Fragment>
                         );
                     })}

@@ -259,7 +259,7 @@ export const createPomodoroSlice = (set, get) => ({
         });
     },
 
-    completePomodoroPhase: (isManual = false, manualMinutes = 0) => {
+    completePomodoroPhase: (isManual = false, manualMinutes = 0, naturalMinutes = null) => {
         let savedMinutes = 0;
 
         set((state) => {
@@ -274,6 +274,14 @@ export const createPomodoroSlice = (set, get) => ({
             };
 
             const workDuration = Number(settings.pomodoroWork) || 25;
+            const effectiveNaturalMinutes = (
+                naturalMinutes !== null &&
+                naturalMinutes !== undefined &&
+                Number.isFinite(Number(naturalMinutes)) &&
+                Number(naturalMinutes) > 0
+            )
+                ? Number(naturalMinutes)
+                : workDuration;
             const targetCycles = Math.min(
                 MAX_TARGET_CYCLES,
                 Math.max(1, Number(p.targetCycles) || 1)
@@ -281,10 +289,10 @@ export const createPomodoroSlice = (set, get) => ({
 
             if (p.mode === 'work') {
                 if (!isManual) {
-                    p.accumulatedMinutes = (p.accumulatedMinutes || 0) + workDuration;
+                    p.accumulatedMinutes = Number(((p.accumulatedMinutes || 0) + effectiveNaturalMinutes).toFixed(2));
                     savedMinutes = p.accumulatedMinutes;
                 } else if (manualMinutes > 0) {
-                    p.accumulatedMinutes = (p.accumulatedMinutes || 0) + manualMinutes;
+                    p.accumulatedMinutes = Number(((p.accumulatedMinutes || 0) + manualMinutes).toFixed(2));
                     savedMinutes = p.accumulatedMinutes;
                 }
 

@@ -1,10 +1,12 @@
 import { useEffect } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { formatTime, SPEED_OPTIONS, MAX_TARGET_CYCLES } from '../utils/pomodoroHelpers';
+import { publishLiveTimeLeft, clearLiveTimeLeft } from '../utils/pomodoroLiveStore';
 
 const SESSION_SCOPED_TYPES = [
     'START_SESSION',
     'PAUSE_SESSION',
+    'ADJUST_TIME',
     'TIMER_RESET',
     'PHASE_SKIP',
     'PHASE_COMPLETE',
@@ -18,6 +20,7 @@ export function usePomodoroSync({
     setIsRunning,
     stateRefs,
     setTimeLeft,
+    commitTimeLeft,
     showToast,
     setSpeed,
     speedRef,
@@ -25,7 +28,11 @@ export function usePomodoroSync({
     clockRef,
     setIsMuted,
     isMutedRef,
-    endsAtRef
+    endsAtRef,
+    setAddedSeconds,
+    addedSecondsInPhaseRef,
+    flushedSecondsInPhaseRef,
+    hasFlushedRef
 }) {
     const syncPomodoroState = useAppStore(state => state.syncPomodoroState);
 
@@ -34,13 +41,38 @@ export function usePomodoroSync({
 
         let isMounted = true;
 
+        const applySyncedTime = (seconds, running = false) => {
+            if (!Number.isFinite(seconds) || seconds < 0 || seconds > 24 * 3600) return;
+            if (typeof commitTimeLeft === 'function') {
+                commitTimeLeft(seconds);
+            } else {
+                if (stateRefs?.current) stateRefs.current.timeLeft = seconds;
+                clearLiveTimeLeft();
+                setTimeLeft(seconds);
+            }
+            if (running) {
+                publishLiveTimeLeft(seconds);
+            }
+            if (clockRef?.current) {
+                clockRef.current.__lastSec = seconds;
+                clockRef.current.textContent = formatTime(seconds);
+            }
+        };
+
+        const applyAddedSeconds = (rawAdded) => {
+            const parsed = Number(rawAdded);
+            if (!Number.isFinite(parsed)) return;
+            if (addedSecondsInPhaseRef) addedSecondsInPhaseRef.current = parsed;
+            if (typeof setAddedSeconds === 'function') setAddedSeconds(parsed);
+        };
+
         const handleMessage = (event) => {
             if (!isMounted) return;
             const data = event.data;
             // Validar estrutura da mensagem antes de processar
             if (!data || typeof data !== 'object' || !data.type) return;
             const KNOWN_TYPES = [
-                'START_SESSION', 'PAUSE_SESSION', 'TIMER_RESET',
+                'START_SESSION', 'PAUSE_SESSION', 'ADJUST_TIME', 'TIMER_RESET',
                 'PHASE_SKIP', 'PHASE_COMPLETE', 'PHASE_REWIND',
                 'TARGET_CYCLES_CHANGE', 'SPEED_CHANGE', 'TOGGLE_MUTE'
             ];
@@ -95,15 +127,16 @@ export function usePomodoroSync({
                         setSpeed(s);
                         if (speedRef) speedRef.current = s;
                     }
+                    if (hasFlushedRef) hasFlushedRef.current = false;
+                    if (data.addedSeconds !== undefined) {
+                        applyAddedSeconds(data.addedSeconds);
+                    }
 
                     setIsRunning(true);
                     stateRefs.current.isRunning = true;
                     syncPomodoroState({ isRunning: true });
 
-                    if (Number.isFinite(incomingTime) && incomingTime >= 0 && incomingTime <= 24 * 3600) {
-                        stateRefs.current.timeLeft = incomingTime;
-                        setTimeLeft(incomingTime);
-                    }
+                    applySyncedTime(incomingTime, true);
 
                     const incomingEndsAt = Number(data.endsAt);
                     if (endsAtRef) {
@@ -135,13 +168,37 @@ export function usePomodoroSync({
                     stateRefs.current.isRunning = false;
                     syncPomodoroState({ isRunning: false });
 
-                    if (Number.isFinite(incomingTime) && incomingTime >= 0 && incomingTime <= 24 * 3600) {
-                        setTimeLeft(incomingTime);
-                        stateRefs.current.timeLeft = incomingTime;
-                        if (clockRef?.current) {
-                            clockRef.current.__lastSec = incomingTime;
-                            clockRef.current.textContent = formatTime(incomingTime);
+                    if (data.addedSeconds !== undefined) {
+                        applyAddedSeconds(data.addedSeconds);
+                    }
+                    applySyncedTime(incomingTime, false);
+                    break;
+                }
+
+                case 'ADJUST_TIME': {
+                    if (data.addedSeconds !== undefined) {
+                        applyAddedSeconds(data.addedSeconds);
+                    }
+                    const runningFlag = Boolean(data.isRunning ?? stateRefs.current?.isRunning);
+                    applySyncedTime(incomingTime, runningFlag);
+
+                    if (runningFlag && endsAtRef) {
+                        const incomingEndsAt = Number(data.endsAt);
+                        if (Number.isFinite(incomingEndsAt) && incomingEndsAt > Date.now()) {
+                            endsAtRef.current = incomingEndsAt;
+                        } else if (Number.isFinite(incomingTime) && incomingTime > 0 && incomingTime <= 24 * 3600) {
+                            const currentSpeed = speedRef?.current || 1;
+                            endsAtRef.current = Date.now() + (incomingTime * 1000) / currentSpeed;
                         }
+                        try {
+                            if (endsAtRef.current) {
+                                localStorage.setItem('pomodoro-endsAt', JSON.stringify({
+                                    endsAt: endsAtRef.current,
+                                    taskId: activeSubjectRef.current?.taskId || null,
+                                    sessionInstanceId: activeSubjectRef.current?.sessionInstanceId || null
+                                }));
+                            }
+                        } catch { /* ignore */ }
                     }
                     break;
                 }
@@ -274,9 +331,12 @@ export function usePomodoroSync({
                                 isRunning: false
                             });
 
+                            if (flushedSecondsInPhaseRef) flushedSecondsInPhaseRef.current = 0;
+                            if (hasFlushedRef) hasFlushedRef.current = false;
+                            applyAddedSeconds(0);
+
                             if (Number.isFinite(targetTime) && targetTime >= 0) {
-                                setTimeLeft(targetTime);
-                                stateRefs.current.timeLeft = targetTime;
+                                applySyncedTime(targetTime, false);
                             }
 
                             if (targetMode !== undefined) {
@@ -293,10 +353,6 @@ export function usePomodoroSync({
                             }
                             if (newTarget !== undefined) {
                                 stateRefs.current.targetCycles = newTarget;
-                            }
-
-                            if (clockRef.current && Number.isFinite(targetTime)) {
-                                clockRef.current.textContent = formatTime(targetTime);
                             }
                         }
                     } catch (error) {
@@ -336,12 +392,17 @@ export function usePomodoroSync({
         setIsRunning,
         stateRefs,
         setTimeLeft,
+        commitTimeLeft,
         setSpeed,
         speedRef,
         activeSubjectRef,
         clockRef,
         setIsMuted,
         isMutedRef,
-        endsAtRef
+        endsAtRef,
+        setAddedSeconds,
+        addedSecondsInPhaseRef,
+        flushedSecondsInPhaseRef,
+        hasFlushedRef
     ]);
 }
