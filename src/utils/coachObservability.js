@@ -298,20 +298,50 @@ export function runCoachDriftGuard(options = {}) {
 
   if (probabilityPairs.length === 0 && options.probabilityPairs === undefined) {
     const evalResults = loadEvaluationResults(options.contestId);
-    probabilityPairs = evalResults
+    const preferredStrategyId = typeof options.strategyId === 'string' && options.strategyId
+      ? options.strategyId
+      : null;
+
+    // Prioriza avaliações ao vivo (não-bt_) ou da estratégia ativa/baseline e deduplica por (categoria, timestamp)
+    // para impedir que folds de múltiplas estratégias de backtest inflem artificialmente a mesma prova.
+    const rankedEvals = [...evalResults].sort((a, b) => {
+      const rankItem = (ev) => {
+        const idStr = String(ev?.id || '');
+        const strat = String(ev?.strategyId || '');
+        if (!idStr.startsWith('bt_')) return 0;
+        if (preferredStrategyId && strat === preferredStrategyId) return 1;
+        if (strat === 'baseline') return 2;
+        if (strat === 'all-lots' || strat === 'all-math-lots') return 3;
+        return 4;
+      };
+      const rDiff = rankItem(a) - rankItem(b);
+      if (rDiff !== 0) return rDiff;
+      return (Number(b?.timestamp) || 0) - (Number(a?.timestamp) || 0);
+    });
+
+    const seenOutcomeKeys = new Set();
+    probabilityPairs = rankedEvals
       .map((ev) => {
         const probEval = ev?.probabilityEvaluation;
         if (!probEval) return null;
         const p = probEval.predictedProbability01;
         const y = probEval.observed;
         if (!Number.isFinite(p) || !Number.isFinite(y)) return null;
+        const ts = Number(ev.timestamp) || 0;
+        const catSig = String(ev?.categoryId ?? ev?.categoryName ?? '');
+        if (ts > 0 || catSig) {
+          const outcomeKey = `${catSig}|${ts}`;
+          if (seenOutcomeKeys.has(outcomeKey)) return null;
+          seenOutcomeKeys.add(outcomeKey);
+        }
         return {
           probability: p,
           observed: y,
-          timestamp: Number(ev.timestamp) || 0,
+          timestamp: ts,
         };
       })
-      .filter(Boolean);
+      .filter(Boolean)
+      .sort((a, b) => a.timestamp - b.timestamp);
 
     // Fallback: se ainda não houver avaliações persistidas, tenta extrair pares observados
     // dos eventos de calibração (quando possuírem probability + observed)

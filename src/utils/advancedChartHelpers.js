@@ -1795,10 +1795,15 @@ export function buildCalibrationSeriesData(auditLogs = [], historyByCategory = {
 
   const rawPoints = [];
 
+  const parseUnitMetric = (val) => {
+    const n = toFinite(val, null);
+    return n !== null && n >= 0 && n <= 1 ? n : null;
+  };
+
   const pushPoint = (ts, brier, ece, label = '') => {
     const t = typeof ts === 'number' ? ts : toDateMs(ts);
-    const b = toFinite(brier, null);
-    const e = toFinite(ece, null);
+    const b = parseUnitMetric(brier);
+    const e = parseUnitMetric(ece);
     if (!Number.isFinite(t) || t <= 0 || (b === null && e === null)) return;
     rawPoints.push({ ts: t, brier: b, ece: e, label, normLabel: normalize(label) });
   };

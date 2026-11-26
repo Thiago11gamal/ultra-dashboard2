@@ -363,6 +363,8 @@ export async function runCoachOrchestrator(input = {}, optionsArg) {
       // ==========================================================
       const coachOptions = {
         ...options,
+        simulados: effectiveSimulados,
+        studyLogs,
         maxScore,
         minScore,
         targetScore,
@@ -439,6 +441,15 @@ export async function runCoachOrchestrator(input = {}, optionsArg) {
             message: err?.message || String(err),
           });
         }
+      }
+
+      // Fallback tático: se não há tarefas abertas no edital das categorias, usa a meta diária #1 gerada pelo Coach
+      if (!bestTask && Array.isArray(tasks) && tasks.length > 0 && tasks[0]) {
+        const topGenerated = tasks[0];
+        bestTask = {
+          ...topGenerated,
+          catName: topGenerated.catName || topGenerated.category || null,
+        };
       }
 
       // ==========================================================
@@ -632,9 +643,20 @@ export function buildCoachOrchestratorDashboard(result = {}) {
     const focus = safeResult.focus || null;
     const health = safeResult.health || null;
     const causal = safeResult.causal || null;
-    const llm = safeResult.llmExplanation || null;
+    const llm = safeResult.llmExplanation || focus?.urgency?.llmExplanation || null;
     const tuner = safeResult.tuner || null;
     const meta = safeResult.meta || {};
+    const validTasks = Array.isArray(safeResult.tasks) ? safeResult.tasks.filter(Boolean) : [];
+    const rawUrgency = focus?.urgency?.normalizedScore;
+    const cleanUrgency =
+      rawUrgency !== null && rawUrgency !== undefined && typeof rawUrgency !== 'boolean' && Number.isFinite(Number(rawUrgency))
+        ? Number(Number(rawUrgency).toFixed(1))
+        : null;
+    const rawHealthScore = health?.healthScore;
+    const cleanHealthScore =
+      rawHealthScore !== null && rawHealthScore !== undefined && typeof rawHealthScore !== 'boolean' && Number.isFinite(Number(rawHealthScore))
+        ? Number(Number(rawHealthScore).toFixed(2))
+        : null;
 
     return {
       generatedAt: safeResult.generatedAt || Date.now(),
@@ -642,6 +664,7 @@ export function buildCoachOrchestratorDashboard(result = {}) {
       version: safeResult.version || ORCHESTRATOR_VERSION,
       degraded: Boolean(meta.degraded || (Array.isArray(meta.errors) && meta.errors.length > 0)),
       errors: meta.errors || [],
+      totalTasksCount: validTasks.length,
       cards: [
         {
           id: 'focus_category',
@@ -651,18 +674,18 @@ export function buildCoachOrchestratorDashboard(result = {}) {
         {
           id: 'focus_urgency',
           label: 'Urgência',
-          value: focus?.urgency?.normalizedScore ?? null,
+          value: cleanUrgency,
           goodDirection: 'contextual',
         },
         {
           id: 'tasks_count',
           label: 'Tarefas geradas',
-          value: Array.isArray(safeResult.tasks) ? safeResult.tasks.length : 0,
+          value: validTasks.length,
         },
         {
           id: 'health_score',
           label: 'Health Score',
-          value: health?.healthScore ?? null,
+          value: cleanHealthScore,
           goodDirection: 'higher',
         },
         {
@@ -678,30 +701,28 @@ export function buildCoachOrchestratorDashboard(result = {}) {
         {
           id: 'tuner_action',
           label: 'Ação do AutoTuner',
-          value: tuner?.recommendation?.action || null,
+          value: tuner?.recommendation?.action ? String(tuner.recommendation.action).toUpperCase() : null,
         },
       ],
       focus: focus
         ? {
           id: focus.id || null,
           name: focus.name || focus.categoryName || null,
-          normalizedScore: focus.urgency?.normalizedScore ?? null,
+          normalizedScore: cleanUrgency,
           recommendation: focus.urgency?.recommendation ?? null,
           probability:
             focus.urgency?.details?.monteCarlo?.probability ?? null,
-          llmExplanation: focus.urgency?.llmExplanation || null,
+          llmExplanation: focus.urgency?.llmExplanation || llm || null,
         }
         : null,
-      tasks: Array.isArray(safeResult.tasks)
-        ? safeResult.tasks.filter(Boolean).slice(0, 12).map((task) => ({
-          id: task?.id || null,
-          text: task?.text || null,
-          priority: ['high', 'medium', 'low'].includes(task?.priority) ? task.priority : 'medium',
-          categoryId: task?.categoryId || null,
-          categoryName: task?.catName || task?.category || null,
-          topicName: task?.topicName || null,
-        }))
-        : [],
+      tasks: validTasks.slice(0, 12).map((task) => ({
+        id: task?.id || null,
+        text: task?.text || null,
+        priority: ['high', 'medium', 'low'].includes(task?.priority) ? task.priority : 'medium',
+        categoryId: task?.categoryId || null,
+        categoryName: task?.catName || task?.category || null,
+        topicName: task?.topicName || null,
+      })),
       bestTask: safeResult.bestTask
         ? {
           id: safeResult.bestTask.id || null,

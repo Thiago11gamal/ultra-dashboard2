@@ -32,6 +32,7 @@ import {
 } from '../utils/coachCausal.js';
 import {
   loadModelHealthSnapshots,
+  loadCalibrationTelemetryEvents,
 } from '../utils/coachObservability.js';
 import {
   replaceFlags,
@@ -823,20 +824,35 @@ export function useCoachControlCenter({
   // Executar Backtest Granular
   // ==========================================================
   const runBacktest = useCallback((options = {}) => {
+    const toCleanArray = (val) =>
+      Array.isArray(val) ? val.filter(Boolean) : (val && typeof val === 'object' ? Object.values(val).filter(Boolean) : []);
+
     const execute = () => {
       try {
         setError(null);
-        const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
-        const rawSims = Array.isArray(simulados) ? simulados : [];
-        const safeSims = mergeSimuladosWithCategoryHistory(safeCats, rawSims);
         const contestSnap = getActiveContestSnapshot(resolvedContestId);
-        const report = runGranularCoachBacktest(safeCats, safeSims, studyLogs, {
+        const safeCats = toCleanArray(categories);
+        const safeLogs = toCleanArray(studyLogs);
+        const resolvedRows = toCleanArray(simuladoRows ?? contestSnap?.simuladoRows);
+        const resolvedAllSims = toCleanArray(allSimulados ?? contestSnap?.simulados);
+        const primarySims = toCleanArray(simulados);
+        const combinedInputSims = primarySims.length > 0
+          ? [...primarySims, ...resolvedAllSims, ...resolvedRows]
+          : [...resolvedAllSims, ...resolvedRows];
+        const safeSims = mergeSimuladosWithCategoryHistory(safeCats, combinedInputSims);
+
+        const report = runGranularCoachBacktest(safeCats, safeSims, safeLogs, {
           maxScore,
           minScore,
           targetScore,
           contestId: resolvedContestId,
           coachPlan: coachPlan ?? contestSnap?.coachPlan,
           coachPlanner: coachPlanner ?? contestSnap?.coachPlanner,
+          options: {
+            user: user ?? contestSnap?.user,
+            simuladoRows: resolvedRows,
+            allSimulados: resolvedAllSims,
+          },
         });
         if (report && typeof report === 'object') {
           const totalEvaluations = Object.values(report.summaries || {}).reduce(
@@ -851,16 +867,23 @@ export function useCoachControlCenter({
           // Conecta o pipeline de avaliação e aprendizado do otimizador (Thompson Sampling) sem inflar duplicatas
           if (totalEvaluations > 0) {
             try {
+              const effectiveFlags = { ...currentFlags, ...flagOverrides };
+              const activeExp = new Set(EXPERIMENTAL_MATH_FLAGS.filter((k) => effectiveFlags[k] === true));
+              const matchedPreset = getStrategySpace().find((strat) => {
+                const stratExp = EXPERIMENTAL_MATH_FLAGS.filter((k) => strat.features?.[k] === true);
+                return stratExp.length === activeExp.size && stratExp.every((k) => activeExp.has(k));
+              });
+              const activeStratKey = matchedPreset?.id === 'all-math-lots' ? 'all-lots' : matchedPreset?.id;
               const rawPreferred =
+                (activeStratKey && report.raw?.[activeStratKey]) ||
+                report.raw?.baseline ||
                 report.raw?.['all-lots'] ||
                 report.raw?.['all-math-lots'] ||
-                report.raw?.baseline ||
                 [];
-              rawPreferred.slice(-20).forEach((ev) => {
-                if (ev && typeof ev === 'object') {
-                  saveEvaluationResult(ev, resolvedContestId);
-                }
-              });
+              const batchToSave = rawPreferred.slice(-20).filter((ev) => ev && typeof ev === 'object');
+              if (batchToSave.length > 0) {
+                saveEvaluationResult(batchToSave, resolvedContestId);
+              }
 
               const btSig = Object.entries(report.summaries || {})
                 .map(([id, s]) => `${id}:${s?.count || 0}:${Number(s?.probability?.avgBrier ?? -1).toFixed(4)}:${Number(s?.score?.mae ?? -1).toFixed(2)}`)
@@ -909,20 +932,30 @@ export function useCoachControlCenter({
       });
     }
     return execute();
-  }, [categories, simulados, studyLogs, maxScore, minScore, targetScore, coachPlan, coachPlanner, resolvedContestId]);
+  }, [categories, simulados, simuladoRows, allSimulados, studyLogs, user, maxScore, minScore, targetScore, coachPlan, coachPlanner, resolvedContestId, currentFlags, flagOverrides]);
 
   // ==========================================================
   // Treinar Modelo Causal
   // ==========================================================
   const trainCausal = useCallback((options = {}) => {
+    const toCleanArray = (val) =>
+      Array.isArray(val) ? val.filter(Boolean) : (val && typeof val === 'object' ? Object.values(val).filter(Boolean) : []);
+
     const execute = () => {
       try {
         setError(null);
-        const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
-        const rawSims = Array.isArray(simulados) ? simulados : [];
-        const safeSims = mergeSimuladosWithCategoryHistory(safeCats, rawSims);
         const contestSnap = getActiveContestSnapshot(resolvedContestId);
-        const events = buildCausalEventsFromHistory(safeCats, safeSims, studyLogs, {
+        const safeCats = toCleanArray(categories);
+        const safeLogs = toCleanArray(studyLogs);
+        const resolvedRows = toCleanArray(simuladoRows ?? contestSnap?.simuladoRows);
+        const resolvedAllSims = toCleanArray(allSimulados ?? contestSnap?.simulados);
+        const primarySims = toCleanArray(simulados);
+        const combinedInputSims = primarySims.length > 0
+          ? [...primarySims, ...resolvedAllSims, ...resolvedRows]
+          : [...resolvedAllSims, ...resolvedRows];
+        const safeSims = mergeSimuladosWithCategoryHistory(safeCats, combinedInputSims);
+
+        const events = buildCausalEventsFromHistory(safeCats, safeSims, safeLogs, {
           maxScore,
           minScore,
           coachPlan: coachPlan ?? contestSnap?.coachPlan,
@@ -965,7 +998,7 @@ export function useCoachControlCenter({
       });
     }
     return execute();
-  }, [categories, simulados, studyLogs, maxScore, minScore, coachPlan, coachPlanner, resolvedContestId, currentFlags, flagOverrides]);
+  }, [categories, simulados, simuladoRows, allSimulados, studyLogs, maxScore, minScore, coachPlan, coachPlanner, resolvedContestId, currentFlags, flagOverrides]);
 
   // ==========================================================
   // Dados derivados
@@ -980,9 +1013,27 @@ export function useCoachControlCenter({
   }, [resolvedContestId, manualLockRevision, currentFlags]);
 
   const latestHealth = useMemo(() => {
-    if (healthSnapshots.length > 0) return healthSnapshots[healthSnapshots.length - 1];
-    return orchestratorResult?.health || null;
+    const snapLatest = healthSnapshots.length > 0 ? healthSnapshots[healthSnapshots.length - 1] : null;
+    const orchHealth = orchestratorResult?.health || null;
+    if (snapLatest && orchHealth) {
+      const snapTs = Number(snapLatest.generatedAt) || 0;
+      const orchTs = Number(orchHealth.generatedAt) || 0;
+      return orchTs > snapTs ? orchHealth : snapLatest;
+    }
+    return snapLatest || orchHealth || null;
   }, [healthSnapshots, orchestratorResult]);
+
+  const effectiveCalibrationAuditLog = useMemo(() => {
+    void lastRunTimestamp;
+    const propLogs = Array.isArray(calibrationAuditLog)
+      ? calibrationAuditLog
+      : (calibrationAuditLog && typeof calibrationAuditLog === 'object' ? Object.values(calibrationAuditLog) : []);
+    const localTelemetry = loadCalibrationTelemetryEvents(resolvedContestId);
+    if (!Array.isArray(localTelemetry) || localTelemetry.length === 0) {
+      return propLogs;
+    }
+    return [...propLogs, ...localTelemetry];
+  }, [calibrationAuditLog, resolvedContestId, lastRunTimestamp]);
 
   const hasError = error !== null;
   const isSkipped = orchestratorResult?.skipped === true;
@@ -1009,6 +1060,7 @@ export function useCoachControlCenter({
     lastCausalDiag,
     healthSnapshots,
     latestHealth,
+    effectiveCalibrationAuditLog,
     currentFlags,
     flagOverrides,
     hasPinnedOverrides,

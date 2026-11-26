@@ -33,6 +33,11 @@ const ACTION_LABELS = {
   mode_simulado: 'Modo: Simulado',
   mode_flashcards: 'Modo: Flashcards',
   mode_resumo: 'Modo: Resumo',
+  mode_discursiva: 'Modo: Discursiva',
+  no_study_volume: 'Controle (Sem Estudo)',
+  no_task: 'Controle (Sem Tarefa)',
+  control: 'Grupo Controle',
+  none: 'Sem Ação',
 };
 
 function formatActionLabel(actionType) {

@@ -494,6 +494,8 @@ export function compareEvaluationSummaries(baseline = {}, candidate = {}) {
   const candScore = candidate?.score || {};
   const baseTopics = baseline?.topics || {};
   const candTopics = candidate?.topics || {};
+  const baseTasks = baseline?.tasks || {};
+  const candTasks = candidate?.tasks || {};
 
   // Só calcula delta quando AMBOS os sumários possuem a métrica observada
   // (evita tratar null como 0.000 — ex.: Brier/ECE perfeitos fictícios).
@@ -509,6 +511,7 @@ export function compareEvaluationSummaries(baseline = {}, candidate = {}) {
   const rawDeltaMae = pairDelta(candScore.mae, baseScore.mae);
   const rawDeltaNdcg = pairDelta(candTopics.avgNdcg, baseTopics.avgNdcg);
   const rawDeltaPrecision = pairDelta(candTopics.avgPrecisionAtK, baseTopics.avgPrecisionAtK);
+  const rawDeltaUplift = pairDelta(candTasks.avgUplift, baseTasks.avgUplift);
 
   let weightedSum = 0;
   let totalWeight = 0;
@@ -531,6 +534,11 @@ export function compareEvaluationSummaries(baseline = {}, candidate = {}) {
   if (rawDeltaMae !== null) {
     const normMae = clampFinite(rawDeltaMae / Math.max(1.0, Math.abs(toFinite(baseScore.mae, 5))), -2, 2, 0);
     weightedSum += -normMae * 0.15;
+    totalWeight += 0.15;
+  }
+  if (rawDeltaUplift !== null) {
+    const normUplift = clampFinite(rawDeltaUplift / Math.max(1.0, Math.abs(toFinite(baseTasks.avgUplift, 2))), -2, 2, 0);
+    weightedSum += normUplift * 0.15;
     totalWeight += 0.15;
   }
 
@@ -561,6 +569,7 @@ export function compareEvaluationSummaries(baseline = {}, candidate = {}) {
       mae: formatOptionalDelta(rawDeltaMae, 4),
       ndcg: formatOptionalDelta(rawDeltaNdcg, 6),
       precisionAtK: formatOptionalDelta(rawDeltaPrecision, 6),
+      uplift: formatOptionalDelta(rawDeltaUplift, 4),
     },
     heuristicScore: Number(heuristicScore.toFixed(6)),
     winner,

@@ -11,10 +11,18 @@ import {
   calculateUrgency,
   getSuggestedFocus,
   getWeakestTopicsList,
+  generateDailyGoals,
   clearUrgencyCache,
   clearTopicsCache,
   clearMcCache,
 } from '../../utils/coachLogic.js';
+
+import {
+  buildCausalEventsFromHistory,
+  trainCausalModel,
+  rerankCoachTasksWithCausalPolicy,
+  inferActionType,
+} from '../../utils/coachCausal.js';
 
 import { getSafeScore } from '../../utils/scoreHelper.js';
 import { normalizeDate } from '../../utils/dateHelper.js';
@@ -782,6 +790,87 @@ export function runCoachStrategyBacktest(config = {}) {
             const hitRatio = topPredicted.length > 0 ? matchedCount / topPredicted.length : 0;
             alignmentMultiplier = 0.6 + 0.4 * hitRatio;
           }
+
+          // Lote 11 no Backtest (zero target leakage): treina modelo causal estritamente com dados <= cutoffMs
+          // e avalia alinhamento entre as ações priorizadas pela política causal e as ações executadas no horizonte.
+          const usesCausalStrategy = Boolean(
+            runOptions.features?.useCausalUplift ||
+            runOptions.features?.usePersonalizedPolicy ||
+            runOptions.features?.useCausalTaskSelection
+          );
+          if (usesCausalStrategy && rawObservedDelta !== null && Number.isFinite(cutoffMs) && Number.isFinite(futureEndMs)) {
+            try {
+              const preCoachTasks = coachCompletedTasks.filter((task) => {
+                const ct = toTime(task?.completedAt || task?.lastStudiedAt || task?.updatedAt);
+                return Number.isFinite(ct) && ct <= cutoffMs;
+              });
+              const preEvents = buildCausalEventsFromHistory(
+                trainAllCategories,
+                isolateSimArrayBefore(simulados),
+                logsBefore,
+                {
+                  maxScore: splitMaxScore,
+                  minScore: splitMinScore,
+                  coachPlan: preCoachTasks,
+                }
+              );
+              if (preEvents.length > 0) {
+                const preCausalModel = trainCausalModel(preEvents, {
+                  maxScore: splitMaxScore,
+                  minScore: splitMinScore,
+                  useBootstrap: false,
+                  save: false,
+                });
+                const candidateGoals = generateDailyGoals([trainCategory], split.train, logsBefore, runOptions);
+                const rerankedGoals = rerankCoachTasksWithCausalPolicy(candidateGoals, preCausalModel, {
+                  maxScore: splitMaxScore,
+                  minScore: splitMinScore,
+                });
+                const topActionTypes = new Set(
+                  rerankedGoals
+                    .slice(0, 3)
+                    .map((g) => inferActionType(g?.actionType || g?.text || g?.topicName || ''))
+                    .filter(Boolean)
+                );
+                const horizonActionTypes = new Set();
+                safeArray(category?.tasks).forEach((task) => {
+                  if (!task?.completed) return;
+                  const ct = toTime(task.completedAt || task.lastStudiedAt);
+                  if (Number.isFinite(ct) && ct > cutoffMs && ct <= futureEndMs) {
+                    horizonActionTypes.add(inferActionType(task.actionType || task.text || task.topicName || ''));
+                  }
+                });
+                coachCompletedTasks.filter(matchesCatTask).forEach((task) => {
+                  horizonActionTypes.add(inferActionType(task.actionType || task.text || task.topicName || ''));
+                });
+                safeArray(studyLogs).forEach((log) => {
+                  const lt = toTime(log?.date ?? log?.createdAt);
+                  if (!Number.isFinite(lt) || lt <= cutoffMs || lt > futureEndMs) return;
+                  if (Number(log?.minutes ?? log?.minutos ?? log?.duration ?? 0) <= 0) return;
+                  const matchesCat =
+                    (category?.id != null && log?.categoryId != null && String(log.categoryId) === String(category.id)) ||
+                    Boolean(category?.name && isSubjectMatch(log?.subject || log?.categoryName || log?.materia || log?.disciplina || '', category.name));
+                  if (!matchesCat) return;
+                  const mode = String(log?.studyMode || '').trim().toLowerCase();
+                  if (mode === 'questoes') horizonActionTypes.add('weak_topic_practice');
+                  else if (mode === 'revisao' || mode === 'flashcards') horizonActionTypes.add('srs_review');
+                  else if (mode === 'simulado') horizonActionTypes.add('mock_exam');
+                  else horizonActionTypes.add('study_volume');
+                });
+                if (topActionTypes.size > 0 && horizonActionTypes.size > 0) {
+                  let hits = 0;
+                  horizonActionTypes.forEach((act) => {
+                    if (topActionTypes.has(act)) hits += 1;
+                  });
+                  const actionHitRatio = hits / horizonActionTypes.size;
+                  alignmentMultiplier *= 0.9 + 0.2 * actionHitRatio;
+                }
+              }
+            } catch {
+              // fallback determinístico se o sub-modelo causal falhar no fold
+            }
+          }
+
           const observedUplift =
             rawObservedDelta !== null
               ? Number((rawObservedDelta * alignmentMultiplier).toFixed(4))

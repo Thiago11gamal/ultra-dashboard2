@@ -984,8 +984,9 @@ function resolveCausalModelKey(contestId) {
  * Salva modelo causal.
  */
 export function saveCausalModel(model, contestId) {
+  if (!model || typeof model !== 'object' || Array.isArray(model)) return false;
   const key = resolveCausalModelKey(contestId ?? model?.contestId);
-  return safeSetItem(key, model || {});
+  return safeSetItem(key, model);
 }
 
 /**
@@ -993,7 +994,9 @@ export function saveCausalModel(model, contestId) {
  */
 export function loadCausalModel(contestId) {
   const parsed = safeGetJSON(resolveCausalModelKey(contestId), null);
-  return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+  if (!('global' in parsed) && !('actions' in parsed) && !('sampleSize' in parsed)) return null;
+  return parsed;
 }
 
 /**

@@ -14,7 +14,9 @@ export function bootstrapPromotionGate(pairedDeltas, {
   const safeNBoot = Math.max(10, Math.round(Number(nBoot) || 2000));
   const safeAlpha = Math.min(0.5, Math.max(0.001, Number(alpha) || 0.05));
   const safeBlock = Math.min(n, Math.max(1, Math.round(Number(blockLength) || 3)));
-  if (n < 8) return { promote: false, reason: 'insufficient_samples', ciLow: null, ciHigh: null, n };
+  if (n < 8) {
+    return { promote: false, reason: 'insufficient_samples', ciLow: null, ciHigh: null, observed: null, meanDelta: null, n };
+  }
   const mean = a => a.reduce((x, y) => x + y, 0) / a.length;
   const observed = mean(d);
   const maxVal = Math.max(...d);
@@ -41,5 +43,5 @@ export function bootstrapPromotionGate(pairedDeltas, {
   const ciLow = means[lowIdx];
   const ciHigh = means[highIdx];
   const promote = ciHigh < 0 && observed <= -minEffect;
-  return { promote, ciLow, ciHigh, observed, n };
+  return { promote, ciLow, ciHigh, observed, meanDelta: observed, n };
 }

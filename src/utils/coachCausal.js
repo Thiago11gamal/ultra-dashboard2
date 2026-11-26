@@ -535,8 +535,10 @@ export function mergeSimuladosWithCategoryHistory(categories = [], simulados = [
   };
 
   const nonGenericSims = safeSims.filter((s) => !isGenericOnly(s));
+  const genericSims = safeSims.filter((s) => isGenericOnly(s));
   const seenIds = new Set();
   const seenCatDayScores = new Set();
+  const coveredCategoryDays = new Set();
   const merged = [];
 
   const buildDayScoreKey = (catKey, entry) => {
@@ -547,6 +549,13 @@ export function mergeSimuladosWithCategoryHistory(categories = [], simulados = [
       ? Math.round(rawSc * 10)
       : `${entry?.correct ?? entry?.acertos ?? ''}/${entry?.total ?? entry?.questoes ?? ''}`;
     return `${catKey}|${dayBucket}|${scBucket}`;
+  };
+
+  const trackDay = (entry) => {
+    const t = toTime(entry?.date ?? entry?.createdAt);
+    if (Number.isFinite(t)) {
+      coveredCategoryDays.add(Math.floor(t / 86400000));
+    }
   };
 
   nonGenericSims.forEach((s) => {
@@ -564,6 +573,7 @@ export function mergeSimuladosWithCategoryHistory(categories = [], simulados = [
     const dsKey = buildDayScoreKey(catKey, s);
     if (idSig) seenIds.add(idSig);
     seenCatDayScores.add(dsKey);
+    trackDay(s);
     merged.push(s);
   });
 
@@ -578,12 +588,28 @@ export function mergeSimuladosWithCategoryHistory(categories = [], simulados = [
       if (seenCatDayScores.has(dsKey)) return;
       if (idSig) seenIds.add(idSig);
       seenCatDayScores.add(dsKey);
+      trackDay(h);
       merged.push({
         ...h,
         categoryId: h?.categoryId ?? cat?.id,
         subject: h?.subject || h?.categoryName || cat?.name || '',
       });
     });
+  });
+
+  // Preserva simulados globais avulsos ("Simulado Geral") em dias que NÃO já estejam
+  // representados por entradas de disciplinas específicas (evita dupla contagem e evita perda de dados).
+  genericSims.forEach((g) => {
+    const idSig = g.id && !String(g.id).startsWith('legacy-') ? String(g.id) : null;
+    if (idSig && seenIds.has(idSig)) return;
+    const t = toTime(g?.date ?? g?.createdAt);
+    const dayBucket = Number.isFinite(t) ? Math.floor(t / 86400000) : null;
+    if (dayBucket !== null && coveredCategoryDays.has(dayBucket)) return;
+    const dsKey = buildDayScoreKey('__global__', g);
+    if (seenCatDayScores.has(dsKey)) return;
+    if (idSig) seenIds.add(idSig);
+    seenCatDayScores.add(dsKey);
+    merged.push(g);
   });
 
   if (merged.length > 0) return merged;

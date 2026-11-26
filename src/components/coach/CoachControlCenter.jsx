@@ -97,6 +97,9 @@ const CAUSAL_ACTION_LABELS = {
   error_review: 'Revisão de Erros',
   study_volume: 'Volume de Estudo',
   no_study_volume: 'Controle (Sem Estudo)',
+  no_task: 'Controle (Sem Tarefa)',
+  control: 'Grupo Controle',
+  none: 'Sem Ação',
   theory: 'Teoria / Base',
   general_review: 'Consolidação',
   weak_topic_practice: 'Prática de Tópicos Fracos',
@@ -114,6 +117,52 @@ const CAUSAL_ACTION_LABELS = {
   mode_discursiva: 'Modo: Discursiva',
 };
 
+const CAUSAL_METHOD_LABELS = {
+  doubly_robust: 'Doubly Robust',
+  iptw: 'IPTW',
+  regression_adjusted: 'Regressão Ajustada',
+  naive: 'Diferença de Médias',
+  naive_fallback_regression: 'Dif. Médias (Fallback Reg.)',
+  naive_fallback_iptw: 'Dif. Médias (Fallback IPTW)',
+  naive_fallback_iptw_no_overlap: 'Dif. Médias (Sem Overlap)',
+  insufficient_arms: 'Braço Único (Sem Controle)',
+  none: 'Sem Dados',
+  auto: 'Automático',
+};
+
+function formatCausalMethodName(method) {
+  if (!method) return '—';
+  return CAUSAL_METHOD_LABELS[method] || String(method);
+}
+
+const DRIFT_SEVERITY_LABELS = {
+  none: 'Sem drift',
+  low: 'Baixa',
+  medium: 'Moderada',
+  high: 'Alta',
+};
+
+function formatDriftSeverity(severity) {
+  if (!severity) return '—';
+  return DRIFT_SEVERITY_LABELS[severity] || String(severity);
+}
+
+function formatDriftDirection(direction, lowerIsBetter = false) {
+  if (!direction || direction === 'none') return { label: 'Estável', color: 'text-slate-300' };
+  if (direction === 'degraded') return { label: '↓ Degradada', color: 'text-amber-300' };
+  if (direction === 'up') {
+    return lowerIsBetter
+      ? { label: '↑ Alta (Degradação)', color: 'text-rose-400' }
+      : { label: '↑ Alta (Melhora)', color: 'text-emerald-400' };
+  }
+  if (direction === 'down') {
+    return lowerIsBetter
+      ? { label: '↓ Queda (Melhora)', color: 'text-emerald-400' }
+      : { label: '↓ Queda', color: 'text-rose-400' };
+  }
+  return { label: String(direction), color: 'text-white' };
+}
+
 function formatCausalActionName(actionType) {
   if (!actionType) return 'Ação';
   if (CAUSAL_ACTION_LABELS[actionType]) return CAUSAL_ACTION_LABELS[actionType];
@@ -127,7 +176,11 @@ function formatCausalActionName(actionType) {
       .join(' ');
     return `Modo: ${clean || 'Estudo'}`;
   }
-  return str;
+  return str
+    .split('_')
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ') || str;
 }
 
 function detectActivePresetId(currentFlags, strategySpace) {
@@ -219,7 +272,13 @@ function StatusBadge({ status }) {
 }
 
 function MetricCard({ label, value, sub }) {
-  const formatted = value === null || value === undefined ? '—' : value;
+  const isInvalidPrimitive =
+    value === null ||
+    value === undefined ||
+    typeof value === 'boolean' ||
+    (typeof value === 'number' && !Number.isFinite(value)) ||
+    (typeof value === 'string' && value.trim() === '');
+  const formatted = isInvalidPrimitive ? '—' : value;
   const formattedStr = String(formatted);
   const isLongText = formattedStr.length > 16;
   return (
@@ -263,14 +322,17 @@ function LoadingSpinner() {
 }
 
 function ErrorAlert({ message, onDismiss }) {
-  const [dismissed, setDismissed] = useState(false);
-  if (dismissed) return null;
+  const [localDismissed, setLocalDismissed] = useState(false);
+  if (localDismissed && typeof onDismiss !== 'function') return null;
   const handleDismiss = () => {
-    setDismissed(true);
-    onDismiss?.();
+    if (typeof onDismiss === 'function') {
+      onDismiss();
+    } else {
+      setLocalDismissed(true);
+    }
   };
   return (
-    <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex items-start gap-3">
+    <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex items-start gap-3" role="alert">
       <span className="text-red-400 text-lg">⚠️</span>
       <div className="flex-1">
         <p className="text-red-300 text-sm font-medium">Erro no Control Center</p>
@@ -373,7 +435,12 @@ function OverviewPanel({ dashboard, orchestratorResult }) {
 
       {dashboard?.tasks && dashboard.tasks.length > 0 && (
         <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
-          <SectionTitle icon="📋">Tarefas Geradas ({dashboard.tasks.length})</SectionTitle>
+          <SectionTitle icon="📋">
+            Tarefas Geradas ({dashboard.tasks.length}
+            {toStrictFinite(dashboard.totalTasksCount) !== null && dashboard.totalTasksCount > dashboard.tasks.length
+              ? ` de ${dashboard.totalTasksCount}`
+              : ''})
+          </SectionTitle>
           <div className="space-y-2">
             {dashboard.tasks.map((task, idx) => (
               <div key={task.id || idx} className="flex items-center gap-3 bg-slate-900/40 rounded-lg p-3">
@@ -418,7 +485,7 @@ function OverviewPanel({ dashboard, orchestratorResult }) {
               <MetricCard label="Uplift Global" value={fmtSigned(dashboard.causal.model?.globalUplift, 2, ' pts')} />
               <MetricCard label="Amostras" value={dashboard.causal.model?.sampleSize} />
               <MetricCard label="Ações" value={dashboard.causal.model?.actionCount} />
-              <MetricCard label="Método" value={dashboard.causal.model?.method} />
+              <MetricCard label="Método" value={formatCausalMethodName(dashboard.causal.model?.method)} />
             </div>
           ) : (
             <p className="text-slate-400 text-sm">
@@ -491,8 +558,9 @@ function FlagsPanel({
     [currentFlags, strategySpace]
   );
 
-  const activeCount = Object.entries(currentFlags || {}).filter(([, v]) => v === true).length;
-  const totalCount = Object.keys(FLAG_DESCRIPTIONS).length;
+  const allKnownKeys = useMemo(() => Object.values(groupedFlags).flat(), [groupedFlags]);
+  const activeCount = allKnownKeys.filter((k) => currentFlags?.[k] === true).length;
+  const totalCount = allKnownKeys.length;
   const overrideCount = Object.keys(flagOverrides || {}).length;
 
   return (
@@ -752,37 +820,74 @@ function HealthPanel({ latestHealth, healthSnapshots, categories = [], calibrati
       )}
 
       <div className="grid md:grid-cols-2 gap-4">
-        {metrics.scoreDrift && (
-          <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
-            <SectionTitle icon="📉">Drift de Nota</SectionTitle>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <div><p className="text-slate-500">Severidade</p><p className="text-white font-medium">{metrics.scoreDrift.severity || '—'}</p></div>
-              <div><p className="text-slate-500">Direção</p><p className="text-white font-medium">{metrics.scoreDrift.direction || '—'}</p></div>
-              <div><p className="text-slate-500">Baseline</p><p className="text-white font-medium">{fmt(metrics.scoreDrift.baselineMean, 1)}</p></div>
-              <div><p className="text-slate-500">Recente</p><p className="text-white font-medium">{fmt(metrics.scoreDrift.recentMean, 1)}</p></div>
+        {metrics.scoreDrift && (() => {
+          const dir = formatDriftDirection(metrics.scoreDrift.direction, false);
+          return (
+            <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
+              <SectionTitle icon="📉">Drift de Nota</SectionTitle>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div><p className="text-slate-500">Severidade</p><p className="text-white font-medium">{formatDriftSeverity(metrics.scoreDrift.severity)}</p></div>
+                <div><p className="text-slate-500">Direção</p><p className={`font-medium ${dir.color}`}>{dir.label}</p></div>
+                <div><p className="text-slate-500">Baseline</p><p className="text-white font-medium font-mono">{fmt(metrics.scoreDrift.baselineMean, 1)}</p></div>
+                <div><p className="text-slate-500">Recente</p><p className="text-white font-medium font-mono">{fmt(metrics.scoreDrift.recentMean, 1)}</p></div>
+              </div>
             </div>
-          </div>
-        )}
-        {metrics.volatilityDrift && (
-          <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
-            <SectionTitle icon="🌊">Drift de Volatilidade</SectionTitle>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <div><p className="text-slate-500">Severidade</p><p className="text-white font-medium">{metrics.volatilityDrift.severity || '—'}</p></div>
-              <div><p className="text-slate-500">Direção</p><p className="text-white font-medium">{metrics.volatilityDrift.direction || '—'}</p></div>
-              <div><p className="text-slate-500">Baseline</p><p className="text-white font-medium">{fmt(metrics.volatilityDrift.baselineMean, 2)}</p></div>
-              <div><p className="text-slate-500">Recente</p><p className="text-white font-medium">{fmt(metrics.volatilityDrift.recentMean, 2)}</p></div>
+          );
+        })()}
+        {metrics.volatilityDrift && (() => {
+          const dir = formatDriftDirection(metrics.volatilityDrift.direction, true);
+          return (
+            <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
+              <SectionTitle icon="🌊">Drift de Volatilidade</SectionTitle>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div><p className="text-slate-500">Severidade</p><p className="text-white font-medium">{formatDriftSeverity(metrics.volatilityDrift.severity)}</p></div>
+                <div><p className="text-slate-500">Direção</p><p className={`font-medium ${dir.color}`}>{dir.label}</p></div>
+                <div><p className="text-slate-500">Baseline</p><p className="text-white font-medium font-mono">{fmt(metrics.volatilityDrift.baselineMean, 2)}</p></div>
+                <div><p className="text-slate-500">Recente</p><p className="text-white font-medium font-mono">{fmt(metrics.volatilityDrift.recentMean, 2)}</p></div>
+              </div>
             </div>
-          </div>
-        )}
-        {metrics.calibrationDrift && (
-          <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
-            <SectionTitle icon="🎯">Drift de Calibração</SectionTitle>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <div><p className="text-slate-500">Tem Drift</p><p className="text-white font-medium">{metrics.calibrationDrift.hasDrift ? 'Sim' : 'Não'}</p></div>
-              <div><p className="text-slate-500">Severidade</p><p className="text-white font-medium">{metrics.calibrationDrift.worstSeverity || '—'}</p></div>
+          );
+        })()}
+        {(metrics.calibrationDrift || metrics.probabilityCalibrationDrift) && (() => {
+          const hasTelemDrift = Boolean(metrics.calibrationDrift?.hasDrift);
+          const hasProbDrift = Boolean(metrics.probabilityCalibrationDrift?.isBadDrift);
+          const hasAnyDrift = hasTelemDrift || hasProbDrift;
+          const rankMap = { none: 0, low: 1, medium: 2, high: 3 };
+          const s1 = metrics.calibrationDrift?.worstSeverity || 'none';
+          const s2 = metrics.probabilityCalibrationDrift?.severity || 'none';
+          const worstSev = (rankMap[s2] || 0) > (rankMap[s1] || 0) ? s2 : s1;
+          return (
+            <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
+              <SectionTitle icon="🎯">Drift de Calibração</SectionTitle>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div>
+                  <p className="text-slate-500">Tem Drift</p>
+                  <p className={`font-medium ${hasAnyDrift ? 'text-amber-300' : 'text-emerald-400'}`}>{hasAnyDrift ? 'Sim' : 'Não'}</p>
+                </div>
+                <div>
+                  <p className="text-slate-500">Severidade</p>
+                  <p className="text-white font-medium">{formatDriftSeverity(worstSev)}</p>
+                </div>
+                {metrics.probabilityCalibrationDrift?.deltas && (
+                  <>
+                    <div>
+                      <p className="text-slate-500">Δ Brier (Pares)</p>
+                      <p className={`font-mono ${deltaColor(metrics.probabilityCalibrationDrift.deltas.brier, true)}`}>
+                        {fmtSigned(metrics.probabilityCalibrationDrift.deltas.brier, 4)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-slate-500">Δ ECE (Pares)</p>
+                      <p className={`font-mono ${deltaColor(metrics.probabilityCalibrationDrift.deltas.ece, true)}`}>
+                        {fmtSigned(metrics.probabilityCalibrationDrift.deltas.ece, 4)}
+                      </p>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
         {metrics.currentCalibration && (
           <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
             <SectionTitle icon="📐">Calibração Atual</SectionTitle>
@@ -913,10 +1018,14 @@ function AutoTunerPanel({
           {gate && toStrictFinite(gate.ciLow) !== null && toStrictFinite(gate.ciHigh) !== null && (
             <div className="mb-4 rounded-lg border border-slate-700/60 bg-slate-900/50 px-3.5 py-2.5 text-xs text-slate-300 font-mono flex flex-wrap items-center gap-x-4 gap-y-1">
               <span className="text-indigo-300 font-sans font-semibold">Gate Bootstrap (Δ Brier pareado):</span>
-              <span>Média: {fmtSigned(gate.meanDelta, 4)}</span>
+              <span>Média: {fmtSigned(gate.meanDelta ?? gate.observed, 4)}</span>
               <span>IC 95%: [{fmtSigned(gate.ciLow, 4)}, {fmtSigned(gate.ciHigh, 4)}]</span>
-              <span className={gate.ciLow > 0.005 ? 'text-rose-400' : 'text-emerald-400'}>
-                {gate.ciLow > 0.005 ? '✖ Retido por degradação' : '✓ Calibração preservada'}
+              <span className={gate.ciLow > 0.005 ? 'text-rose-400' : gate.promote ? 'text-emerald-400' : 'text-cyan-300'}>
+                {gate.ciLow > 0.005
+                  ? '✖ Retido por degradação'
+                  : gate.promote
+                    ? '✓ Melhora significativa'
+                    : '✓ Calibração preservada'}
               </span>
             </div>
           )}
@@ -1093,8 +1202,13 @@ function BacktestPanel({
         <EmptyState message="Nenhum relatório de backtest encontrado. Execute um backtest granular primeiro." />
       ) : (
         <>
-          <div className="text-xs text-slate-500">
-            Gerado em {formatDateTime(backtestReport?.generatedAt)}
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+            <span>Gerado em {formatDateTime(backtestReport?.generatedAt)}</span>
+            {backtestReport?.config && (
+              <span className="font-mono text-slate-400">
+                Treino mín.: {backtestReport.config.minTrain ?? 5} • Horizonte: {backtestReport.config.horizon ?? 1} sim. • Total aval.: {totalSampleCount}
+              </span>
+            )}
           </div>
 
           {strategyIds.length > 0 && (
@@ -1117,10 +1231,18 @@ function BacktestPanel({
                     {strategyIds.map((id) => {
                       const s = summaries[id];
                       if (!s || typeof s !== 'object') return null;
+                      const beatsBaseline = comparisons[`${id}_vs_baseline`]?.winner === 'candidate';
                       return (
-                        <tr key={id} className="border-b border-slate-700/30 last:border-0">
+                        <tr key={id} className={`border-b border-slate-700/30 last:border-0 ${beatsBaseline ? 'bg-emerald-500/5' : ''}`}>
                           <td className="py-2 pr-4">
-                            <p className="text-slate-200 text-sm">{labelMap[id] || id}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="text-slate-200 text-sm">{labelMap[id] || id}</p>
+                              {beatsBaseline && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-medium shrink-0">
+                                  ↑ Supera Base
+                                </span>
+                              )}
+                            </div>
                             <p className="font-mono text-xs text-slate-500">{id}</p>
                           </td>
                           <td className="py-2 pr-4 text-white">{s.count ?? '—'}</td>
@@ -1262,13 +1384,32 @@ function CausalPanel({ causalModel, lastCausalDiag, trainCausal, loading }) {
             </p>
           )}
 
+          {causalModel.global?.method === 'insufficient_arms' && (
+            <div className="rounded-xl border border-cyan-500/25 bg-cyan-500/10 p-4 text-xs text-cyan-200 space-y-1">
+              <p className="font-semibold text-cyan-100">Contraste contrafactual incompleto (braço único)</p>
+              <p>
+                Todos os intervalos elegíveis tiveram o mesmo estado de tratamento ({toStrictFinite(causalModel.global?.treatedCount) > 0 ? 'todos com estudo/tarefa' : 'todos sem estudo/tarefa'}).
+                O estimador causal requer intervalos com estudo e intervalos de controle para isolar o efeito líquido sem viés.
+              </p>
+            </div>
+          )}
+
           <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
             <SectionTitle icon="🌐">Uplift Global</SectionTitle>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
               <MetricCard label="Uplift" value={fmtSigned(causalModel.global?.uplift, 3, ' pts')} />
-              <MetricCard label="Método" value={causalModel.global?.method} />
+              <MetricCard label="Método" value={formatCausalMethodName(causalModel.global?.method)} sub={causalModel.global?.method || undefined} />
               <MetricCard label="Amostras" value={causalModel.global?.sampleSize} />
               <MetricCard label="Tratados" value={causalModel.global?.treatedCount} />
+              <MetricCard
+                label="Controles"
+                value={
+                  toStrictFinite(causalModel.global?.controlCount) ??
+                  (toStrictFinite(causalModel.global?.sampleSize) !== null && toStrictFinite(causalModel.global?.treatedCount) !== null
+                    ? Math.max(0, causalModel.global.sampleSize - causalModel.global.treatedCount)
+                    : null)
+                }
+              />
             </div>
             {causalModel.global?.ci && (
               <p className="text-xs text-slate-500 mt-3 font-mono">
@@ -1310,7 +1451,7 @@ function CausalPanel({ causalModel, lastCausalDiag, trainCausal, loading }) {
                             }`}>
                             {fmtSigned(estimate.uplift, 3, ' pts')}
                           </td>
-                          <td className="py-2 pr-4 text-slate-300">{estimate.method || '—'}</td>
+                          <td className="py-2 pr-4 text-slate-300" title={estimate.method || undefined}>{formatCausalMethodName(estimate.method)}</td>
                           <td className="py-2 pr-4 text-white">{estimate.sampleSize ?? '—'}</td>
                           <td className="py-2 text-xs text-slate-400 font-mono">
                             {estimate.ci ? `[${fmtSigned(estimate.ci.low, 2)}, ${fmtSigned(estimate.ci.high, 2)}]` : '—'}
@@ -1567,6 +1708,7 @@ export default function CoachControlCenter({
     lastCausalDiag,
     healthSnapshots,
     latestHealth,
+    effectiveCalibrationAuditLog,
     currentFlags,
     flagOverrides,
     hasPinnedOverrides,
@@ -1625,6 +1767,15 @@ export default function CoachControlCenter({
 
   const visibleTabs = allTabs.filter((t) => isPanelEnabled(t.id));
   const hiddenPanelsCount = allTabs.length - visibleTabs.length;
+
+  const mergedScienceSimulados = useMemo(() => {
+    const toList = (v) => (Array.isArray(v) ? v.filter(Boolean) : (v && typeof v === 'object' ? Object.values(v).filter(Boolean) : []));
+    const primary = toList(simulados);
+    const extra = toList(allSimulados);
+    if (extra.length === 0) return primary;
+    if (primary.length === 0) return extra;
+    return [...primary, ...extra];
+  }, [simulados, allSimulados]);
 
   const effectiveTab = visibleTabs.some((t) => t.id === activeTab) ? activeTab : 'overview';
 
@@ -1736,7 +1887,7 @@ export default function CoachControlCenter({
           )}
         </div>
 
-        {hasError && <ErrorAlert key={`${error}-${lastRunTimestamp || 0}`} message={error} onDismiss={clearError} />}
+        {hasError && <ErrorAlert message={error} onDismiss={clearError} />}
         {loading && !dashboard && <LoadingSpinner />}
         {loading && dashboard && (
           <div className="flex items-center gap-2 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-4 py-2 text-xs text-indigo-200" role="status" aria-live="polite">
@@ -1753,12 +1904,12 @@ export default function CoachControlCenter({
               trainCausal={trainCausal}
               loading={loading}
               categories={categories}
-              simulados={allSimulados?.length ? allSimulados : simulados}
+              simulados={mergedScienceSimulados}
               simuladoRows={simuladoRows}
               minScore={minScore}
               maxScore={maxScore}
               healthSnapshots={healthSnapshots}
-              calibrationAuditLog={calibrationAuditLog}
+              calibrationAuditLog={effectiveCalibrationAuditLog}
               calibrationHistoryByCategory={calibrationHistoryByCategory}
             />
           )}
@@ -1780,7 +1931,7 @@ export default function CoachControlCenter({
               latestHealth={latestHealth}
               healthSnapshots={healthSnapshots}
               categories={categories}
-              calibrationAuditLog={calibrationAuditLog}
+              calibrationAuditLog={effectiveCalibrationAuditLog}
               calibrationHistoryByCategory={calibrationHistoryByCategory}
             />
           )}

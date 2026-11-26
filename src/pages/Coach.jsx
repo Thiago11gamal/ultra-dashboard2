@@ -1243,8 +1243,8 @@ export default function Coach() {
                                             targetScore={targetScorePoints}
                                             user={data?.user}
                                             globalMcStats={mcStatsContext}
-                                            simuladoRows={data?.simuladoRows}
-                                            allSimulados={data?.simulados}
+                                            simuladoRows={history}
+                                            allSimulados={simulados}
                                             flashcardDecks={flashcardDecks}
                                             flashcardDue={flashcardDue}
                                             coachPlan={data?.coachPlan}

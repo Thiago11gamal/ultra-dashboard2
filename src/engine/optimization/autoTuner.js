@@ -65,7 +65,10 @@ export function saveBacktestReport(report, contestId) {
  * Carrega último relatório de backtest salvo.
  */
 export function loadLastBacktestReport(contestId) {
-  return loadJson(resolveScopedKey(BACKTEST_REPORT_KEY, contestId), null);
+  const parsed = loadJson(resolveScopedKey(BACKTEST_REPORT_KEY, contestId), null);
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+  if (!parsed.summaries && !parsed.raw) return null;
+  return parsed;
 }
 
 /**
@@ -73,7 +76,9 @@ export function loadLastBacktestReport(contestId) {
  */
 export function loadEvaluationResultsLocal(contestId) {
   const parsed = loadJson(resolveScopedKey(EVALUATION_RESULTS_KEY, contestId), []);
-  return Array.isArray(parsed) ? parsed : [];
+  return Array.isArray(parsed)
+    ? parsed.filter((item) => item && typeof item === 'object' && !Array.isArray(item))
+    : [];
 }
 
 /**
@@ -81,7 +86,9 @@ export function loadEvaluationResultsLocal(contestId) {
  */
 export function loadHealthSnapshotsLocal(contestId) {
   const parsed = loadJson(resolveScopedKey(MODEL_HEALTH_KEY, contestId), []);
-  return Array.isArray(parsed) ? parsed : [];
+  return Array.isArray(parsed)
+    ? parsed.filter((item) => item && typeof item === 'object' && !Array.isArray(item))
+    : [];
 }
 
 /**
@@ -216,7 +223,9 @@ export function saveTunerHistory(report, contestId) {
  */
 export function loadTunerHistory(contestId) {
   const parsed = loadJson(resolveScopedKey(TUNER_HISTORY_KEY, contestId), []);
-  return Array.isArray(parsed) ? parsed : [];
+  return Array.isArray(parsed)
+    ? parsed.filter((item) => item && typeof item === 'object' && !Array.isArray(item))
+    : [];
 }
 
 /**
@@ -311,9 +320,40 @@ export function runAutoTunerCycle(options = {}) {
       ? 'all-lots'
       : recommendation.strategyId;
     const candEvals = Array.isArray(backtestReport.raw[candKey]) ? backtestReport.raw[candKey] : [];
-    const pairLen = Math.min(baseEvals.length, candEvals.length);
-    if (pairLen >= 8) {
-      const pairedBrierDeltas = [];
+
+    const getSplitAlignKey = (ev) => {
+      if (!ev || typeof ev !== 'object') return null;
+      const cat = ev.categoryId ?? ev.categoryName ?? null;
+      const ts = ev.timestamp ?? null;
+      if (cat !== null || ts !== null) {
+        return `${String(cat ?? '')}|${String(ts ?? '')}`;
+      }
+      return null;
+    };
+
+    const hasAlignmentKeys =
+      baseEvals.some((ev) => getSplitAlignKey(ev) !== null) &&
+      candEvals.some((ev) => getSplitAlignKey(ev) !== null);
+
+    const pairedBrierDeltas = [];
+    if (hasAlignmentKeys) {
+      const baseByKey = new Map();
+      baseEvals.forEach((ev) => {
+        const k = getSplitAlignKey(ev);
+        const b = ev?.probabilityEvaluation?.brier;
+        if (k && Number.isFinite(b) && !baseByKey.has(k)) {
+          baseByKey.set(k, b);
+        }
+      });
+      candEvals.forEach((ev) => {
+        const k = getSplitAlignKey(ev);
+        const c = ev?.probabilityEvaluation?.brier;
+        if (k && Number.isFinite(c) && baseByKey.has(k)) {
+          pairedBrierDeltas.push(c - baseByKey.get(k));
+        }
+      });
+    } else {
+      const pairLen = Math.min(baseEvals.length, candEvals.length);
       for (let i = 0; i < pairLen; i++) {
         const bBrier = baseEvals[i]?.probabilityEvaluation?.brier;
         const cBrier = candEvals[i]?.probabilityEvaluation?.brier;
@@ -321,17 +361,18 @@ export function runAutoTunerCycle(options = {}) {
           pairedBrierDeltas.push(cBrier - bBrier);
         }
       }
-      if (pairedBrierDeltas.length >= 8) {
-        promotionGate = bootstrapPromotionGate(pairedBrierDeltas, { minEffect: 0.003 });
-        // Se o erro de Brier da estratégia candidata degradou significativamente vs baseline, bloqueia promoção
-        if (promotionGate.ciLow !== null && promotionGate.ciLow > 0.005) {
-          recommendation = {
-            ...recommendation,
-            action: 'keep',
-            features: currentFeatures,
-            reason: 'Promoção retida pelo gate bootstrap: calibração Brier inferior ao baseline nos folds pareados.',
-          };
-        }
+    }
+
+    if (pairedBrierDeltas.length >= 8) {
+      promotionGate = bootstrapPromotionGate(pairedBrierDeltas, { minEffect: 0.003 });
+      // Se o erro de Brier da estratégia candidata degradou significativamente vs baseline, bloqueia promoção
+      if (promotionGate.ciLow !== null && promotionGate.ciLow > 0.005) {
+        recommendation = {
+          ...recommendation,
+          action: 'keep',
+          features: currentFeatures,
+          reason: 'Promoção retida pelo gate bootstrap: calibração Brier inferior ao baseline nos folds pareados.',
+        };
       }
     }
   }

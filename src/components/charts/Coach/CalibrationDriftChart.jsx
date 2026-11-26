@@ -112,25 +112,36 @@ export const CalibrationDriftChart = React.memo(function CalibrationDriftChart({
       baseLabels.forEach((lbl) => labelCounts.set(lbl, (labelCounts.get(lbl) || 0) + 1));
       const seenSeq = new Map();
 
-      return series.map((pt, idx) => {
-        const baseLbl = baseLabels[idx];
-        let dateLabel = baseLbl;
-        if ((labelCounts.get(baseLbl) || 0) > 1 && pt.ts > 0) {
-          const d = new Date(pt.ts);
-          const hh = String(d.getHours()).padStart(2, '0');
-          const mm = String(d.getMinutes()).padStart(2, '0');
-          const candidate = `${baseLbl} ${hh}:${mm}`;
-          const seq = (seenSeq.get(candidate) || 0) + 1;
-          seenSeq.set(candidate, seq);
-          dateLabel = seq > 1 ? `${candidate} (${seq})` : candidate;
-        }
-        return {
-          ...pt,
-          dateLabel,
-          brier: pt.brier != null && Number.isFinite(Number(pt.brier)) ? Number(Number(pt.brier).toFixed(4)) : null,
-          ece: pt.ece != null && Number.isFinite(Number(pt.ece)) ? Number(Number(pt.ece).toFixed(4)) : null,
-        };
-      });
+      const parseUnit = (v) => {
+        if (v === null || v === undefined || v === '' || typeof v === 'boolean') return null;
+        const n = Number(v);
+        return Number.isFinite(n) && n >= 0 && n <= 1 ? Number(n.toFixed(4)) : null;
+      };
+
+      return series
+        .map((pt, idx) => {
+          const baseLbl = baseLabels[idx];
+          let dateLabel = baseLbl;
+          if ((labelCounts.get(baseLbl) || 0) > 1 && pt.ts > 0) {
+            const d = new Date(pt.ts);
+            const hh = String(d.getHours()).padStart(2, '0');
+            const mm = String(d.getMinutes()).padStart(2, '0');
+            const candidate = `${baseLbl} ${hh}:${mm}`;
+            const seq = (seenSeq.get(candidate) || 0) + 1;
+            seenSeq.set(candidate, seq);
+            dateLabel = seq > 1 ? `${candidate} (${seq})` : candidate;
+          }
+          const brier = parseUnit(pt?.brier);
+          const ece = parseUnit(pt?.ece);
+          if (brier === null && ece === null) return null;
+          return {
+            ...pt,
+            dateLabel,
+            brier,
+            ece,
+          };
+        })
+        .filter(Boolean);
     }
     return buildCalibrationSeriesData(auditLogs, historyByCategory, healthSnapshots, {
       categoryFilter: activeCategoryValue,

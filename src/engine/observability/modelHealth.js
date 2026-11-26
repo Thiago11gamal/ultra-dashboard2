@@ -624,7 +624,9 @@ export function saveModelHealthSnapshot(snapshot, contestId) {
  */
 export function loadModelHealthSnapshots(contestId) {
   const parsed = safeGetJSON(resolveHealthStorageKey(contestId), []);
-  return Array.isArray(parsed) ? parsed : [];
+  return Array.isArray(parsed)
+    ? parsed.filter((item) => item && typeof item === 'object' && !Array.isArray(item))
+    : [];
 }
 
 /**
