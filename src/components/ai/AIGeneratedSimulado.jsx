@@ -1587,7 +1587,7 @@ export default function AIGeneratedSimulado({ drillRequest = null, onDrillConsum
       ? `no deck "${Array.from(touchedDeckNames)[0]}"`
       : `em ${touchedDeckNames.size} decks por disciplina`;
     showToast(`${createdCount} flashcard(s) FSRS criado(s) ${deckLabel}!`, 'success');
-  }, [results, form.materia, form.categoryId, confidences, errorTypes, setData, showToast]);
+  }, [results, form.materia, form.categoryId, form.targets, confidences, errorTypes, setData, showToast]);
 
   const handleStartAdaptiveNextRound = useCallback((nextDiff) => {
     setForm((prev) => ({ ...prev, dificuldade: nextDiff }));
