@@ -532,7 +532,7 @@ export function generateEvolutionInsights({
             const cMin = isStrictNum(cat?.minScore) ? Math.min(Number(cat.minScore), cMax) : (globalMinScore < cMax ? globalMinScore : 0);
             const cRange = Math.max(1e-9, cMax - cMin);
             toHistoryArray(cat.simuladoStats?.history).forEach((h) => {
-                if (!h || h.valid === false || h.validated === false) return;
+                if (!h || h.valid === false || h.validated === false || h.source === 'manual-error-notebook') return;
                 const dk = getDateKey(h.date || h.createdAt);
                 if (todayKeyGlobal && dk && dk > todayKeyGlobal) return;
                 if (subCutoffMs != null && dk) {
@@ -546,7 +546,10 @@ export function generateEvolutionInsights({
                     if (!name || name.toLowerCase() === 'nenhum') return;
                     const isSynth = Boolean(t.syntheticVolume || t.isSynthetic || t.type === 'percent-only');
                     let tot = isSynth ? 0 : (parseInt(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions, 10) || 0);
-                    const sc = getSafeScore(t, cMax, cMin);
+                    const topicForScore = (t.score == null && t.scorePct == null && t.percentage != null)
+                        ? { ...t, scorePct: t.percentage }
+                        : t;
+                    const sc = getSafeScore(topicForScore, cMax, cMin);
                     let corr = NaN;
                     if (tot > 0) {
                         const rawC = t.correct ?? t.acertos ?? t.correctCount;
@@ -784,20 +787,52 @@ export function generateEvolutionInsights({
         targetCats.forEach((cat) => {
             let catSec = 0;
             let catQ = 0;
+            const cMax = isStrictNum(cat?.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : globalMaxScore;
             toHistoryArray(cat.simuladoStats?.history).forEach((h) => {
-                if (!h || h.valid === false || h.validated === false || h.materia === 'Simulado Personalizado') return;
+                if (!h || h.valid === false || h.validated === false || h.source === 'manual-error-notebook' || h.materia === 'Simulado Personalizado') return;
                 const dk = getDateKey(h.date || h.createdAt);
                 if (todayKeyGlobal && dk && dk > todayKeyGlobal) return;
                 if (tsCutoffMs != null && dk) {
                     const ms = toDateMs(dk);
                     if (Number.isFinite(ms) && ms < tsCutoffMs) return;
                 }
-                const ts = Number(h.timeSpent ?? h.durationSeconds);
-                const tq = Number(h.timedQuestoes) > 0
-                    ? Number(h.timedQuestoes)
+                const rootTs = Number(h.timeSpent ?? h.durationSeconds);
+                const explicitRootTq = Number(h.timedQuestoes) > 0 ? Number(h.timedQuestoes) : 0;
+                const safeTopics = Array.isArray(h.topics) ? h.topics : Object.values(h.topics || {});
+                let topicsTs = 0;
+                let topicsTq = 0;
+                let allTopicsExplicit = true;
+                safeTopics.forEach((t) => {
+                    if (!t || typeof t !== 'object' || t.valid === false || t.validated === false) return;
+                    const tTs = Number(t.timeSpent ?? t.durationSeconds);
+                    const tExpTq = Number(t.timedQuestoes) > 0 ? Number(t.timedQuestoes) : 0;
+                    const tTot = tExpTq > 0 ? tExpTq : (Number(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions) || 0);
+                    if (Number.isFinite(tTs) && tTs > 0 && Number.isFinite(tTot) && tTot > 0) {
+                        topicsTs += tTs;
+                        topicsTq += tTot;
+                        if (tExpTq <= 0) allTopicsExplicit = false;
+                    }
+                });
+                const preferRoot = explicitRootTq > 0 && Number.isFinite(rootTs) && rootTs > 0 && (!allTopicsExplicit || rootTs > topicsTs + 0.5);
+                if (topicsTs > 0 && topicsTq > 0 && !preferRoot) {
+                    catSec += topicsTs;
+                    catQ += topicsTq;
+                    return;
+                }
+                let tq = explicitRootTq > 0
+                    ? explicitRootTq
                     : (Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions) || 0);
-                if (Number.isFinite(ts) && ts > 0 && Number.isFinite(tq) && tq > 0) {
-                    catSec += ts;
+                if (tq <= 0 && safeTopics.length > 0) {
+                    tq = safeTopics.reduce((sum, t) => {
+                        if (!t || typeof t !== 'object' || t.valid === false || t.validated === false) return sum;
+                        return sum + (Number(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions) || 0);
+                    }, 0);
+                }
+                if (tq <= 0 && (h.score != null || h.scorePoints != null || h.scorePct != null)) {
+                    tq = getSyntheticTotal(cMax);
+                }
+                if (Number.isFinite(rootTs) && rootTs > 0 && Number.isFinite(tq) && tq > 0) {
+                    catSec += rootTs;
                     catQ += tq;
                 }
             });
@@ -1129,19 +1164,19 @@ export function generateEvolutionInsights({
         };
         const rowMatchesFocus = (r) => {
             if (!showOnlyFocus || !focusCategory) return true;
-            if (r.categoryId != null && focusCategory.id != null) {
+            if (r.categoryId != null && String(r.categoryId).trim() !== '' && focusCategory.id != null) {
                 return String(r.categoryId) === String(focusCategory.id);
             }
-            const rSubj = r.subject || r.categoryName || r.materia || '';
+            const rSubj = r.subject || r.categoryName || r.materia || r.disciplina || '';
             const fName = focusCategory.name || '';
             return Boolean(rSubj && fName && isSubjectMatch(rSubj, fName));
         };
         const resolveCatForRow = (r) => {
-            if (r.categoryId != null) {
+            if (r.categoryId != null && String(r.categoryId).trim() !== '') {
                 const byId = safeCategoriesList.find((c) => c?.id != null && String(c.id) === String(r.categoryId));
                 if (byId) return byId;
             }
-            const subj = r.subject || r.categoryName || r.materia || '';
+            const subj = r.subject || r.categoryName || r.materia || r.disciplina || '';
             if (!subj) return null;
             return safeCategoriesList.find((c) => c?.name && isSubjectMatch(subj, c.name)) || null;
         };
@@ -1163,12 +1198,12 @@ export function generateEvolutionInsights({
 
         const getRowCatKey = (r) => {
             const matched = resolveCatForRow(r);
-            return matched?.id != null ? String(matched.id) : normalize(r.subject || r.categoryName || r.materia || '');
+            return matched?.id != null ? String(matched.id) : normalize(r.subject || r.categoryName || r.materia || r.disciplina || '');
         };
 
         const targetCats = showOnlyFocus && focusCategory ? [focusCategory] : safeCategoriesList;
         const rawFromRows = filterByWindow(
-            safeRowsList.filter((r) => r && r.valid !== false && r.validated !== false && rowMatchesFocus(r))
+            safeRowsList.filter((r) => r && r.valid !== false && r.validated !== false && r.source !== 'manual-error-notebook' && rowMatchesFocus(r))
         ).map((r) => withCatScale(r, resolveCatForRow(r)));
 
         const rowCoveredCatDates = new Set();
@@ -1245,7 +1280,7 @@ export function generateEvolutionInsights({
         const cutoffMs = resolveCutoffMs(timeWindow);
         const tel = safeRowsList
             .filter((r) => {
-                if (!r || r.valid === false || r.validated === false) return false;
+                if (!r || r.valid === false || r.validated === false || r.source === 'manual-error-notebook') return false;
                 const dk = getDateKey(r.date || r.createdAt);
                 if (todayKeyGlobal && dk && dk > todayKeyGlobal) return false;
                 if (cutoffMs != null) {
@@ -1253,10 +1288,10 @@ export function generateEvolutionInsights({
                     if (Number.isFinite(ms) && ms < cutoffMs) return false;
                 }
                 if (showOnlyFocus && focusCategory) {
-                    if (r.categoryId != null && focusCategory.id != null) {
+                    if (r.categoryId != null && String(r.categoryId).trim() !== '' && focusCategory.id != null) {
                         return String(r.categoryId) === String(focusCategory.id);
                     }
-                    const rSubj = r.subject || r.categoryName || r.materia || '';
+                    const rSubj = r.subject || r.categoryName || r.materia || r.disciplina || '';
                     const fName = focusCategory.name || '';
                     return Boolean(rSubj && fName && isSubjectMatch(rSubj, fName));
                 }

@@ -445,7 +445,7 @@ export const TimeSpentChart = React.memo(function TimeSpentChart({
                     const todayNoonMs = toDateMs(todayKey) || nowMs;
                     const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
                     const history = filterHistoryByTimeWindow(cat.simuladoStats?.history || [], timeWindow)
-                        .filter((h) => h && h.materia !== 'Simulado Personalizado');
+                        .filter((h) => h && h.valid !== false && h.validated !== false && h.source !== 'manual-error-notebook' && h.materia !== 'Simulado Personalizado');
 
                     const recentStats = history.reduce((acc, h) => {
                         const hKey = getDateKey(h.date || h.createdAt);
@@ -472,7 +472,7 @@ export const TimeSpentChart = React.memo(function TimeSpentChart({
                 if (cat) {
                     const todayKey = getDateKey(new Date());
                     const baseHistory = filterHistoryByTimeWindow(cat.simuladoStats?.history || [], timeWindow)
-                        .filter((h) => h && h.materia !== 'Simulado Personalizado');
+                        .filter((h) => h && h.valid !== false && h.validated !== false && h.source !== 'manual-error-notebook' && h.materia !== 'Simulado Personalizado');
 
                     const allValidTimed = baseHistory
                         .filter((h) => Number.isFinite(toDateMs(h.date || h.createdAt)) && extractEntryTiming(h, catMax) !== null);

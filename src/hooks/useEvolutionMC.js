@@ -81,12 +81,15 @@ export function useEvolutionMC({
   }, [historyFingerprint]);
 
   const focusCategoryId = focusCategory?.id;
-  const currentFocusLevel = focusCategoryId ? categoryLevels?.[focusCategoryId] : undefined;
+  const hasFocusId = focusCategoryId !== null && focusCategoryId !== undefined && String(focusCategoryId).trim() !== '';
+  const currentFocusLevel = hasFocusId
+    ? (categoryLevels?.[focusCategoryId] ?? categoryLevels?.[String(focusCategoryId)])
+    : undefined;
 
   useEffect(() => {
     let cancelled = false;
 
-    if (!focusCategoryId || !Array.isArray(historyArray) || historyArray.length === 0) {
+    if (!hasFocusId || !Array.isArray(historyArray) || historyArray.length === 0) {
       lastComputedSignatureRef.current = null;
       const timer = setTimeout(() => {
         if (!cancelled) {
@@ -331,9 +334,9 @@ export function useEvolutionMC({
     storeExamTotalQuestions, storeExamDurationMinutes
   ]);
 
-  const activeMcResult = mcResult?.categoryId === focusCategoryId ? mcResult : null;
+  const activeMcResult = hasFocusId && mcResult != null && String(mcResult.categoryId) === String(focusCategoryId) ? mcResult : null;
   const activeMcProjectionSeries =
-    mcProjectionSeries?.categoryId === focusCategoryId ? mcProjectionSeries : null;
+    hasFocusId && mcProjectionSeries != null && String(mcProjectionSeries.categoryId) === String(focusCategoryId) ? mcProjectionSeries : null;
 
   return { mcLoading, mcResult, mcProjectionSeries, activeMcResult, activeMcProjectionSeries };
 }

@@ -43,6 +43,8 @@ export function computeEvolutionStatuses({
   subjectAggData = [],
   heatmapData = {},
   projectDays = 30,
+  hasGoalDate = true,
+  daysToExam = null,
   timeWindow = 'all',
   examDurationMinutes = null,
   examTotalQuestions = null,
@@ -69,13 +71,15 @@ export function computeEvolutionStatuses({
       : (Array.isArray(timeline) ? timeline : []));
 
   const focusId = focusCategory?.id;
-  const focusMin = focusId ? safeNum(focusCategory?.minScore, safeMin) : safeMin;
-  const focusMax = focusId ? Math.max(focusMin + 1, safeNum(focusCategory?.maxScore, safeMax)) : safeMax;
+  const hasFocusId = focusId !== null && focusId !== undefined && String(focusId).trim() !== '';
+  const isSameId = (a, b) => a !== null && a !== undefined && b !== null && b !== undefined && String(a) === String(b);
+  const focusMin = hasFocusId ? safeNum(focusCategory?.minScore, safeMin) : safeMin;
+  const focusMax = hasFocusId ? Math.max(focusMin + 1, safeNum(focusCategory?.maxScore, safeMax)) : safeMax;
   const focusRange = focusMax - focusMin;
   const focusScale = focusRange / 100;
   const globalTargetRatio = range > 0 ? (safeTarget - safeMin) / range : 0.8;
-  const rawFocusCutoff = focusId ? safeNum(focusCategory?.minCutoff, null) : null;
-  const focusTarget = focusId
+  const rawFocusCutoff = hasFocusId ? safeNum(focusCategory?.minCutoff, null) : null;
+  const focusTarget = hasFocusId
     ? (rawFocusCutoff != null && rawFocusCutoff > focusMin
       ? Math.min(focusMax, rawFocusCutoff)
       : (focusMax === safeMax && focusMin === safeMin ? safeTarget : focusMin + globalTargetRatio * focusRange))
@@ -90,13 +94,13 @@ export function computeEvolutionStatuses({
     return null;
   };
 
-  const currentBay = focusId ? getLastValidFrom(effectiveTimeline, `bay_${focusId}`) : null;
-  const currentRaw = focusId ? getLastValidFrom(effectiveTimeline, `raw_${focusId}`) : null;
-  const currentStats = focusId ? getLastValidFrom(effectiveTimeline, `stats_${focusId}`) : null;
+  const currentBay = hasFocusId ? getLastValidFrom(effectiveTimeline, `bay_${focusId}`) : null;
+  const currentRaw = hasFocusId ? getLastValidFrom(effectiveTimeline, `raw_${focusId}`) : null;
+  const currentStats = hasFocusId ? getLastValidFrom(effectiveTimeline, `stats_${focusId}`) : null;
   const current = currentBay ?? currentRaw ?? currentStats;
 
   const getValueSeries = (prefix) => {
-    if (!focusId || !Array.isArray(effectiveTimeline)) return [];
+    if (!hasFocusId || !Array.isArray(effectiveTimeline)) return [];
 
     return effectiveTimeline
       .map((d) => safeNum(d?.[`${prefix}${focusId}`], NaN))
@@ -215,9 +219,9 @@ export function computeEvolutionStatuses({
   // Constância nos últimos 14 dias
   const rawHeatmapDates = Array.isArray(heatmapData?.dates) ? heatmapData.dates : [];
   const heatmapRows = Array.isArray(heatmapData?.rows) ? heatmapData.rows : [];
-  const isFocusScoped = Boolean(showOnlyFocus && focusId);
+  const isFocusScoped = Boolean(showOnlyFocus && hasFocusId);
   const focusRow = isFocusScoped
-    ? heatmapRows.find((r) => r?.cat?.id === focusId)
+    ? heatmapRows.find((r) => isSameId(r?.cat?.id, focusId))
     : null;
   const heatmapDates = isFocusScoped && !focusRow
     ? []
@@ -231,7 +235,7 @@ export function computeEvolutionStatuses({
     ? timeline
       .filter((d) => {
         if (!d?.date) return false;
-        if (showOnlyFocus && focusId) {
+        if (showOnlyFocus && hasFocusId) {
           return d[`raw_${focusId}`] != null || safeNum(d[`raw_total_${focusId}`], 0) > 0;
         }
         return true;
@@ -243,7 +247,7 @@ export function computeEvolutionStatuses({
     ...timelineDatesForConst
   ]);
 
-  if (allActiveDates.size > 0 || (showOnlyFocus && focusId && (rawHeatmapDates.length > 0 || timeline.length > 0))) {
+  if (allActiveDates.size > 0 || (showOnlyFocus && hasFocusId && (rawHeatmapDates.length > 0 || timeline.length > 0))) {
     const todayKey = getDateKey(refNow);
     let activeDays = 0;
     for (let i = 0; i < 14; i++) {
@@ -262,8 +266,8 @@ export function computeEvolutionStatuses({
       tone: constTone,
       icon: '📅',
       statusText: activeDays >= 8 ? 'Ritmo firme' : activeDays >= 4 ? 'Regular' : 'Baixa frequência',
-      scope: showOnlyFocus && focusId ? 'focus' : 'global',
-      scopeLabel: showOnlyFocus && focusId ? focusScopeLabel : 'Visão geral',
+      scope: showOnlyFocus && hasFocusId ? 'focus' : 'global',
+      scopeLabel: showOnlyFocus && hasFocusId ? focusScopeLabel : 'Visão geral',
       howToRead: 'Conta em quantos dias diferentes dos últimos 14 dias corridos você registrou pelo menos 1 simulado. Quanto maior o número, menor o risco de esquecimento.',
       scaleGuide: 'Verde: 8 a 14 dias ativos · Amarelo: 4 a 7 dias · Vermelho: 0 a 3 dias.',
       actionHint:
@@ -311,7 +315,7 @@ export function computeEvolutionStatuses({
   }
 
   // Incerteza bayesiana
-  if (focusId) {
+  if (hasFocusId) {
     const ciLow = getLastValidFrom(effectiveTimeline, `bay_ci_low_${focusId}`);
     const ciHigh = getLastValidFrom(effectiveTimeline, `bay_ci_high_${focusId}`);
 
@@ -363,7 +367,7 @@ export function computeEvolutionStatuses({
         const hist = Array.isArray(cat?.simuladoStats?.history)
           ? cat.simuladoStats.history
           : Object.values(cat?.simuladoStats?.history || {});
-        const hasHistory = hist.some((h) => h && h.valid !== false);
+        const hasHistory = hist.some((h) => h && h.valid !== false && h.validated !== false && h.source !== 'manual-error-notebook');
         const hasBayes = safeNum(cat?.bayesianStats?.mean, null) != null;
         const avgVal = safeNum(cat?.simuladoStats?.average, null);
         const stored = hasBayes
@@ -425,7 +429,7 @@ export function computeEvolutionStatuses({
     ? timeline
       .filter((d) => d?.date && sevenDayKeys.has(d.date))
       .reduce((sum, d) => {
-        const q = (showOnlyFocus && focusId)
+        const q = (showOnlyFocus && hasFocusId)
           ? safeNum(d?.[`raw_total_${focusId}`], 0)
           : safeNum(d?.global_total, 0);
         return sum + q;
@@ -440,8 +444,8 @@ export function computeEvolutionStatuses({
     tone: recentVolume > 0 ? 'success' : 'warning',
     icon: '📝',
     statusText: roundedVol >= 100 ? 'Volume forte' : roundedVol > 0 ? 'Em atividade' : 'Sem registro',
-    scope: showOnlyFocus && focusId ? 'focus' : 'global',
-    scopeLabel: showOnlyFocus && focusId ? focusScopeLabel : 'Visão geral',
+    scope: showOnlyFocus && hasFocusId ? 'focus' : 'global',
+    scopeLabel: showOnlyFocus && hasFocusId ? focusScopeLabel : 'Visão geral',
     howToRead: 'Soma todas as questões registradas nos últimos 7 dias corridos. Garante que seus gráficos reflitam prática real e recente.',
     scaleGuide: 'Verde: > 0 questões na semana (ideal ≥ 100q globais) · Amarelo: 0 questões registradas nos últimos 7 dias.',
     actionHint:
@@ -452,7 +456,7 @@ export function computeEvolutionStatuses({
   });
 
   // Movimento/tendência interna
-  if (focusId) {
+  if (hasFocusId) {
     let trendStatus = '';
     for (let i = effectiveTimeline.length - 1; i >= 0; i--) {
       const ts = String(effectiveTimeline[i]?.[`trend_status_${focusId}`] || '').toLowerCase();
@@ -492,19 +496,20 @@ export function computeEvolutionStatuses({
   }
 
   // Tempo médio por questão
-  const timedSubjects = Array.isArray(subjectAggData)
-    ? subjectAggData
-      .map((d) => {
-        const timedQ = safeNum(d?.timedQuestoes, 0);
-        const rawTime = safeNum(d?.timeSpent, null);
-        const avgFallback = safeNum(d?.avgTimePerQuestion, null);
-        const effTime = rawTime != null && rawTime > 0
-          ? rawTime
-          : (avgFallback != null && avgFallback > 0 && timedQ > 0 ? avgFallback * timedQ : 0);
-        return { timedQ, effTime };
-      })
-      .filter((d) => d.timedQ > 0 && d.effTime > 0)
+  const scopedSubjectAgg = Array.isArray(subjectAggData)
+    ? (showOnlyFocus && hasFocusId ? subjectAggData.filter((d) => isSameId(d?.id, focusId)) : subjectAggData)
     : [];
+  const timedSubjects = scopedSubjectAgg
+    .map((d) => {
+      const timedQ = safeNum(d?.timedQuestoes, 0);
+      const rawTime = safeNum(d?.timeSpent, null);
+      const avgFallback = safeNum(d?.avgTimePerQuestion, null);
+      const effTime = rawTime != null && rawTime > 0
+        ? rawTime
+        : (avgFallback != null && avgFallback > 0 && timedQ > 0 ? avgFallback * timedQ : 0);
+      return { timedQ, effTime };
+    })
+    .filter((d) => d.timedQ > 0 && d.effTime > 0);
 
   if (timedSubjects.length > 0) {
     const totalTime = timedSubjects.reduce((sum, d) => sum + d.effTime, 0);
@@ -526,8 +531,8 @@ export function computeEvolutionStatuses({
         tone: timeTone,
         icon: '⏱️',
         statusText: timeTone === 'success' ? 'Ritmo ágil' : timeTone === 'warning' ? 'Ritmo moderado' : 'Ritmo lento',
-        scope: showOnlyFocus && focusId ? 'focus' : 'global',
-        scopeLabel: showOnlyFocus && focusId ? focusScopeLabel : 'Visão geral',
+        scope: showOnlyFocus && hasFocusId ? 'focus' : 'global',
+        scopeLabel: showOnlyFocus && hasFocusId ? focusScopeLabel : 'Visão geral',
         howToRead: hasExamBudget
           ? `Média de segundos gastos por questão cronometrada, comparada ao ritmo alvo da sua prova (${fastLimit}s/q para ${totalQ}q em ${durMin} min).`
           : 'Média de segundos gastos por questão nos simulados cronometrados. Quanto menor (sem perder acerto), mais folga você terá no gabarito.',
@@ -544,28 +549,48 @@ export function computeEvolutionStatuses({
   }
 
   // Tempo até a prova
-  const days = Math.max(0, Math.round(safeNum(projectDays, 30)));
-  const examTone = days <= 7 ? 'critical' : days <= 30 ? 'warning' : 'info';
+  if (!hasGoalDate) {
+    statuses.push({
+      id: 'exam',
+      label: 'Tempo até a prova',
+      value: 'Sem data',
+      tone: 'neutral',
+      icon: '⏳',
+      statusText: 'Horizonte padrão (30d)',
+      scope: 'global',
+      scopeLabel: 'Calendário do concurso',
+      howToRead: 'Nenhuma data objetivo foi cadastrada neste concurso. As projeções usam um horizonte padrão de 30 dias.',
+      scaleGuide: 'Azul: > 30 dias (construção de base) · Amarelo: 8 a 30 dias (revisão + simulados) · Vermelho: ≤ 7 dias (reta final).',
+      actionHint: 'Defina a data da prova nas configurações do concurso para calibrar a contagem regressiva e as projeções.',
+      help: 'Cadastre a data da prova para acompanhar os dias restantes.'
+    });
+  } else {
+    const effectiveDaysRaw = daysToExam !== null && daysToExam !== undefined ? safeNum(daysToExam, projectDays) : safeNum(projectDays, 30);
+    const days = Math.max(0, Math.round(effectiveDaysRaw));
+    const examTone = days <= 7 ? 'critical' : days <= 30 ? 'warning' : 'info';
 
-  statuses.push({
-    id: 'exam',
-    label: 'Tempo até a prova',
-    value: `${days} dias`,
-    tone: examTone,
-    icon: '⏳',
-    statusText: days <= 7 ? 'Reta final' : days <= 30 ? 'Mês decisivo' : 'Prazo estratégico',
-    scope: 'global',
-    scopeLabel: 'Calendário do concurso',
-    howToRead: 'Contagem regressiva até a data objetivo configurada no concurso. Este prazo define o horizonte das projeções Monte Carlo e do Cone Futuro.',
-    scaleGuide: 'Azul: > 30 dias (construção de base) · Amarelo: 8 a 30 dias (revisão + simulados) · Vermelho: ≤ 7 dias (reta final e descanso estratégico).',
-    actionHint:
-      days <= 7
-        ? 'Reta final: priorize revisão leve de erros críticos, flashcards e sono de qualidade.'
-        : days <= 30
-          ? 'Foque em simulados completos cronometrados e feche gargalos de corte mínimo.'
-          : 'Aproveite o prazo para consolidar a base e manter constância semanal.',
-    help: 'Dias restantes até a data objetivo.'
-  });
+    statuses.push({
+      id: 'exam',
+      label: 'Tempo até a prova',
+      value: `${days} ${days === 1 ? 'dia' : 'dias'}`,
+      tone: examTone,
+      icon: '⏳',
+      statusText: days === 0 ? 'Dia da prova / encerrado' : days <= 7 ? 'Reta final' : days <= 30 ? 'Mês decisivo' : 'Prazo estratégico',
+      scope: 'global',
+      scopeLabel: 'Calendário do concurso',
+      howToRead: 'Contagem regressiva até a data objetivo configurada no concurso. Este prazo define o horizonte das projeções Monte Carlo e do Cone Futuro.',
+      scaleGuide: 'Azul: > 30 dias (construção de base) · Amarelo: 8 a 30 dias (revisão + simulados) · Vermelho: ≤ 7 dias (reta final e descanso estratégico).',
+      actionHint:
+        days === 0
+          ? 'Data da prova atingida — atualize a data objetivo caso haja nova fase ou novo concurso.'
+          : days <= 7
+            ? 'Reta final: priorize revisão leve de erros críticos, flashcards e sono de qualidade.'
+            : days <= 30
+              ? 'Foque em simulados completos cronometrados e feche gargalos de corte mínimo.'
+              : 'Aproveite o prazo para consolidar a base e manter constância semanal.',
+      help: 'Dias restantes até a data objetivo.'
+    });
+  }
 
   return statuses;
 }

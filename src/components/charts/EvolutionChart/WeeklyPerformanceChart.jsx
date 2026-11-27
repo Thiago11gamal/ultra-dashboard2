@@ -95,7 +95,7 @@ const WeeklyPerformanceChart = React.memo(function WeeklyPerformanceChart({
                 const catRange = Math.max(1e-9, catMax - catMin);
                 const history = Array.isArray(cat.simuladoStats?.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats?.history || {});
                 history.forEach(h => {
-                    if (!h || h.valid === false || h.validated === false) return;
+                    if (!h || h.valid === false || h.validated === false || h.source === 'manual-error-notebook') return;
                     const hDate = getDateKey(getHistoryDate(h));
                     if (hDate === dateKey) {
                         const isSynthEntry = Boolean(h.syntheticVolume || h.isSynthetic || h.type === 'percent-only');

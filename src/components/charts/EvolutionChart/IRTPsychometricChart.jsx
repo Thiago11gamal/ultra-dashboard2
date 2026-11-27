@@ -126,10 +126,10 @@ export const IRTPsychometricChart = React.memo(function IRTPsychometricChart({
 
   const rowMatchesFocus = (r) => {
     if (!showOnlyFocus || !focusCategory) return true;
-    if (r.categoryId != null && focusCategory.id != null) {
+    if (r.categoryId != null && String(r.categoryId).trim() !== '' && focusCategory.id != null) {
       return String(r.categoryId) === String(focusCategory.id);
     }
-    const rSubj = r.subject || r.categoryName || r.materia || '';
+    const rSubj = r.subject || r.categoryName || r.materia || r.disciplina || '';
     const fName = focusCategory.name || '';
     return Boolean(rSubj && fName && isSubjectMatch(rSubj, fName));
   };
@@ -164,11 +164,11 @@ export const IRTPsychometricChart = React.memo(function IRTPsychometricChart({
     const gMax = isStrictNum(maxScore) && Number(maxScore) > gMin ? Number(maxScore) : Math.max(gMin + 1, 100);
 
     const resolveCatForRow = (r) => {
-      if (r.categoryId != null) {
+      if (r.categoryId != null && String(r.categoryId).trim() !== '') {
         const byId = safeCats.find((c) => c?.id != null && String(c.id) === String(r.categoryId));
         if (byId) return byId;
       }
-      const subj = r.subject || r.categoryName || r.materia || '';
+      const subj = r.subject || r.categoryName || r.materia || r.disciplina || '';
       if (!subj) return null;
       return safeCats.find((c) => c?.name && isSubjectMatch(subj, c.name)) || null;
     };
@@ -191,12 +191,12 @@ export const IRTPsychometricChart = React.memo(function IRTPsychometricChart({
 
     const getRowCatKey = (r) => {
       const matched = resolveCatForRow(r);
-      return matched?.id != null ? String(matched.id) : normalize(r.subject || r.categoryName || r.materia || '');
+      return matched?.id != null ? String(matched.id) : normalize(r.subject || r.categoryName || r.materia || r.disciplina || '');
     };
 
     const rawFromRows = filterByWindow(
       safeArr(simuladoRows).filter(
-        (r) => r && r.valid !== false && r.validated !== false && rowMatchesFocus(r)
+        (r) => r && r.valid !== false && r.validated !== false && r.source !== 'manual-error-notebook' && rowMatchesFocus(r)
       )
     ).map((r) => withCatScale(r, resolveCatForRow(r)));
 
@@ -274,7 +274,9 @@ export const IRTPsychometricChart = React.memo(function IRTPsychometricChart({
 
   const allQuestionTelemetry = useMemo(() => {
     return filterByWindow(
-      safeArr(simuladoRows).filter((r) => r && r.valid !== false && r.validated !== false && rowMatchesFocus(r))
+      safeArr(simuladoRows).filter(
+        (r) => r && r.valid !== false && r.validated !== false && r.source !== 'manual-error-notebook' && rowMatchesFocus(r)
+      )
     ).flatMap((r) => safeArr(r?.questionTelemetry));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [simuladoRows, focusCategory, showOnlyFocus, cutoffMs]);

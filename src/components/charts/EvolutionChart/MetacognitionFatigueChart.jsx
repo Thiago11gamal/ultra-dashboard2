@@ -132,16 +132,16 @@ export const MetacognitionFatigueChart = React.memo(function MetacognitionFatigu
 
     const rowMatchesFocus = (r) => {
       if (!showOnlyFocus || !focusCategory) return true;
-      if (r.categoryId != null && focusCategory.id != null) {
+      if (r.categoryId != null && String(r.categoryId).trim() !== '' && focusCategory.id != null) {
         return String(r.categoryId) === String(focusCategory.id);
       }
-      const rSubj = r.subject || r.categoryName || r.materia || '';
+      const rSubj = r.subject || r.categoryName || r.materia || r.disciplina || '';
       const fName = focusCategory.name || '';
       return Boolean(rSubj && fName && isSubjectMatch(rSubj, fName));
     };
 
     const rows = safeArr(simuladoRows).filter((r) => {
-      if (!r || r.valid === false || r.validated === false) return false;
+      if (!r || r.valid === false || r.validated === false || r.source === 'manual-error-notebook') return false;
       const dk = getDateKey(r.date || r.createdAt);
       if (todayKey && dk && dk > todayKey) return false;
       if (cutoffMs) {
@@ -156,7 +156,7 @@ export const MetacognitionFatigueChart = React.memo(function MetacognitionFatigu
     const runs = [];
     const batchRunMap = new Map();
     rows.forEach((row) => {
-      const subject = row.subject || row.categoryName || row.materia || 'Geral';
+      const subject = row.subject || row.categoryName || row.materia || row.disciplina || 'Geral';
       const matchesFocus = rowMatchesFocus(row);
       const rawTel = safeArr(row.questionTelemetry).map((q) => ({ ...q, subject, __matchesFocus: matchesFocus }));
       if (!rawTel.length) return;

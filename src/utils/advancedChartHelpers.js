@@ -1,7 +1,7 @@
 import { getDateKey, normalizeDate, toDateMs, getAppTimezone } from './dateHelper.js';
 import { parseNoonLocal, addDaysNoon } from './parseNoonLocal.js';
 import { getSafeScore, getSyntheticTotal, extractTopicsTotals, resolveEffectiveCorrect, isPhantomZeroTimeAttempt } from './scoreHelper.js';
-import { normalize, aliases } from './normalization.js';
+import { normalize, isSubjectMatch } from './normalization.js';
 import { kalmanAbilitySeries } from '../engine/probabilistic/stateSpace.js';
 import {
   computeTopicGraphMetrics,
@@ -67,12 +67,7 @@ function filterDatedEntriesByWindow(entries, getDate, cutoffMs) {
 
 function matchesCategorySubject(cat, rawSubject) {
   if (!cat || !rawSubject) return false;
-  const catNorm = normalize(cat.name);
-  const subNorm = normalize(rawSubject);
-  if (!catNorm || !subNorm) return false;
-  if (catNorm === subNorm) return true;
-  const catAliases = aliases[catNorm] || [];
-  return catAliases.some((a) => normalize(a) === subNorm);
+  return isSubjectMatch(rawSubject, cat.name);
 }
 
 function formatShortBrDate(isoKey) {
@@ -210,8 +205,9 @@ export function buildSpeedAccuracyData(categories = [], simuladoRows = [], optio
 
     // Supplement with non-overlapping timed simuladoRows for this category
     windowedRows.forEach((r) => {
-      const idMatch = r.categoryId != null && cat?.id != null && String(r.categoryId) === String(cat.id);
-      const nameMatch = r.categoryId == null && matchesCategorySubject(cat, r.subject || r.categoryName || r.materia || '');
+      const hasRowCatId = r.categoryId != null && String(r.categoryId).trim() !== '';
+      const idMatch = hasRowCatId && cat?.id != null && String(r.categoryId) === String(cat.id);
+      const nameMatch = !hasRowCatId && matchesCategorySubject(cat, r.subject || r.categoryName || r.materia || r.disciplina || '');
       if (!idMatch && !nameMatch) return;
       const dk = getDateKey(r.date || r.createdAt);
       if (dk && coveredTimedDates.has(dk)) return;
@@ -318,15 +314,16 @@ export function buildSpeedAccuracyData(categories = [], simuladoRows = [], optio
 
     // Complement with non-overlapping timed simuladoRows (supporting both row.topics and row.topic)
     windowedRows.forEach((r) => {
+      const hasRowCatId = r.categoryId != null && String(r.categoryId).trim() !== '';
       const matchedCat = allCats.find(
         (c) =>
-          (r.categoryId != null && c?.id != null && String(c.id) === String(r.categoryId)) ||
-          (r.categoryId == null && matchesCategorySubject(c, r.subject || r.categoryName || r.materia || ''))
+          (hasRowCatId && c?.id != null && String(c.id) === String(r.categoryId)) ||
+          (!hasRowCatId && matchesCategorySubject(c, r.subject || r.categoryName || r.materia || r.disciplina || ''))
       );
       if (showOnlyFocus && hasFocusId && (!matchedCat || !matchesFocusCat(matchedCat))) return;
       const { min, max } = resolveScale(matchedCat, gMax, gMin);
       const dk = getDateKey(r.date || r.createdAt) || '';
-      const catKey = String(matchedCat?.id ?? (r.subject || r.categoryName || 'cat'));
+      const catKey = String(matchedCat?.id ?? (r.subject || r.categoryName || r.materia || r.disciplina || 'cat'));
       const rowPenalty = Math.max(0, toFinite(r.penaltyPerWrong, globalPenalty));
 
       const rowTopics = safeArr(r.topics).filter((t) => t && typeof t === 'object' && t.valid !== false && t.validated !== false);

@@ -309,18 +309,18 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
             const sortedRows = simuladoRows
                 .map((r, origIdx) => ({ r, origIdx }))
                 .filter(({ r }) => {
-                  if (!r || r.valid === false || r.validated === false) return false;
+                  if (!r || r.valid === false || r.validated === false || r.source === 'manual-error-notebook') return false;
                   const rDateKey = getDateKey(r.date || r.createdAt);
                   if (!rDateKey || rDateKey > maxAllowedDateKey) return false;
                   const hasExplicitRowCatId = r.categoryId !== null && r.categoryId !== undefined && String(r.categoryId).trim() !== '';
                   if (hasExplicitRowCatId) {
                       return activeCategoryIdSet.has(String(r.categoryId));
                   }
-                  const rSubjRaw = r.subject || r.categoryName || r.materia || '';
+                  const rSubjRaw = r.subject || r.categoryName || r.materia || r.disciplina || '';
                   return Boolean(rSubjRaw) && activeCategories.some(c => isSubjectMatch(rSubjRaw, c.name));
                 })
                 .map(({ r, origIdx }) => {
-                    const rSubjRaw = r.subject || r.categoryName || r.materia || '';
+                    const rSubjRaw = r.subject || r.categoryName || r.materia || r.disciplina || '';
                     const hasExplicitRowCatId = r.categoryId !== null && r.categoryId !== undefined && String(r.categoryId).trim() !== '';
                     const matchedCat = hasExplicitRowCatId
                         ? activeCategories.find(c => c?.id != null && String(c.id) === String(r.categoryId))

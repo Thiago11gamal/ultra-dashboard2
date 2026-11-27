@@ -624,9 +624,10 @@ export function computeConsistencyIndex(history, maxScore = 100, minScore = 0) {
 
 export function computeStudyEfficiency(studySessions, simulados, maxScore = 100, categoryId = null, normalizeSubject = null, minScore = 0) {
   const _noData = { efficiency: 0, questionsPerHour: 0, accuracyRate: 0, totalMinutes: 0, totalQuestions: 0, label: 'Sem dados' };
+  const hasCatId = categoryId !== null && categoryId !== undefined && String(categoryId).trim() !== '';
 
   const sessions = (studySessions || []).filter(
-    (s) => s && s.type !== 'flashcard' && (!categoryId || s?.categoryId === categoryId)
+    (s) => s && s.type !== 'flashcard' && (!hasCatId || (s?.categoryId != null && String(s.categoryId) === String(categoryId)))
   );
   const totalMinutes = sessions.reduce((acc, s) => acc + (Number(s?.duration ?? s?.minutes ?? s?.minutos) || 0), 0);
 
@@ -634,9 +635,11 @@ export function computeStudyEfficiency(studySessions, simulados, maxScore = 100,
     ? normalizeSubject
     : (value) => String(value || '').toLowerCase().trim();
 
-  const validSims = (simulados || []).filter((s) => s && s.valid !== false && s.validated !== false);
-  const relevantSims = categoryId
-    ? validSims.filter((s) => s?.categoryId === categoryId)
+  const validSims = (simulados || []).filter(
+    (s) => s && s.valid !== false && s.validated !== false && s.source !== 'manual-error-notebook'
+  );
+  const relevantSims = hasCatId
+    ? validSims.filter((s) => s?.categoryId != null && String(s.categoryId) === String(categoryId))
     : validSims;
 
   const totalQuestions = relevantSims.reduce(
@@ -975,7 +978,8 @@ export function computeWeeklyCategoryCorrelation(categories = [], maxScore = 100
       Object.entries(byWeek).map(([k, b]) => [k, b.weight > 0 ? b.sum / b.weight : 0])
     );
     if (Object.keys(avgByWeek).length >= 2) {
-      const id = String(cat.id || cat.name);
+      const rawId = cat.id !== null && cat.id !== undefined && String(cat.id).trim() !== '' ? cat.id : cat.name;
+      const id = String(rawId);
       weeklySeries.set(id, avgByWeek);
       activeCats.push({ id, name: cat.name || id, color: cat.color || '#6366f1' });
     }
@@ -1106,7 +1110,7 @@ export function buildRegimeMapData(categories = [], studySessions = [], simulado
       }
 
       return {
-        id: cat.id || cat.name,
+        id: (cat.id !== null && cat.id !== undefined && String(cat.id).trim() !== '') ? cat.id : cat.name,
         name: cat.name,
         color: cat.color || '#6366f1',
         hurstH,

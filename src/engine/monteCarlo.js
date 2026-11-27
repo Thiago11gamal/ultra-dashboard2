@@ -471,7 +471,7 @@ export function simulateNormalDistribution(
         const effMean = clamp(toFiniteNumber(s.mean, subjDomain.minScore), subjDomain.minScore, subjDomain.maxScore);
         const effSd = Math.max(1e-6, toFiniteNumber(s.sd, 1));
         return {
-            id: s.id || s.name || 'subject',
+            id: (s.id !== null && s.id !== undefined && s.id !== '') ? s.id : (s.name || 'subject'),
             name: s.name || s.id || 'Disciplina',
             examGroup: s.examGroup || null,
             mean: effMean,
@@ -848,8 +848,9 @@ export function runTornadoSensitivity({
     }
 
     const applyOverrides = (list) => list.map((s) => {
-        const key = String(s.id || s.name);
-        const shift = Number(overrides[key] || 0);
+        const rawKey = (s.id !== null && s.id !== undefined && s.id !== '') ? s.id : s.name;
+        const key = String(rawKey);
+        const shift = Number(overrides[rawKey] ?? overrides[key] ?? 0);
         const sRange = Math.max(1e-6, s.maxScore - s.minScore);
         const deltaPoints = (shift / 100) * sRange;
         return {
@@ -905,8 +906,8 @@ export function runTornadoSensitivity({
         const swing = Number((upRes.probability - downRes.probability).toFixed(1));
 
         return {
-            id: subj.id || subj.name || `s-${idx}`,
-            name: subj.name || subj.id || `Matéria ${idx + 1}`,
+            id: (subj.id !== null && subj.id !== undefined && subj.id !== '') ? subj.id : (subj.name || `s-${idx}`),
+            name: subj.name ?? subj.id ?? `Matéria ${idx + 1}`,
             weight: subj.weight,
             currentMean: Number(subj.mean.toFixed(1)),
             probUp: Number(upRes.probability.toFixed(1)),

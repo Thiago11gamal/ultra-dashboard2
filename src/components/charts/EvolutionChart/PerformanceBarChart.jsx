@@ -28,8 +28,9 @@ export const PerformanceBarChart = React.memo(function PerformanceBarChart({
     };
 
     const safeSubjectAggData = Array.isArray(subjectAggData) ? subjectAggData : [];
-    const filteredAggData = showOnlyFocus && focusCategory?.id
-        ? safeSubjectAggData.filter(d => d.id === focusCategory.id)
+    const hasFocusId = focusCategory?.id !== null && focusCategory?.id !== undefined && String(focusCategory.id).trim() !== '';
+    const filteredAggData = showOnlyFocus && hasFocusId
+        ? safeSubjectAggData.filter(d => d?.id !== null && d?.id !== undefined && String(d.id) === String(focusCategory.id))
         : safeSubjectAggData;
 
     const chartData = useMemo(() => {

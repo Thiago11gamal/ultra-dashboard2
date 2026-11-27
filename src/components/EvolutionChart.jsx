@@ -8,7 +8,7 @@ import { useSubjectAggData } from "../hooks/useSubjectAggData";
 import { EvolutionHeatmap } from "./charts/EvolutionHeatmap";
 import { getDateKey, toDateMs, normalizeDate } from "../utils/dateHelper";
 import { parseNoonLocal, addDaysNoon } from "../utils/parseNoonLocal";
-import { normalize, aliases } from "../utils/normalization";
+import { normalize, isSubjectMatch } from "../utils/normalization";
 import { getSafeScore, extractTopicsTotals, getSyntheticTotal, computeEffectiveScoreRatio, resolveEffectiveCorrect, formatValue } from "../utils/scoreHelper";
 import { normalizeProbability } from "../utils/evolutionGuards";
 import { exportComponentAsPDF } from "../utils/pdfExport";
@@ -78,31 +78,33 @@ const DEFAULT_CATEGORY_PALETTE = [
     "#06b6d4", "#eab308", "#6366f1", "#d946ef", "#22c55e"
 ];
 
-function hydrateCategoriesWithSimuladoRows(baseCategories, simuladoRows, globalMin = 0, globalMax = 100) {
+function hydrateCategoriesWithSimuladoRows(baseCategories, simuladoRows, globalMin = 0, globalMax = 100, defaultPenaltyPerWrong = 0) {
     const safeBase = Array.isArray(baseCategories) ? baseCategories : [];
     const validRows = (Array.isArray(simuladoRows) ? simuladoRows : []).filter(
         r => r && r.valid !== false && r.validated !== false && r.source !== 'manual-error-notebook'
     );
     if (!validRows.length) return safeBase;
+    const safeDefaultPenalty = Math.max(0, Number(defaultPenaltyPerWrong) || 0);
 
     const rowMatchesCategory = (row, cat) => {
-        if (row.categoryId) return Boolean(cat.id && String(row.categoryId) === String(cat.id));
-        const subNorm = normalize(row.subject || row.categoryName || row.materia);
-        const catNorm = normalize(cat.name);
-        if (!subNorm || !catNorm) return false;
-        const catAliases = aliases[catNorm] || EMPTY_ARRAY;
-        return subNorm === catNorm || catAliases.some(a => normalize(a) === subNorm);
+        const hasRowCatId = row.categoryId !== null && row.categoryId !== undefined && String(row.categoryId).trim() !== '';
+        if (hasRowCatId) {
+            return cat.id !== null && cat.id !== undefined && String(row.categoryId) === String(cat.id);
+        }
+        const rawSub = row.subject || row.categoryName || row.materia || row.disciplina || '';
+        return Boolean(rawSub && cat.name && isSubjectMatch(rawSub, cat.name));
     };
 
     let workingCategories = safeBase;
     if (workingCategories.length === 0) {
         const seen = new Map();
         validRows.forEach((row, idx) => {
-            const label = String(row.subject || row.categoryName || row.materia || '').trim();
-            const key = normalize(label) || (row.categoryId ? String(row.categoryId) : '');
+            const label = String(row.subject || row.categoryName || row.materia || row.disciplina || '').trim();
+            const hasRowCatId = row.categoryId !== null && row.categoryId !== undefined && String(row.categoryId).trim() !== '';
+            const key = normalize(label) || (hasRowCatId ? String(row.categoryId) : '');
             if (!key || seen.has(key)) return;
             seen.set(key, {
-                id: row.categoryId || `synth_cat_${seen.size + 1}`,
+                id: hasRowCatId ? row.categoryId : `synth_cat_${seen.size + 1}`,
                 name: label || 'Disciplina',
                 color: DEFAULT_CATEGORY_PALETTE[idx % DEFAULT_CATEGORY_PALETTE.length],
                 tasks: [],
@@ -204,12 +206,15 @@ function hydrateCategoriesWithSimuladoRows(baseCategories, simuladoRows, globalM
             const rawCorr = r.correct ?? r.acertos ?? r.correctCount;
             const hasExplicitCorr = !r.isPercentage && rawCorr !== undefined && rawCorr !== null && String(rawCorr).trim() !== '' && Number.isFinite(Number(rawCorr));
             let rowCorr = hasExplicitCorr ? Math.max(0, Number(rawCorr)) : NaN;
-            let rowScore = getSafeScore(r, catMax, catMin);
+            const rowPenalty = r.penaltyPerWrong !== null && r.penaltyPerWrong !== undefined && String(r.penaltyPerWrong).trim() !== ''
+                ? Math.max(0, Number(r.penaltyPerWrong) || 0)
+                : safeDefaultPenalty;
+            const rEff = (r.penaltyPerWrong == null && rowPenalty > 0) ? { ...r, penaltyPerWrong: rowPenalty } : r;
+            let rowScore = getSafeScore(rEff, catMax, catMin);
             const rowBlanks = Math.max(0, Number(r.blanks) || 0);
-            const rowPenalty = Math.max(0, Number(r.penaltyPerWrong) || 0);
 
             if (rowTot <= 0 && r.topics != null) {
-                const tf = extractTopicsTotals(r, catMax, catMin);
+                const tf = extractTopicsTotals(rEff, catMax, catMin);
                 if (tf.total > 0) {
                     rowTot = tf.total;
                     rowCorr = tf.correct;
@@ -226,7 +231,7 @@ function hydrateCategoriesWithSimuladoRows(baseCategories, simuladoRows, globalM
                     : (Number.isFinite(rowScore)
                         ? Math.round(Math.max(0, Math.min(1, (rowScore - catMin) / catRange)) * rowTot)
                         : 0);
-                const effCorr = resolveEffectiveCorrect(r, rowScore, rowTot, hasExplicitCorr, physicalCorr, catMax, catMin);
+                const effCorr = resolveEffectiveCorrect(rEff, rowScore, rowTot, hasExplicitCorr, physicalCorr, catMax, catMin);
                 bucket.total += rowTot;
                 bucket.correct += physicalCorr;
                 bucket.effCorrect += effCorr;
@@ -828,23 +833,7 @@ export default React.memo(function EvolutionChart({
         [simuladoRows]
     );
 
-    const categories = useMemo(() => {
-        const sourceList = (Array.isArray(propCategories) && propCategories.length > 0) ? propCategories : rawCategories;
-        const safeCategories = (
-            Array.isArray(sourceList)
-                ? sourceList
-                : Object.values(sourceList || {})
-        ).filter(Boolean).map((cat, idx) => {
-            // FIX 1A-1: cor por índice (puro, sem mutação de variável externa)
-            const color = cat.color || DEFAULT_CATEGORY_PALETTE[idx % DEFAULT_CATEGORY_PALETTE.length];
-            // FIX 1A-2: normalizar tasks para array
-            const tasks = Array.isArray(cat?.tasks) ? cat.tasks : Object.values(cat?.tasks || {});
-            return { ...cat, color, tasks };
-        });
-        return hydrateCategoriesWithSimuladoRows(safeCategories, simuladoRowsArray, minScore, maxScore);
-    }, [propCategories, rawCategories, simuladoRowsArray, minScore, maxScore]);
-
-    // RIGOR-09 FIX: Recuperar os pesos do store para o Global Pct ponderado
+    // RIGOR-09 FIX: Recuperar os pesos e penalidade do store antes da hidratação de linhas órfãs
     const { activeContestId, mcWeights, historicalCutoffs, examDurationMinutes, examTotalQuestions, examBoard, penaltyPerWrong, examGroupCutoffs } = useAppStore(
         useShallow((state) => {
             const currentId = state.appState?.activeId || 'default';
@@ -861,6 +850,22 @@ export default React.memo(function EvolutionChart({
             };
         })
     );
+
+    const categories = useMemo(() => {
+        const sourceList = (Array.isArray(propCategories) && propCategories.length > 0) ? propCategories : rawCategories;
+        const safeCategories = (
+            Array.isArray(sourceList)
+                ? sourceList
+                : Object.values(sourceList || {})
+        ).filter(Boolean).map((cat, idx) => {
+            // FIX 1A-1: cor por índice (puro, sem mutação de variável externa)
+            const color = cat.color || DEFAULT_CATEGORY_PALETTE[idx % DEFAULT_CATEGORY_PALETTE.length];
+            // FIX 1A-2: normalizar tasks para array
+            const tasks = Array.isArray(cat?.tasks) ? cat.tasks : Object.values(cat?.tasks || {});
+            return { ...cat, color, tasks };
+        });
+        return hydrateCategoriesWithSimuladoRows(safeCategories, simuladoRowsArray, minScore, maxScore, penaltyPerWrong);
+    }, [propCategories, rawCategories, simuladoRowsArray, minScore, maxScore, penaltyPerWrong]);
 
     const initialUiPrefs = useMemo(
         () => (persistUiPrefs ? readEvolutionUiPrefs(activeContestId) : DEFAULT_EVOLUTION_UI_PREFS),
@@ -904,19 +909,21 @@ export default React.memo(function EvolutionChart({
         [studyLogs]
     );
 
-    const projectDays = useMemo(() => {
-        if (!goalDate) return 30;
+    const { projectDays, hasValidGoalDate, rawDaysToExam } = useMemo(() => {
+        if (!goalDate) return { projectDays: 30, hasValidGoalDate: false, rawDaysToExam: null };
         const todayKey = getDateKey(new Date());
         const now = (todayKey ? parseNoonLocal(todayKey) : null) || new Date();
         const goal = parseGoalDateLocal(goalDate);
-        if (!goal) return 30;
-        // FIX-GOAL-01: Invalid Date sobrevivia ao guard e produzia NaN -> safeDays=1,
-        // exibindo "1 dia para a prova" para data corrompida.
-        if (Number.isNaN(goal.getTime())) return 30;
+        if (!goal || Number.isNaN(goal.getTime())) {
+            return { projectDays: 30, hasValidGoalDate: false, rawDaysToExam: null };
+        }
         const diffDays = Math.ceil((goal.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-        if (!Number.isFinite(diffDays)) return 30;
-        const safeDays = diffDays > 0 ? diffDays : 1;
-        return Math.min(3650, safeDays);
+        if (!Number.isFinite(diffDays)) {
+            return { projectDays: 30, hasValidGoalDate: false, rawDaysToExam: null };
+        }
+        const clampedCalendarDays = Math.max(0, Math.min(3650, diffDays));
+        const safeDays = diffDays > 0 ? Math.min(3650, diffDays) : 1;
+        return { projectDays: safeDays, hasValidGoalDate: true, rawDaysToExam: clampedCalendarDays };
     }, [goalDate]);
 
     const resolveUnitForScale = (rawUnit, scaleMin, scaleMax) => {
@@ -943,14 +950,19 @@ export default React.memo(function EvolutionChart({
     const isMountedRef = useRef(true);
     const tabsScrollRef = useRef(null);
 
-    if (persistUiPrefs && activeContestId !== prevContestIdForPrefs) {
+    if (activeContestId !== prevContestIdForPrefs) {
         setPrevContestIdForPrefs(activeContestId);
-        const restored = readEvolutionUiPrefs(activeContestId);
-        setActiveEngine(restored.activeEngine);
-        setTimeWindow(restored.timeWindow);
-        setEngineGroup(restored.engineGroup);
-        setStatusViewMode(restored.statusViewMode);
-        setShowDetailedGallery(restored.showDetailedGallery);
+        setFocusSubjectId(null);
+        setShowOnlyFocus(false);
+        setSelectedStatusId(null);
+        if (persistUiPrefs) {
+            const restored = readEvolutionUiPrefs(activeContestId);
+            setActiveEngine(restored.activeEngine);
+            setTimeWindow(restored.timeWindow);
+            setEngineGroup(restored.engineGroup);
+            setStatusViewMode(restored.statusViewMode);
+            setShowDetailedGallery(restored.showDetailedGallery);
+        }
     }
 
     useEffect(() => {
@@ -1007,6 +1019,12 @@ export default React.memo(function EvolutionChart({
         if (!group || !group.ids) return SECONDARY_ENGINES;
         return SECONDARY_ENGINES.filter((eng) => group.ids.includes(eng.id));
     }, [engineGroup, ENGINE_GROUPS]);
+
+    useEffect(() => {
+        if (visibleSecondaryEngines.length > 0 && !visibleSecondaryEngines.some((eng) => eng.id === activeEngine)) {
+            setActiveEngine(visibleSecondaryEngines[0].id);
+        }
+    }, [visibleSecondaryEngines, activeEngine]);
 
     const engineTabRefs = useRef(new Map());
 
@@ -1674,6 +1692,8 @@ const statusList = useMemo(() => {
         subjectAggData,
         heatmapData,
         projectDays,
+        hasGoalDate: hasValidGoalDate,
+        daysToExam: rawDaysToExam,
         examDurationMinutes,
         examTotalQuestions,
         timeWindow,
@@ -1693,6 +1713,8 @@ const statusList = useMemo(() => {
     subjectAggData,
     heatmapData,
     projectDays,
+    hasValidGoalDate,
+    rawDaysToExam,
     examDurationMinutes,
     examTotalQuestions,
     timeWindow,
@@ -2356,43 +2378,46 @@ return (
                                 aria-label="Modos de análise do gráfico de evolução"
                                 className="flex flex-row xl:flex-col items-center xl:items-stretch overflow-x-auto xl:overflow-x-visible xl:overflow-y-auto xl:max-h-[640px] gap-1 w-full no-scrollbar xl:custom-scrollbar scroll-smooth"
                             >
-                                {visibleSecondaryEngines.map((eng, idx, arr) => {
-                                    const active = activeEngine === eng.id;
-                                    const TabIcon = ENGINE_ICONS[eng.id] || BarChart3;
-                                    return (
-                                        <button
-                                            type="button"
-                                            role="tab"
-                                            id={`engine-tab-${eng.id}`}
-                                            aria-selected={active}
-                                            aria-controls={`engine-panel-${eng.id}`}
-                                            key={eng.id}
-                                            ref={(el) => {
-                                                if (el) engineTabRefs.current.set(eng.id, el);
-                                                else engineTabRefs.current.delete(eng.id);
-                                            }}
-                                            onClick={() => setActiveEngine(eng.id)}
-                                            onKeyDown={(e) => {
-                                                const activate = (id) => {
-                                                    setActiveEngine(id);
-                                                    focusEngineTab(id);
-                                                };
+                                {(() => {
+                                    const hasActiveTabInList = visibleSecondaryEngines.some((e) => e.id === activeEngine);
+                                    return visibleSecondaryEngines.map((eng, idx, arr) => {
+                                        const active = activeEngine === eng.id;
+                                        const isKeyboardStop = active || (!hasActiveTabInList && idx === 0);
+                                        const TabIcon = ENGINE_ICONS[eng.id] || BarChart3;
+                                        return (
+                                            <button
+                                                type="button"
+                                                role="tab"
+                                                id={`engine-tab-${eng.id}`}
+                                                aria-selected={active}
+                                                aria-controls={`engine-panel-${eng.id}`}
+                                                key={eng.id}
+                                                ref={(el) => {
+                                                    if (el) engineTabRefs.current.set(eng.id, el);
+                                                    else engineTabRefs.current.delete(eng.id);
+                                                }}
+                                                onClick={() => setActiveEngine(eng.id)}
+                                                onKeyDown={(e) => {
+                                                    const activate = (id) => {
+                                                        setActiveEngine(id);
+                                                        focusEngineTab(id);
+                                                    };
 
-                                                if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-                                                    e.preventDefault();
-                                                    activate(arr[(idx + 1) % arr.length].id);
-                                                } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-                                                    e.preventDefault();
-                                                    activate(arr[(idx - 1 + arr.length) % arr.length].id);
-                                                } else if (e.key === 'Home') {
-                                                    e.preventDefault();
-                                                    activate(arr[0].id);
-                                                } else if (e.key === 'End') {
-                                                    e.preventDefault();
-                                                    activate(arr[arr.length - 1].id);
-                                                }
-                                            }}
-                                            tabIndex={active ? 0 : -1}
+                                                    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+                                                        e.preventDefault();
+                                                        activate(arr[(idx + 1) % arr.length].id);
+                                                    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                                                        e.preventDefault();
+                                                        activate(arr[(idx - 1 + arr.length) % arr.length].id);
+                                                    } else if (e.key === 'Home') {
+                                                        e.preventDefault();
+                                                        activate(arr[0].id);
+                                                    } else if (e.key === 'End') {
+                                                        e.preventDefault();
+                                                        activate(arr[arr.length - 1].id);
+                                                    }
+                                                }}
+                                                tabIndex={isKeyboardStop ? 0 : -1}
                                             className={`shrink-0 relative group inline-flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all duration-150 border text-xs font-bold whitespace-nowrap xl:w-full xl:justify-start ${active
                                                     ? 'shadow-sm'
                                                     : 'bg-transparent border-transparent text-slate-400 hover:text-slate-100 hover:bg-white/[0.04]'
@@ -2410,7 +2435,8 @@ return (
                                             <span className="text-xs font-bold tracking-tight truncate">{eng.label}</span>
                                         </button>
                                     );
-                                })}
+                                });
+                                })()}
                             </div>
 
                             <button

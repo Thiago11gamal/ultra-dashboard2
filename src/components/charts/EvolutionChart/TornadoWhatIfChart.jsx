@@ -68,7 +68,7 @@ export const TornadoWhatIfChart = React.memo(function TornadoWhatIfChart({
     especificos: examGroupCutoffs?.especificos ?? '',
     discursiva: examGroupCutoffs?.discursiva ?? '',
   });
-  const categoriesPropKey = safeArr(categories).map((c) => c?.id || c?.name || '').join('|');
+  const categoriesPropKey = safeArr(categories).map((c) => c?.id ?? c?.name ?? '').join('|');
   const [prevCutoffsKey, setPrevCutoffsKey] = useState(cutoffsPropKey);
   const [prevCategoriesKey, setPrevCategoriesKey] = useState(categoriesPropKey);
   const [lastSavedCutoffsKey, setLastSavedCutoffsKey] = useState(null);
@@ -192,6 +192,11 @@ export const TornadoWhatIfChart = React.memo(function TornadoWhatIfChart({
 
   const hasOverrides = Object.values(overrides).some((v) => Number(v) !== 0);
 
+  const cleanSimuladoRows = useMemo(
+    () => safeArr(simuladoRows).filter((r) => r && r.valid !== false && r.validated !== false && r.source !== 'manual-error-notebook'),
+    [simuladoRows]
+  );
+
   // Baseline estável (sem overrides) para manter a ordem dos sliders fixa e exibir o ganho Δpp ao simular
   const baselineResult = useMemo(() => {
     if (!subjects.length) return null;
@@ -202,12 +207,12 @@ export const TornadoWhatIfChart = React.memo(function TornadoWhatIfChart({
       maxScore,
       historicalCutoffs,
       examGroupCutoffs: effectiveGroupCutoffs,
-      simuladoRows,
+      simuladoRows: cleanSimuladoRows,
       deltaPct,
       simulations: 1200,
       overrides: {},
     });
-  }, [subjects, targetScore, minScore, maxScore, historicalCutoffs, effectiveGroupCutoffs, simuladoRows, deltaPct]);
+  }, [subjects, targetScore, minScore, maxScore, historicalCutoffs, effectiveGroupCutoffs, cleanSimuladoRows, deltaPct]);
 
   const result = useMemo(() => {
     if (!subjects.length) return null;
@@ -219,12 +224,12 @@ export const TornadoWhatIfChart = React.memo(function TornadoWhatIfChart({
       maxScore,
       historicalCutoffs,
       examGroupCutoffs: effectiveGroupCutoffs,
-      simuladoRows,
+      simuladoRows: cleanSimuladoRows,
       deltaPct,
       simulations: 1200,
       overrides,
     });
-  }, [subjects, hasOverrides, baselineResult, targetScore, minScore, maxScore, historicalCutoffs, effectiveGroupCutoffs, simuladoRows, deltaPct, overrides]);
+  }, [subjects, hasOverrides, baselineResult, targetScore, minScore, maxScore, historicalCutoffs, effectiveGroupCutoffs, cleanSimuladoRows, deltaPct, overrides]);
 
   const sliderItems = useMemo(() => {
     const baseList = baselineResult?.items || result?.items || [];

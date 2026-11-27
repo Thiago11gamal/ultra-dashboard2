@@ -53,14 +53,19 @@ export const CriticalTopicsAnalysis = React.memo(({
         return Math.round(Math.max(0, Math.min(100, ((effTarget - gMin) / Math.max(1e-9, gMax - gMin)) * 100)));
     }, [targetScore, minScore, maxScore]);
 
+    const isSameId = useCallback(
+        (a, b) => a !== null && a !== undefined && b !== null && b !== undefined && String(a) === String(b),
+        []
+    );
+    const hasFocusId = focusSubjectId !== null && focusSubjectId !== undefined && String(focusSubjectId).trim() !== '';
+
     const effectiveCategories = useMemo(() => {
         const list = (Array.isArray(categories) ? categories : Object.values(categories || {})).filter(Boolean);
-        if (showOnlyFocus && focusSubjectId) {
-            const focused = list.filter(c => c && c.id === focusSubjectId);
-            return focused.length > 0 ? focused : list;
+        if (showOnlyFocus && hasFocusId) {
+            return list.filter(c => c && isSameId(c.id, focusSubjectId));
         }
         return list;
-    }, [categories, showOnlyFocus, focusSubjectId]);
+    }, [categories, showOnlyFocus, hasFocusId, focusSubjectId, isSameId]);
 
     // Calc time window anchored in APP_TIMEZONE (avoids local TZ off-by-one boundary shifts)
     const { startDateKey, endDateKey, dateLabel } = useMemo(() => {
@@ -95,7 +100,7 @@ export const CriticalTopicsAnalysis = React.memo(({
             const tasksList = toArray(cat.tasks);
 
             const recentHistory = windowHistory.filter(h => {
-                if (!h || h.valid === false || h.validated === false) return false;
+                if (!h || h.valid === false || h.validated === false || h.source === 'manual-error-notebook') return false;
                 const k = getDateKey(getHistoryDate(h));
                 return k && k >= startDateKey && k <= endDateKey;
             });
@@ -108,10 +113,10 @@ export const CriticalTopicsAnalysis = React.memo(({
             if (!Number.isFinite(catRange) || catRange <= 0) return;
             for (let i = 0; i < recentHistory.length; i++) {
                 const h = recentHistory[i];
-                let topicList = toArray(h.topics);
+                let topicList = toArray(h.topics).filter(t => t && typeof t === 'object' && t.valid !== false && t.validated !== false);
                 const parentPenalty = Number(h.penaltyPerWrong) || 0;
                 if (topicList.length === 0) {
-                    const matchedTask = h.taskId ? tasksList.find(tk => tk && tk.id === h.taskId) : null;
+                    const matchedTask = h.taskId != null && String(h.taskId) !== '' ? tasksList.find(tk => tk && isSameId(tk.id, h.taskId)) : null;
                     const fallbackTopicName = matchedTask?.title || matchedTask?.text || matchedTask?.name || h.topic || h.assunto || h.subtopic || h.topicName;
                     if (fallbackTopicName) {
                         topicList = [{
@@ -120,7 +125,7 @@ export const CriticalTopicsAnalysis = React.memo(({
                             correct: h.correct ?? h.acertos ?? h.correctCount,
                             score: h.score,
                             scorePoints: h.scorePoints,
-                            scorePct: h.scorePct,
+                            scorePct: h.scorePct ?? h.percentage,
                             penaltyPerWrong: h.penaltyPerWrong,
                             blanks: h.blanks,
                             netPoints: h.netPoints,
@@ -130,14 +135,22 @@ export const CriticalTopicsAnalysis = React.memo(({
                             type: h.type
                         }];
                     }
-                } else if (parentPenalty > 0) {
-                    topicList = topicList.map(t => (t && t.penaltyPerWrong == null ? { ...t, penaltyPerWrong: parentPenalty } : t));
+                } else {
+                    const shouldCopyBlanks = topicList.length === 1 && h.blanks != null;
+                    if (parentPenalty > 0 || shouldCopyBlanks) {
+                        topicList = topicList.map(t => ({
+                            ...t,
+                            ...(parentPenalty > 0 && t.penaltyPerWrong == null ? { penaltyPerWrong: parentPenalty } : {}),
+                            ...(shouldCopyBlanks && t.blanks == null ? { blanks: h.blanks } : {}),
+                        }));
+                    }
                 }
 
                 topicList.forEach(t => {
-                    const n = String(t.name || '').replace(/^\[(.*?)\]\s*/i, '').replace(/<[^>]*>?/gm, '').trim();
+                    const rawTopicTitle = t.name || t.topic || t.assunto || t.title || t.subtopic || t.topicName || '';
+                    const n = String(rawTopicTitle).replace(/^\[(.*?)\]\s*/i, '').replace(/<[^>]*>?/gm, '').trim();
                     if (!n || n.toLowerCase() === 'nenhum') return;
-                    const key = `${cat.id || cat.name || ''}::${n.toLowerCase()}`;
+                    const key = `${cat.id ?? cat.name ?? ''}::${n.toLowerCase()}`;
                     if (!topicMap[key]) {
                         topicMap[key] = {
                             name: n,
@@ -151,7 +164,7 @@ export const CriticalTopicsAnalysis = React.memo(({
 
                     const isSynthFlag = Boolean(t.syntheticVolume || t.isSynthetic || t.type === 'percent-only');
                     let total = isSynthFlag ? 0 : (parseInt(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions, 10) || 0);
-                    const hasTopicScore = hasValidNumber(t.score) || hasValidNumber(t.scorePoints) || hasValidNumber(t.scorePct);
+                    const hasTopicScore = hasValidNumber(t.score) || hasValidNumber(t.scorePoints) || hasValidNumber(t.scorePct) || hasValidNumber(t.percentage);
                     const isSynthTopic = total === 0 && (hasTopicScore || isSynthFlag);
                     if (isSynthTopic) {
                         total = getSyntheticTotal(catMax);
@@ -166,7 +179,10 @@ export const CriticalTopicsAnalysis = React.memo(({
                         (t.correctCount !== null && t.correctCount !== undefined && String(t.correctCount).trim() !== '')
                     );
                     const parsedCorrect = Number(t.correct ?? t.acertos ?? t.correctCount);
-                    const score = getSafeScore(t, catMax, catMin);
+                    const topicForScore = (t.score == null && t.scorePct == null && t.percentage != null)
+                        ? { ...t, scorePct: t.percentage }
+                        : t;
+                    const score = getSafeScore(topicForScore, catMax, catMin);
                     let correctCount;
                     if (isSynthTopic) {
                         if (!Number.isFinite(score)) return;
@@ -325,11 +341,12 @@ export const CriticalTopicsAnalysis = React.memo(({
             const windowHistory = filterHistoryByTimeWindow(cat.simuladoStats?.history || [], timeWindow);
 
             return windowHistory.some(h => {
+                if (!h || h.valid === false || h.validated === false || h.source === 'manual-error-notebook') return false;
                 const k = getDateKey(getHistoryDate(h));
-                const topics = toArray(h.topics);
+                const topics = toArray(h.topics).filter(t => t && typeof t === 'object' && t.valid !== false && t.validated !== false);
 
                 const hasTopicData = topics.some(
-                    t => Number(t?.total ?? t?.questoes ?? t?.totalQuestoes ?? t?.questions) > 0 || hasValidNumber(t?.score) || hasValidNumber(t?.scorePoints) || hasValidNumber(t?.scorePct)
+                    t => Number(t?.total ?? t?.questoes ?? t?.totalQuestoes ?? t?.questions) > 0 || hasValidNumber(t?.score) || hasValidNumber(t?.scorePoints) || hasValidNumber(t?.scorePct) || hasValidNumber(t?.percentage)
                 );
 
                 return (

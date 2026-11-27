@@ -256,7 +256,7 @@ export const SubtopicsPerformanceChart = React.memo(({
 
                     const isSynthFlag = Boolean(t.syntheticVolume || t.isSynthetic || t.type === 'percent-only');
                     const rawTotParsed = isSynthFlag ? 0 : (parseInt(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions, 10) || 0);
-                    const hasTopicScore = hasValidNumber(t.score) || hasValidNumber(t.scorePoints) || hasValidNumber(t.scorePct) || hasValidNumber(t.value);
+                    const hasTopicScore = hasValidNumber(t.score) || hasValidNumber(t.scorePoints) || hasValidNumber(t.scorePct) || hasValidNumber(t.percentage) || hasValidNumber(t.value);
                     const isSynthTopic = rawTotParsed <= 0;
                     let total = rawTotParsed;
                     if (isSynthTopic && (t.isPercentage || hasTopicScore || isSynthFlag)) {
@@ -270,7 +270,10 @@ export const SubtopicsPerformanceChart = React.memo(({
                         (t.correctCount !== null && t.correctCount !== undefined && String(t.correctCount).trim() !== '')
                     );
                     const parsedC = Number(t.correct ?? t.acertos ?? t.correctCount);
-                    const rawScore = getSafeScore(t, catMax, catMin);
+                    const topicForScore = (t.score == null && t.scorePct == null && t.percentage != null)
+                        ? { ...t, scorePct: t.percentage }
+                        : t;
+                    const rawScore = getSafeScore(topicForScore, catMax, catMin);
                     let correctCount;
                     if (isSynthTopic) {
                         if (!Number.isFinite(rawScore)) return;
@@ -412,7 +415,7 @@ export const SubtopicsPerformanceChart = React.memo(({
 
                     const isSynthFlag = Boolean(t.syntheticVolume || t.isSynthetic || t.type === 'percent-only');
                     const rawTotParsed = isSynthFlag ? 0 : (parseInt(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions, 10) || 0);
-                    const hasTopicScore = hasValidNumber(t.score) || hasValidNumber(t.scorePoints) || hasValidNumber(t.scorePct) || hasValidNumber(t.value);
+                    const hasTopicScore = hasValidNumber(t.score) || hasValidNumber(t.scorePoints) || hasValidNumber(t.scorePct) || hasValidNumber(t.percentage) || hasValidNumber(t.value);
                     const isSynthTopic = rawTotParsed <= 0;
                     let total = rawTotParsed;
                     if (isSynthTopic && (t.isPercentage || hasTopicScore || isSynthFlag)) {
@@ -426,7 +429,10 @@ export const SubtopicsPerformanceChart = React.memo(({
                         (t.correctCount !== null && t.correctCount !== undefined && String(t.correctCount).trim() !== '')
                     );
                     const parsedC = Number(t.correct ?? t.acertos ?? t.correctCount);
-                    const rawScore = getSafeScore(t, catMax, catMin);
+                    const topicForScore = (t.score == null && t.scorePct == null && t.percentage != null)
+                        ? { ...t, scorePct: t.percentage }
+                        : t;
+                    const rawScore = getSafeScore(topicForScore, catMax, catMin);
                     let correct;
                     if (isSynthTopic) {
                         if (!Number.isFinite(rawScore)) return;

@@ -73,6 +73,7 @@ export const CorrelationRegimeChart = React.memo(function CorrelationRegimeChart
   focusSubjectId = null,
   timeWindow = 'all',
 }) {
+  const hasFocusId = focusSubjectId !== null && focusSubjectId !== undefined && String(focusSubjectId).trim() !== '';
   const corr = useMemo(
     () => computeWeeklyCategoryCorrelation(categories, maxScore, minScore, { timeWindow }),
     [categories, maxScore, minScore, timeWindow]
@@ -174,7 +175,7 @@ export const CorrelationRegimeChart = React.memo(function CorrelationRegimeChart
                   {corr.categories.map((c) => (
                     <th
                       key={c.id}
-                      className={`p-1.5 text-center truncate max-w-[72px] ${focusSubjectId && String(c.id) === String(focusSubjectId) ? 'text-indigo-300 font-black' : 'text-slate-400'
+                      className={`p-1.5 text-center truncate max-w-[72px] ${hasFocusId && String(c.id) === String(focusSubjectId) ? 'text-indigo-300 font-black' : 'text-slate-400'
                         }`}
                       title={c.name}
                     >
@@ -185,7 +186,7 @@ export const CorrelationRegimeChart = React.memo(function CorrelationRegimeChart
               </thead>
               <tbody>
                 {corr.categories.map((catRow, i) => {
-                  const isFocusedRow = focusSubjectId && String(catRow.id) === String(focusSubjectId);
+                  const isFocusedRow = Boolean(hasFocusId && String(catRow.id) === String(focusSubjectId));
                   return (
                     <tr key={catRow.id}>
                       <td
@@ -303,7 +304,7 @@ export const CorrelationRegimeChart = React.memo(function CorrelationRegimeChart
                   <Tooltip content={<RegimeTooltip unit={unit} />} />
                   <Scatter data={regimes} name="Disciplinas">
                     {regimes.map((pt) => {
-                      const isFocused = focusSubjectId && String(pt.id) === String(focusSubjectId);
+                      const isFocused = Boolean(hasFocusId && String(pt.id) === String(focusSubjectId));
                       return (
                         <Cell
                           key={pt.id}

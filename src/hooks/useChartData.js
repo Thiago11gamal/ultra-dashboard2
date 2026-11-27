@@ -245,8 +245,8 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
                 mix(dStr.charCodeAt(i));
             }
         });
-        const wVal = weights?.[cat?.id] ?? cat?.weight ?? '';
-        return `${cat?.id || ''}|${cat?.name || ''}|${wVal}|${cat?.maxScore ?? ''}|${cat?.minScore ?? ''}|${cat?.minCutoff ?? ''}|${tasks.length}|${history.length}|${hash}`;
+        const wVal = weights?.[cat?.id] ?? weights?.[cat?.name] ?? cat?.weight ?? '';
+        return `${cat?.id ?? ''}|${cat?.name || ''}|${wVal}|${cat?.maxScore ?? ''}|${cat?.minScore ?? ''}|${cat?.minCutoff ?? ''}|${tasks.length}|${history.length}|${hash}`;
     }).join('||'), [categories, weights]);
 
     const activeCategories = useMemo(() => {
@@ -325,9 +325,12 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
                 return Math.max(0, Math.min(1, (n - catMin) / catRange));
             };
 
-            const catWeight = Number.isFinite(Number(weights?.[cat.id]))
+            const rawOverrideW = isStrictNum(weights?.[cat.id])
                 ? Number(weights[cat.id])
-                : (Number.isFinite(Number(cat?.weight)) ? Number(cat.weight) : 1);
+                : (isStrictNum(weights?.[cat.name]) ? Number(weights[cat.name]) : NaN);
+            const catWeight = Number.isFinite(rawOverrideW)
+                ? rawOverrideW
+                : (isStrictNum(cat?.weight) ? Number(cat.weight) : 1);
             const cumulativeByDate = buildCumulativeStatsPerDate(history, dates, catMax, catMin, catWeight);
             const exactByDate = {};
             history.forEach(h => {
@@ -426,6 +429,14 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
             });
         });
 
+        const resolveCatGlobalWeight = (cat) => {
+            if (isStrictNum(weights?.[cat?.id])) return Math.max(0, Number(weights[cat.id]));
+            if (isStrictNum(weights?.[cat?.name])) return Math.max(0, Number(weights[cat.name]));
+            if (isStrictNum(cat?.weight)) return Math.max(0, Number(cat.weight));
+            return 1;
+        };
+        const hasAnyPositiveWeight = activeCategories.some((cat) => resolveCatGlobalWeight(cat) > 0);
+
         dates.forEach(date => {
             const pt = dataByDate[date];
             let bayW = 0, baySum = 0;
@@ -435,7 +446,9 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
                 const catMax = isStrictNum(cat.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : safeMax;
                 const catMin = isStrictNum(cat.minScore) ? Math.min(Number(cat.minScore), catMax) : safeMin;
                 const catRange = Math.max(1e-9, catMax - catMin);
-                const w = Math.max(0.01, Number.isFinite(Number(weights?.[cat.id])) ? Number(weights[cat.id]) : (Number.isFinite(Number(cat?.weight)) ? Number(cat.weight) : 1));
+                const rawWVal = resolveCatGlobalWeight(cat);
+                const w = hasAnyPositiveWeight ? rawWVal : 1;
+                if (w <= 0) return;
                 const toGlobal = (val) => safeMin + Math.max(0, Math.min(1, (val - catMin) / catRange)) * safeGlobalRange;
                 const b = pt[`bay_${cat.id}`];
                 if (b != null && Number.isFinite(Number(b))) {
