@@ -21,7 +21,7 @@ import {
 } from '../advancedChartHelpers.js';
 import { mapRetentionData } from '../chartDataMappers.js';
 import { estimateEmpiricalHalfLife } from '../../engine/adaptive/empiricalRetention.js';
-import { buildAchievementStats, aggregateQuestionAccuracy } from '../analytics.js';
+import { buildAchievementStats } from '../analytics.js';
 import {
   getCombinedHistory,
   extractMetrics,
@@ -249,13 +249,15 @@ describe('Simulados -> Main Panels Cross-Flow Audit & Bug Fixes', () => {
     expect(boxPlot.rows).toHaveLength(2);
 
     const kalman = buildKalmanChartData(portCat, [], { minScore: 0, maxScore: 100 });
-    expect(kalman.series.length).toBeGreaterThanOrEqual(2);
+    expect(kalman.points.length).toBeGreaterThanOrEqual(2);
 
     const fan = buildProjectionFanData(portCat, [], { minScore: 0, maxScore: 100, now: new Date('2026-11-21T12:00:00Z') });
     expect(fan.series.length).toBeGreaterThan(0);
 
     const graph = buildKnowledgeGraphLayout(portCat, { minScore: 0, maxScore: 100 });
-    expect(graph.nodes.find(n => n.name === 'Crase')?.hasSimuladoData).toBe(true);
+    const craseNode = graph.nodes.find(n => n.name === 'Crase');
+    expect(craseNode?.totalQuestions).toBe(10);
+    expect(craseNode?.proficiencyPct).toBe(40);
 
     // Efficient Allocation (Stats) & Optimal Schedule (Agenda)
     const alloc = computeEfficientAllocation(reconciled, [], { minScore: 0, maxScore: 100, targetScore: 80, now: new Date('2026-11-21T12:00:00Z') });
@@ -322,11 +324,9 @@ describe('Simulados -> Main Panels Cross-Flow Audit & Bug Fixes', () => {
       studySessions: []
     };
 
-    const qAcc = aggregateQuestionAccuracy(contestWithOnlyErrors);
-    expect(qAcc.totalQuestions).toBe(0);
-
     const ach = buildAchievementStats(contestWithOnlyErrors);
     expect(ach.totalQuestions).toBe(0);
+    expect(ach.accuracy).toBe(0);
     expect(ach.hasPerfectScore).toBe(false);
 
     const circadian = buildCircadianHeatmapData([], [], [errorOnlyRow], contestWithOnlyErrors.categories, {
