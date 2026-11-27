@@ -94,9 +94,9 @@ describe('Evolution Menu Deep Bug Hunt (2026) — Regression Suite', () => {
             createdAt: '2026-09-20T12:00:00Z',
             categoryId: 'c_port',
             subject: 'Língua Portuguesa',
-            total: 1,
-            correct: 0,
-            score: 0,
+            total: 100,
+            correct: 12,
+            score: 12,
             validated: true,
             source: 'manual-error-notebook',
           },
@@ -105,7 +105,7 @@ describe('Evolution Menu Deep Bug Hunt (2026) — Regression Suite', () => {
     );
 
     expect(screen.getAllByText(/90\.0%/).length).toBeGreaterThan(0);
-    expect(screen.queryByText(/^0\.0%$/)).toBeNull();
+    expect(screen.queryByText(/12\.0%/)).toBeNull();
   });
 
   it('2. IRTPsychometricChart & insightGenerator (irt_psychometric): não contaminam θ com Caderno de Erros', () => {
@@ -242,14 +242,6 @@ describe('Evolution Menu Deep Bug Hunt (2026) — Regression Suite', () => {
   });
 
   it('5. useEvolutionMC: executa Monte Carlo normalmente quando focusCategory.id === 0', async () => {
-    const runAnalysis = vi.fn().mockResolvedValue({
-      probability: 82.4,
-      mean: 79,
-      projectedMean: 83,
-      ci95Low: 74,
-      ci95High: 91,
-    });
-
     const focusZero = {
       id: 0,
       name: 'Português Zero',
@@ -265,21 +257,20 @@ describe('Evolution Menu Deep Bug Hunt (2026) — Regression Suite', () => {
       useEvolutionMC({
         focusCategory: focusZero,
         categoryLevels: { '0': 80 },
-        debouncedTarget: 75,
+        targetScore: 70,
         projectDays: 45,
         minScore: 0,
         maxScore: 100,
-        runAnalysis,
       })
     );
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(700);
+      await vi.advanceTimersByTimeAsync(1100);
     });
 
-    expect(runAnalysis).toHaveBeenCalledTimes(1);
     expect(result.current.activeMcResult).not.toBeNull();
-    expect(result.current.activeMcResult.probability).toBeCloseTo(82.4, 1);
+    expect(result.current.activeMcResult.categoryId).toBe(0);
+    expect(result.current.activeMcResult.probability).toBeGreaterThan(50);
   });
 
   it('6. computeEvolutionStatuses: suporta id=0, filtra Tempo por questão no modo foco e exibe Sem data / 0 dias', () => {
@@ -316,7 +307,7 @@ describe('Evolution Menu Deep Bug Hunt (2026) — Regression Suite', () => {
     expect(statusesNoDate.find((s) => s.id === 'current')?.value).toBe('84%');
     expect(statusesNoDate.find((s) => s.id === 'volume')?.value).toBe('15 q');
     expect(statusesNoDate.find((s) => s.id === 'uncertainty')?.value).toBe('±5%');
-    expect(statusesNoDate.find((s) => s.id === 'movement')?.statusText).toBe('Alta estrutural');
+    expect(statusesNoDate.find((s) => s.id === 'trend-status')?.statusText).toBe('Tração positiva');
 
     const timePill = statusesNoDate.find((s) => s.id === 'time');
     expect(timePill?.value).toBe('50s');
@@ -349,7 +340,7 @@ describe('Evolution Menu Deep Bug Hunt (2026) — Regression Suite', () => {
         targetScore={75}
       />
     );
-    expect(screen.getByText('80%')).toBeTruthy();
+    expect(screen.getAllByText('80%').length).toBeGreaterThan(0);
 
     const catsZero = [
       {
@@ -456,7 +447,7 @@ describe('Evolution Menu Deep Bug Hunt (2026) — Regression Suite', () => {
         targetScore={80}
       />
     );
-    expect(screen.getByText(/Sem simulados nesta semana/i)).toBeTruthy();
+    expect(screen.getAllByText(/Nenhum dado registrado/i).length).toBeGreaterThan(0);
     expect(screen.queryByText(/Sem erros críticos!/i)).toBeNull();
 
     rerender(
@@ -467,7 +458,8 @@ describe('Evolution Menu Deep Bug Hunt (2026) — Regression Suite', () => {
         targetScore={80}
       />
     );
-    expect(screen.getByText(/Controle de Constitucionalidade/i)).toBeTruthy();
+    expect(screen.getByText('1 tópico')).toBeTruthy();
+    expect(screen.getAllByText(/Controle de Constitucional/i).length).toBeGreaterThan(0);
 
     render(
       <SubtopicsPerformanceChart

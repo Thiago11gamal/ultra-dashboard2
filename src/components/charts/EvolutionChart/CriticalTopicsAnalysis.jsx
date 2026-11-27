@@ -235,7 +235,7 @@ export const CriticalTopicsAnalysis = React.memo(({
                 fill: PALETTE[Math.min(PALETTE.length - 1, Math.floor((i / (arr.length > 1 ? arr.length - 1 : 1)) * (PALETTE.length - 1)))]
             };
         });
-    }, [effectiveCategories, startDateKey, endDateKey, timeWindow, maxScore, minScore]);
+    }, [effectiveCategories, startDateKey, endDateKey, timeWindow, maxScore, minScore, isSameId]);
 
     const pointLeakageData = useMemo(() => {
         if (!effectiveCategories || !effectiveCategories.length) return [];
@@ -248,7 +248,7 @@ export const CriticalTopicsAnalysis = React.memo(({
             const windowHistory = filterHistoryByTimeWindow(cat.simuladoStats?.history || [], timeWindow);
 
             const recentHistory = windowHistory.filter(h => {
-                if (!h || h.valid === false || h.validated === false) return false;
+                if (!h || h.valid === false || h.validated === false || h.source === 'manual-error-notebook') return false;
                 const k = getDateKey(getHistoryDate(h));
                 return k && k >= startDateKey && k <= endDateKey;
             });
