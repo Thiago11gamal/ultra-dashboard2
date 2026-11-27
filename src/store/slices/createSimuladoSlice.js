@@ -196,7 +196,7 @@ if (c.simuladoStats?.history) {
 
       // Data afetada nesta categoria: recalcular stats com as rows restantes para esta categoria nessa data
       const catRowsForDay = remainingRows.filter(r => {
-        if (!r) return false;
+        if (!r || r.valid === false || r.validated === false || r.source === 'manual-error-notebook') return false;
         const rDateKey = getDateKey(normalizeDate(r.date || r.createdAt));
         if (rDateKey !== hDateKey) return false;
         if (r.categoryId) return Boolean(c.id && r.categoryId === c.id);

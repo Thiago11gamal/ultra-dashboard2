@@ -3,7 +3,7 @@ import { safeClone } from '../../utils/safeClone.js';
 import { markStorageDirty } from '../../utils/storageSafe.js';
 import { addCategoryTombstones, removeCategoryTombstone } from '../../utils/tombstones.js';
 import { normalize } from '../../utils/normalization.js';
-import { reconcileContestCategoriesHistory } from '../../utils/simuladoReconciler.js';
+import { reconcileContestCategoriesHistory, computeCategorySimuladoStats, DEFAULT_SIMULADO_HISTORY_CAP } from '../../utils/simuladoReconciler.js';
 import { getTaskXP } from '../../utils/gamification.js';
 import { clearCoachCaches } from '../../utils/coachCaches.js';
 
@@ -221,13 +221,29 @@ export const createTrashSlice = (set, get) => ({
             contest.simuladoRows = [...currentRows, ...restoredRows.filter(r => r && (!r.id || !rowIds.has(r.id)))];
             contest.simulados = [...currentSims, ...restoredSims.filter(s => s && (!s.id || !simIds.has(s.id)))];
             if (contest.categories) {
-                contest.categories = reconcileContestCategoriesHistory(
+                const reconciledCats = reconcileContestCategoriesHistory(
                     contest.categories,
                     contest.simuladoRows,
                     contest.maxScore,
                     contest.minScore,
                     { penaltyPerWrong: contest.penaltyPerWrong }
                 );
+                contest.categories = reconciledCats.map((cat) => {
+                    if (!cat || typeof cat !== 'object') return cat;
+                    const hist = Array.isArray(cat.simuladoStats?.history)
+                        ? cat.simuladoStats.history
+                        : Object.values(cat.simuladoStats?.history || {});
+                    return {
+                        ...cat,
+                        simuladoStats: computeCategorySimuladoStats(
+                            cat,
+                            hist,
+                            contest.maxScore,
+                            contest.minScore,
+                            { maxHistory: DEFAULT_SIMULADO_HISTORY_CAP }
+                        ),
+                    };
+                });
             }
             contest.lastUpdated = new Date().toISOString();
         } else if (item.type === 'study_note') {

@@ -183,7 +183,8 @@ export function blendPriorEmpirical(priorVal, empiricalVal, sampleSize, priorStr
       });
     });
 
-    const simuladoCount = Math.max(historySimCount, simuladoRows.length);
+    const realSimuladoRows = simuladoRows.filter((r) => r.source !== 'manual-error-notebook');
+    const simuladoCount = Math.max(historySimCount, realSimuladoRows.length);
     const totalStudyHours = Number((totalMinutes / 60).toFixed(1));
     const studySessionsCount = validStudySessionsCount;
     const weeksActive = activeWeeks.size;

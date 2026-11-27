@@ -13,6 +13,9 @@ import { getDateKey, normalizeDate } from '../utils/dateHelper';
 import { generateId } from '../utils/idGenerator';
 import { clearUrgencyCache, clearTopicsCache } from '../utils/coachCaches';
 import { clearMcCache } from '../utils/coachAdaptive';
+import { syncAdaptiveFeatureFlags } from '../engine/adaptive/adaptiveMaturityEngine';
+import { useAuth } from '../context/useAuth';
+import { isAdminUser } from '../utils/adminAccess';
 import {
   ListChecks, Brain, History as HistoryIcon,
   ChevronRight, Clock, Target, TrendingUp, TrendingDown,
@@ -46,9 +49,13 @@ const formatDateTime = (r) => {
   });
 };
 
+const isErrorNotebookOnlyRow = (r) => r?.source === 'manual-error-notebook';
+
 const isAiSimuladoRow = (r) =>
-  r?.source === 'ai-generated' ||
-  (Boolean(r?.batchId) && r?.source !== 'manual' && !String(r?.id || '').startsWith('manual'));
+  !isErrorNotebookOnlyRow(r) && (
+    r?.source === 'ai-generated' ||
+    (Boolean(r?.batchId) && r?.source !== 'manual' && !String(r?.id || '').startsWith('manual'))
+  );
 
 const getSimuladoSource = (rows) => {
   if (!rows || rows.length === 0) return null;
@@ -164,7 +171,7 @@ function DailySummaryCards({ simuladoRows }) {
     const calcDay = (dayKey) => {
       const safeRows = (Array.isArray(simuladoRows) ? simuladoRows : Object.values(simuladoRows || {})).filter(Boolean);
       const rows = safeRows.filter((r) => {
-        if (r.valid === false || r.validated === false) return false;
+        if (r.valid === false || r.validated === false || isErrorNotebookOnlyRow(r)) return false;
         const rk = getDateKey(normalizeDate(r.date || r.createdAt));
         return rk === dayKey && (parseInt(r.total, 10) > 0 || parseInt(r.correct, 10) > 0);
       });
@@ -238,6 +245,8 @@ function DailySummaryCards({ simuladoRows }) {
    ───────────────────────────────────────────── */
 export default function Simulados() {
   const location = useLocation();
+  const auth = useAuth();
+  const isAdmin = isAdminUser(auth?.currentUser);
   const { categories, simuladoRows, studySessions } = useAppStore(useShallow(state => {
     const contest = state.appState?.contests?.[state.appState?.activeId] || {};
     return {
@@ -272,7 +281,7 @@ export default function Simulados() {
     if (!categoriesArray.length || !categories) return [];
     const targetDayKey = (manualDate && /^\d{4}-\d{2}-\d{2}$/.test(manualDate)) ? manualDate : todayDefaultKey;
     const rawDayRows = simuladoRowsArray.filter(
-      r => r && getDateKey(normalizeDate(r.date || r.createdAt)) === targetDayKey
+      r => r && !isErrorNotebookOnlyRow(r) && getDateKey(normalizeDate(r.date || r.createdAt)) === targetDayKey
     );
     const rows = [];
     const savedManualRows = {};
@@ -331,9 +340,9 @@ export default function Simulados() {
   const lastSimuladoData = useMemo(() => {
     if (!simuladoRowsArray.length) return { rows: [], source: null, timestamp: null };
 
-    // 1. Filtra apenas rows com dados reais
+    // 1. Filtra apenas rows com dados reais de simulado (ignora notas avulsas do Caderno de Erros)
     const answeredRows = simuladoRowsArray.filter(
-      (r) => r && typeof r === 'object' && (parseInt(r.total, 10) > 0 || parseInt(r.correct, 10) > 0)
+      (r) => r && typeof r === 'object' && r.valid !== false && r.validated !== false && !isErrorNotebookOnlyRow(r) && (parseInt(r.total, 10) > 0 || parseInt(r.correct, 10) > 0)
     );
     if (answeredRows.length === 0) return { rows: [], source: null, timestamp: null };
 
@@ -346,7 +355,7 @@ export default function Simulados() {
 
     // 3. Estratégia A: batchId (Simulado IA)
     if (lastRef.batchId && lastRef.source !== 'manual') {
-      resultRows = simuladoRowsArray.filter((r) => r && r.batchId === lastRef.batchId);
+      resultRows = simuladoRowsArray.filter((r) => r && !isErrorNotebookOnlyRow(r) && r.batchId === lastRef.batchId);
       // ✅ FIX BUG-49: fallback se batchId não encontrar nada
       if (resultRows.length === 0) {
         console.warn(`[SimuladoFilter] batchId ${lastRef.batchId} não encontrou rows. Fallback para data.`);
@@ -371,7 +380,7 @@ export default function Simulados() {
       };
 
       resultRows = simuladoRowsArray.filter((r) => {
-        if (!r || typeof r !== 'object') return false;
+        if (!r || typeof r !== 'object' || isErrorNotebookOnlyRow(r)) return false;
         // Para manual, queremos agrupar todos do dia excluindo linhas de IA
         const isAi = isAiSimuladoRow(r);
         const isManual = !isAi && (
@@ -455,7 +464,7 @@ export default function Simulados() {
 
         const rowsToKeep = prevSimuladoRowsArray.filter((r) => {
           const isToday = getDateKey(normalizeDate(r?.date || r?.createdAt)) === todayKey;
-          const isManual = r && !r.isAuto && r.source !== 'ai-generated';
+          const isManual = r && !r.isAuto && r.source !== 'ai-generated' && !isErrorNotebookOnlyRow(r);
 
           if (isToday && isManual) {
             if (r?.id && submittedIds.has(r.id)) return false;
@@ -533,6 +542,7 @@ export default function Simulados() {
           const historyWithoutToday = history.filter((h) => getDateKey(normalizeDate(h?.date || h?.createdAt)) !== todayKey);
 
           const todayRows = validatedRows.filter((r) => {
+            if (!r || r.valid === false || r.validated === false || isErrorNotebookOnlyRow(r)) return false;
             const isToday = getDateKey(normalizeDate(r?.date || r?.createdAt)) === todayKey;
             const isSubject = (cat.id && r?.categoryId && r.categoryId === cat.id) ||
               isSubjectMatch(r?.subject, cat.name);
@@ -650,7 +660,7 @@ export default function Simulados() {
 
         // Evento global de simulado
         const todayValidatedRows = validatedRows.filter(
-          (r) => getDateKey(normalizeDate(r?.date || r?.createdAt)) === todayKey
+          (r) => r && r.valid !== false && r.validated !== false && !isErrorNotebookOnlyRow(r) && getDateKey(normalizeDate(r?.date || r?.createdAt)) === todayKey
         );
         let totalQ = 0;
         let totalC = 0;
@@ -708,6 +718,15 @@ export default function Simulados() {
       clearUrgencyCache();
       clearTopicsCache();
       clearMcCache();
+      try {
+        const st = useAppStore.getState().appState;
+        const cid = st?.activeId || 'default';
+        if (st?.contests?.[cid]) {
+          syncAdaptiveFeatureFlags(st.contests[cid], cid, { respectOverrides: true, isAdmin });
+        }
+      } catch {
+        // non-blocking adaptive flag sync
+      }
 
       if (totalQForToast > 0) {
         showToast('Simulado processado com sucesso!', 'success');
@@ -726,7 +745,7 @@ export default function Simulados() {
       console.error('FATAL ERROR IN handleSimuladoAnalysis:', err);
       showToast('Erro fatal ao salvar simulado. Verifique os logs.', 'error');
     }
-  }, [setData, showToast, manualDate]);
+  }, [setData, showToast, manualDate, isAdmin]);
 
   /* ── Configuração das tabs ── */
   const [drillErrors, setDrillErrors] = useState(null);
@@ -798,8 +817,17 @@ export default function Simulados() {
       });
       return { ...contest, simuladoRows: rows.slice(-300), lastUpdated: nowIso };
     });
+    try {
+      const st = useAppStore.getState().appState;
+      const cid = st?.activeId || 'default';
+      if (st?.contests?.[cid]) {
+        syncAdaptiveFeatureFlags(st.contests[cid], cid, { respectOverrides: true, isAdmin });
+      }
+    } catch {
+      // non-blocking adaptive flag sync
+    }
     showToast('Erro registrado no Caderno de Erros!', 'success');
-  }, [setData, categoriesArray, showToast]);
+  }, [setData, categoriesArray, showToast, isAdmin]);
 
   const handleSendNotebookErrorsToFlashcards = useCallback((cardsBySubject, normFn) => {
     const nowIso = new Date().toISOString();

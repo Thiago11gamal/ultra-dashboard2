@@ -216,7 +216,9 @@ export function getCombinedHistory(history, simulados, maxScore = 100, minScore 
     const safeMinScore = parsedMin !== null ? Math.min(parsedMin, safeMaxScore - 1e-6) : 0;
 
     const deduplicatedMap = new Map();
-    const allSimulados = safeArray(simulados).filter(s => s && s.valid !== false);
+    const allSimulados = safeArray(simulados).filter(
+        s => s && s.valid !== false && s.validated !== false && s.source !== 'manual-error-notebook'
+    );
 
     allSimulados.forEach((s) => {
         const safeScore = getSafeScore(s, safeMaxScore, safeMinScore);
@@ -234,21 +236,27 @@ export function getCombinedHistory(history, simulados, maxScore = 100, minScore 
     const hasSimuladoForDate = new Set();
     const hasGenericSimuladoForDate = new Set();
     const hasSimuladoForDateSubject = new Set();
+    const coveredBatchIds = new Set();
     const subjectsByDate = new Map();
 
     allSimulados.forEach((s) => {
         const safeScore = getSafeScore(s, safeMaxScore, safeMinScore);
         if (!Number.isFinite(safeScore)) return;
+        if (s.batchId) coveredBatchIds.add(String(s.batchId));
         const dKey = getDateKey(s.date || s.createdAt);
         if (!dKey) return;
         hasSimuladoForDate.add(dKey);
         const rawSub = s.subject || s.categoryName || s.materia || s.disciplina;
         const normSub = rawSub ? normalize(String(rawSub)) : '';
         const catId = s.categoryId !== undefined && s.categoryId !== null && s.categoryId !== '' ? String(s.categoryId) : '';
-        const isGenericGlobal = (!normSub || normSub === 'simulado geral' || normSub === 'geral') && !catId;
+        const catIdLower = catId.trim().toLowerCase();
+        const isMixedGlobal = catIdLower === 'mixed' || normSub === 'simulado misto ia' || normSub === 'simulado misto';
+        const isGenericGlobal =
+            ((!normSub || normSub === 'simulado geral' || normSub === 'geral' || normSub === 'global') && (!catIdLower || catIdLower === 'geral' || catIdLower === 'global')) ||
+            (isMixedGlobal && !s.batchId);
         if (isGenericGlobal) {
             hasGenericSimuladoForDate.add(dKey);
-        } else {
+        } else if (!isMixedGlobal) {
             if (normSub) {
                 hasSimuladoForDateSubject.add(`${dKey}|subj:${normSub}`);
                 if (!subjectsByDate.has(dKey)) subjectsByDate.set(dKey, []);
@@ -260,21 +268,24 @@ export function getCombinedHistory(history, simulados, maxScore = 100, minScore 
 
     const rowsByGroup = {};
     safeArray(history).forEach(r => {
-        if (!r || r.valid === false) return;
+        if (!r || r.valid === false || r.validated === false || r.source === 'manual-error-notebook') return;
         const dKey = getDateKey(r.date || r.createdAt);
         if (!dKey) return;
+        const rBatchId = r.batchId ? String(r.batchId) : '';
         const rSubj = r.subject || r.categoryName || r.materia || r.disciplina;
         const rSubjNorm = rSubj ? normalize(String(rSubj)) : '';
         const rCatId = r.categoryId !== undefined && r.categoryId !== null && r.categoryId !== '' ? String(r.categoryId) : '';
 
         const dateSubs = subjectsByDate.get(dKey) || [];
         const matchesDateAlias = Boolean(rSubj && dateSubs.some(sName => isSubjectMatch(sName, String(rSubj))));
-        const isCoveredBySimulado = (!rSubjNorm && !rCatId)
-            ? hasSimuladoForDate.has(dKey)
-            : (hasGenericSimuladoForDate.has(dKey) ||
-                (rSubjNorm && hasSimuladoForDateSubject.has(`${dKey}|subj:${rSubjNorm}`)) ||
-                matchesDateAlias ||
-                (rCatId && hasSimuladoForDateSubject.has(`${dKey}|cat:${rCatId}`)));
+        const isCoveredBySimulado = (rBatchId && coveredBatchIds.has(rBatchId))
+            ? true
+            : ((!rSubjNorm && !rCatId)
+                ? hasSimuladoForDate.has(dKey)
+                : (hasGenericSimuladoForDate.has(dKey) ||
+                    (rSubjNorm && hasSimuladoForDateSubject.has(`${dKey}|subj:${rSubjNorm}`)) ||
+                    matchesDateAlias ||
+                    (rCatId && hasSimuladoForDateSubject.has(`${dKey}|cat:${rCatId}`))));
 
         if (!isCoveredBySimulado) {
             const groupKey = rSubjNorm

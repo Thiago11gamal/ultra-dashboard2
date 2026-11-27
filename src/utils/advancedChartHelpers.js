@@ -119,7 +119,7 @@ export function buildSpeedAccuracyData(categories = [], simuladoRows = [], optio
   const matchesFocusCat = (cat) => cat?.id !== null && cat?.id !== undefined && String(cat.id) === String(focusSubjectId);
   const allCats = safeArr(categories);
   const cats = (showOnlyFocus && hasFocusId) ? allCats.filter(matchesFocusCat) : allCats;
-  const rows = safeArr(simuladoRows).filter((r) => r && r.valid !== false && r.validated !== false);
+  const rows = safeArr(simuladoRows).filter((r) => r && r.valid !== false && r.validated !== false && r.source !== 'manual-error-notebook');
   const windowedRows = filterDatedEntriesByWindow(rows, (r) => r.date || r.createdAt, cutoffMs);
 
   const resolveEffectiveTiming = (h, catMax, catMin) => {
@@ -812,7 +812,7 @@ export function buildCircadianHeatmapData(studyLogs = [], studySessions = [], si
 
   let timedSimCount = 0;
   const processSimEntry = (row, catMeta = null) => {
-    if (!row || row.valid === false || row.validated === false) return;
+    if (!row || row.valid === false || row.validated === false || row.source === 'manual-error-notebook') return;
     const ts = resolveTimedTimestamp(row);
     const loc = ts ? extractWeekdayAndHourInTz(ts) : null;
     if (!loc) return;
@@ -1598,7 +1598,7 @@ export function buildKnowledgeGraphLayout(category, options = {}) {
   safeArr(category?.simuladoStats?.history).forEach(ingestGraphSimulado);
 
   const matchesGraphCat = (s) => {
-    if (!s) return false;
+    if (!s || s.valid === false || s.validated === false || s.source === 'manual-error-notebook') return false;
     if (category?.id != null && s.categoryId != null && String(s.categoryId) === String(category.id)) return true;
     return matchesCategorySubject(category, s.subject || s.categoryName || s.materia || s.disciplina || '');
   };

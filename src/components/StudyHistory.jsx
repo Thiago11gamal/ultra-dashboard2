@@ -423,7 +423,7 @@ const StudyHistory = React.memo(function StudyHistory({
                         {(() => {
                             // Agrupar simulados do histórico por batchId ou data
                             const groupedSimulados = Object.values(simuladoRows.reduce((acc, r) => {
-                                if (!r || (!r.date && !r.createdAt) || r.valid === false || r.validated === false) return acc;
+                                if (!r || r.source === 'manual-error-notebook' || (!r.date && !r.createdAt) || r.valid === false || r.validated === false) return acc;
                                 const hasData = parseInt(r.total, 10) > 0 || parseInt(r.correct, 10) > 0;
                                 if (!r.validated && !hasData) return acc;
                                 const rDate = normalizeDate(r.date || r.createdAt);

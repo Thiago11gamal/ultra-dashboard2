@@ -1,8 +1,13 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { applyAIResultsToDraft } from '../../utils/aiSaveHelper.js';
 import { createSimuladoSlice } from '../../store/slices/createSimuladoSlice.js';
+import { createTrashSlice } from '../../store/slices/createTrashSlice.js';
 import { computeCategorySimCounts, reconcileContestCategoriesHistory } from '../../utils/simuladoReconciler.js';
 import { repairContestHistory } from '../../store/schemas.js';
+import { evaluateContestMaturity } from '../../engine/adaptive/adaptiveMaturityEngine.js';
+import { backfillObservedFromSimulados } from '../../utils/calibration.js';
+import { mergeSimuladosWithCategoryHistory } from '../../utils/coachCausal.js';
+import { extractObservabilitySeries } from '../../utils/coachObservability.js';
 import {
   getCombinedHistory,
   getSuggestedFocus,
@@ -428,5 +433,220 @@ describe('Coach AI & Menu Simulado End-to-End Data Pipeline Verification', () =>
     });
     expect(repaired.categories[0].simuladoStats.history[0].batchIds).toEqual(['b-1', 'b-2']);
     expect(repaired.categories[0].simuladoStats.history[0].batchId).toBe('b-2');
+  });
+
+  it('8. Manual Error Notebook rows feed telemetry without polluting Coach AI scores, counts, maturity, calibration, or deleteSimulado', () => {
+    const contest = mockState.appState.contests['contest-test'];
+    const dayKey = '2026-11-15';
+
+    // 1 real simulado (80%) + 2 manual error notebook notes (0/1 each)
+    applyAIResultsToDraft(
+      contest,
+      { materia: 'Língua Portuguesa', assunto: 'Crase e Regência', categoryId: 'cat-port' },
+      8,
+      10,
+      240,
+      false,
+      'real-batch-1'
+    );
+    contest.simuladoRows[0].date = dayKey;
+    contest.simulados[0].date = dayKey;
+    contest.categories[0].simuladoStats.history[0].date = dayKey;
+
+    contest.simuladoRows.push(
+      {
+        id: 'errrow-1',
+        batchId: 'errbatch-1',
+        categoryId: 'cat-port',
+        subject: 'Língua Portuguesa',
+        topic: 'Crase e Regência',
+        date: dayKey,
+        createdAt: '2026-11-15T14:00:00.000Z',
+        correct: 0,
+        total: 1,
+        score: 0,
+        scorePct: 0,
+        isPercentage: true,
+        scoreUnit: 'pct',
+        validated: true,
+        source: 'manual-error-notebook',
+        questionTelemetry: [
+          { id: 'qerr-1', correct: false, wasAnswered: true, confidence: 'certeza', errorType: 'teoria' }
+        ]
+      },
+      {
+        id: 'errrow-2',
+        batchId: 'errbatch-2',
+        categoryId: 'cat-port',
+        subject: 'Língua Portuguesa',
+        topic: 'Pontuação',
+        date: dayKey,
+        createdAt: '2026-11-15T15:00:00.000Z',
+        correct: 0,
+        total: 1,
+        score: 0,
+        scorePct: 0,
+        isPercentage: true,
+        scoreUnit: 'pct',
+        validated: true,
+        source: 'manual-error-notebook',
+        questionTelemetry: [
+          { id: 'qerr-2', correct: false, wasAnswered: true, confidence: 'certeza', errorType: 'atencao' }
+        ]
+      }
+    );
+
+    const combined = getCombinedHistory(contest.simuladoRows, contest.simulados, 100, 0);
+    expect(combined).toHaveLength(1);
+    expect(combined[0].score).toBeCloseTo(80, 1);
+
+    const metricsPort = extractMetrics(contest.categories[0], combined, [], {
+      simuladoRows: contest.simuladoRows,
+      allSimulados: contest.simulados
+    });
+    expect(metricsPort.averageScore).toBeCloseTo(80, 1);
+
+    const simCounts = computeCategorySimCounts(contest.categories, contest.simulados, contest.simuladoRows);
+    expect(simCounts.find((c) => c.id === 'cat-port').count).toBe(1);
+
+    const maturity = evaluateContestMaturity(contest);
+    expect(maturity.metrics.simuladoCount).toBe(1);
+    expect(maturity.metrics.confidenceCount).toBe(2);
+    expect(maturity.metrics.errorTypeCount).toBe(2);
+    expect(maturity.stage).toBe(0);
+
+    // Calibration backfill must NOT resolve pending forecasts using manual-error-notebook 0% notes
+    const pendingEvents = [
+      {
+        id: 'cal-1',
+        category: 'Língua Portuguesa',
+        probability: 0.75,
+        targetScore: 70,
+        timestamp: normalizeDate('2026-11-15T13:00:00.000Z').getTime(),
+        observed: null
+      }
+    ];
+    const backfilled = backfillObservedFromSimulados(
+      pendingEvents,
+      contest.simuladoRows.filter((r) => r.source === 'manual-error-notebook'),
+      contest.categories,
+      100,
+      0
+    );
+    expect(backfilled[0].observed).toBeNull();
+
+    // Deleting the real simulado keeps manual error notes intact without turning them into a 0% simulado
+    simuladoSlice.deleteSimulado('real-batch-1');
+    expect(contest.simuladoRows).toHaveLength(2);
+    expect(contest.categories[0].simuladoStats.history).toHaveLength(0);
+    expect(contest.categories[0].simuladoStats.average).toBe(0);
+  });
+
+  it('9. Mixed AI Simulado (Simulado Misto IA) updates per-category Coach metrics without double-counting', () => {
+    const contest = mockState.appState.contests['contest-test'];
+    const mixBatch = 'ai-mix-batch-1';
+
+    // Per-discipline saves with skipGlobalSimulado = true, followed by 1 global mixed event
+    applyAIResultsToDraft(
+      contest,
+      { materia: 'Língua Portuguesa', assunto: 'Crase e Regência', categoryId: 'cat-port' },
+      3,
+      10,
+      180,
+      true,
+      mixBatch
+    );
+    applyAIResultsToDraft(
+      contest,
+      { materia: 'Direito Constitucional', assunto: 'Direitos Fundamentais', categoryId: 'cat-const' },
+      9,
+      10,
+      180,
+      true,
+      mixBatch
+    );
+    const simDate = contest.simuladoRows[0].date;
+    contest.simulados.push({
+      id: 'sim-mixed-1',
+      batchId: mixBatch,
+      date: simDate,
+      score: 60,
+      total: 20,
+      correct: 12,
+      type: 'ai-simulado',
+      subject: 'Simulado Misto (IA)',
+      categoryId: 'mixed',
+      validated: true,
+      scoreUnit: 'points',
+      isPercentage: false
+    });
+
+    // Global Coach history should report 1 consolidated exam (not 3!)
+    const combined = getCombinedHistory(contest.simuladoRows, contest.simulados, 100, 0);
+    expect(combined).toHaveLength(1);
+    expect(combined[0].id).toBe('sim-mixed-1');
+
+    // Per-discipline Coach metrics & focus must still read exact discipline performance (30% vs 90%)
+    const focus = getSuggestedFocus(contest.categories, combined, [], {
+      simuladoRows: contest.simuladoRows,
+      allSimulados: contest.simulados
+    });
+    expect(focus.id).toBe('cat-port');
+    expect(focus.weakestTopic.name).toBe('Crase e Regência');
+
+    // Causal & Observability pipelines must not duplicate 'mixed' alongside per-category entries
+    const mergedForCausal = mergeSimuladosWithCategoryHistory(contest.categories, contest.simulados);
+    expect(mergedForCausal).toHaveLength(2);
+    expect(mergedForCausal.map((m) => m.categoryId).sort()).toEqual(['cat-const', 'cat-port']);
+
+    const obsWithSpecific = extractObservabilitySeries([...mergedForCausal, ...contest.simulados], {
+      categories: contest.categories
+    });
+    expect(obsWithSpecific.sampleSize).toBe(2);
+
+    // Standalone mixed simulado (when category history is empty) is still preserved
+    const obsStandalone = extractObservabilitySeries(contest.simulados, { categories: [] });
+    expect(obsStandalone.sampleSize).toBe(1);
+    expect(obsStandalone.scores).toEqual([60]);
+  });
+
+  it('10. Restoring a deleted simulado from Trash recomputes category average, lastAttempt, level, and Coach metrics', () => {
+    const contest = mockState.appState.contests['contest-test'];
+    const trashSlice = createTrashSlice(setFn, () => mockState);
+
+    applyAIResultsToDraft(
+      contest,
+      { materia: 'Língua Portuguesa', assunto: 'Pontuação', categoryId: 'cat-port' },
+      9,
+      10,
+      200,
+      false,
+      'restore-batch-1'
+    );
+    expect(contest.categories[0].simuladoStats.average).toBeCloseTo(90, 1);
+    expect(contest.categories[0].simuladoStats.level).toBe('ALTO');
+
+    // Delete via Simulado menu -> moves to trash and resets stats to 0 / BAIXO
+    simuladoSlice.deleteSimulado('restore-batch-1');
+    expect(contest.categories[0].simuladoStats.history).toHaveLength(0);
+    expect(contest.categories[0].simuladoStats.average).toBe(0);
+    expect(contest.categories[0].simuladoStats.level).toBe('BAIXO');
+    expect(mockState.appState.trash).toHaveLength(1);
+
+    // Restore from Trash -> must recompute average, lastAttempt, and level (not leave them at 0 / BAIXO!)
+    const trashId = mockState.appState.trash[0].id;
+    trashSlice.restoreFromTrash(trashId);
+
+    expect(contest.categories[0].simuladoStats.history).toHaveLength(1);
+    expect(contest.categories[0].simuladoStats.average).toBeCloseTo(90, 1);
+    expect(contest.categories[0].simuladoStats.lastAttempt).toBeCloseTo(90, 1);
+    expect(contest.categories[0].simuladoStats.level).toBe('ALTO');
+
+    const combined = getCombinedHistory(contest.simuladoRows, contest.simulados, 100, 0);
+    const metricsPort = extractMetrics(contest.categories[0], combined, [], {
+      simuladoRows: contest.simuladoRows,
+      allSimulados: contest.simulados
+    });
+    expect(metricsPort.averageScore).toBeCloseTo(90, 1);
   });
 });

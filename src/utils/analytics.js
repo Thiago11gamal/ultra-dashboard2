@@ -219,7 +219,7 @@ export const calculateStudyStreak = (studyLogs) => {
         const getRowCorrect = (row) => Number(row?.correct ?? row?.acertos ?? row?.correctCount);
 
         const validSimulados = toArray(contestData?.simuladoRows).filter(r => {
-            if (!r || r.validated === false || r.valid === false) return false;
+            if (!r || r.validated === false || r.valid === false || r.source === 'manual-error-notebook') return false;
             if (typeof filterByReset === 'function' && !filterByReset(r)) return false;
             const t = getRowTotal(r);
             const rawC = r.correct ?? r.acertos ?? r.correctCount;

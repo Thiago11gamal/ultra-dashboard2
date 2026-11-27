@@ -224,7 +224,7 @@ export function reconcileContestCategoriesHistory(
     const catNorm = normalize(cat.name);
     const catAliases = aliases[catNorm] || [];
     const myRows = simuladoRows.filter((r) => {
-      if (!r || r.valid === false || r.validated === false) return false;
+      if (!r || r.valid === false || r.validated === false || r.source === 'manual-error-notebook') return false;
       if (r.categoryId) return r.categoryId === cat.id;
       const subNorm = normalize(r.subject);
       if (!subNorm) return false;
@@ -497,7 +497,7 @@ function resolveEntryCategoryMatch(entry, cat, catName) {
 }
 
 function isUsableSimEntry(entry, catMax, catMin) {
-  if (!entry || entry.valid === false || entry.validated === false) return false;
+  if (!entry || entry.valid === false || entry.validated === false || entry.source === 'manual-error-notebook') return false;
   const safeScore = getSafeScore(entry, catMax, catMin);
   if (!Number.isFinite(safeScore)) return false;
   return !isPhantomZeroTimeAttempt(entry, safeScore);

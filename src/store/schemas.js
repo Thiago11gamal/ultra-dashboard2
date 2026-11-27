@@ -165,7 +165,7 @@ export const repairContestHistory = (rawData, maxScore = 100, minScore = 0) => {
     const catAliases = aliases[catNorm] || [];
 
     const myRows = rows.filter(r => {
-      if (!r || r.valid === false || r.validated === false) return false;
+      if (!r || r.valid === false || r.validated === false || r.source === 'manual-error-notebook') return false;
       if (r.categoryId && r.categoryId === cat.id) return true;
 
       const subNorm = normalize(r.subject);

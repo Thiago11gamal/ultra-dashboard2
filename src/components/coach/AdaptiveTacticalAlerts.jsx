@@ -71,7 +71,7 @@ export const AdaptiveTacticalAlerts = React.memo(function AdaptiveTacticalAlerts
     const seenSimKeys = new Set();
     const allEntries = [];
     rawEntries.forEach((entry, idx) => {
-      if (!entry || entry.valid === false || entry.validated === false) return;
+      if (!entry || entry.valid === false || entry.validated === false || entry.source === 'manual-error-notebook') return;
       const d = normalizeDate(entry.date || entry.createdAt);
       const dayKey = d && Number.isFinite(d.getTime()) ? d.toISOString().slice(0, 10) : '';
       const subjKey = String(entry.categoryId || entry.subject || entry.categoryName || '').trim().toLowerCase();
@@ -96,7 +96,10 @@ export const AdaptiveTacticalAlerts = React.memo(function AdaptiveTacticalAlerts
 
     // 4. Illusion of Competence (certeza + erro efetivamente respondido na janela recente de 30 dias)
     const nowMs = Date.now();
-    const recentRows = allEntries.filter((r) => {
+    const errorNotebookRows = safeArr(simuladoRows).filter(
+      (r) => r && r.valid !== false && r.validated !== false && r.source === 'manual-error-notebook'
+    );
+    const recentRows = [...allEntries, ...errorNotebookRows].filter((r) => {
       if (!r || r.valid === false || r.validated === false) return false;
       const d = normalizeDate(r.date || r.createdAt);
       if (!d || !Number.isFinite(d.getTime())) return true; // preserva linhas sem data

@@ -165,6 +165,7 @@ export function buildStudyVolumeCausalEvents(simulados = [], studyLogs = [], opt
   // evitando subtrair notas de matérias diferentes adjacentes no tempo.
   const simGroups = new Map();
   safeSimulados.forEach((entry) => {
+    if (entry?.simulado?.source === 'manual-error-notebook') return;
     const rawField = normalizeGroupKey(
       entry.simulado?.subject ||
       entry.simulado?.categoryName ||
@@ -173,7 +174,15 @@ export function buildStudyVolumeCausalEvents(simulados = [], studyLogs = [], opt
       entry.simulado?.categoryId ||
       ''
     );
-    const isGenericGlobal = !rawField || rawField === 'simulado geral' || rawField === 'geral';
+    const isGenericGlobal =
+      !rawField ||
+      rawField === 'simulado geral' ||
+      rawField === 'geral' ||
+      rawField === 'global' ||
+      rawField === 'mixed' ||
+      rawField === 'simulado misto (ia)' ||
+      rawField === 'simulado misto ia' ||
+      rawField === 'simulado misto';
     const rawSubject = (categoryName || categoryId)
       ? '__filtered__'
       : (isGenericGlobal ? '__global__' : rawField);
@@ -524,14 +533,27 @@ export function buildStudyModeCausalEvents(simulados = [], studyLogs = [], optio
 export function mergeSimuladosWithCategoryHistory(categories = [], simulados = []) {
   const safeCats = safeArray(categories);
   const safeSims = safeArray(simulados).filter(
-    (s) => s && typeof s === 'object' && s.valid !== false && s.validated !== false
+    (s) => s && typeof s === 'object' && s.valid !== false && s.validated !== false && s.source !== 'manual-error-notebook'
   );
   if (safeCats.length === 0) return safeSims;
 
   const isGenericOnly = (s) => {
-    if (s?.categoryId != null && String(s.categoryId).trim() !== '') return false;
-    const subj = String(s?.subject || s?.categoryName || s?.materia || s?.disciplina || '').trim().toLowerCase();
-    return !subj || subj === 'simulado geral' || subj === 'geral' || subj === 'global';
+    const catIdStr = s?.categoryId != null ? String(s.categoryId).trim().toLowerCase() : '';
+    if (catIdStr && catIdStr !== 'mixed' && catIdStr !== 'global' && catIdStr !== 'geral') return false;
+    const subj = String(s?.subject || s?.categoryName || s?.materia || s?.disciplina || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+      .toLowerCase();
+    return (
+      !subj ||
+      subj === 'simulado geral' ||
+      subj === 'geral' ||
+      subj === 'global' ||
+      subj === 'simulado misto (ia)' ||
+      subj === 'simulado misto' ||
+      catIdStr === 'mixed'
+    );
   };
 
   const nonGenericSims = safeSims.filter((s) => !isGenericOnly(s));
@@ -539,6 +561,7 @@ export function mergeSimuladosWithCategoryHistory(categories = [], simulados = [
   const seenIds = new Set();
   const seenCatDayScores = new Set();
   const coveredCategoryDays = new Set();
+  const coveredBatchIds = new Set();
   const merged = [];
 
   const buildDayScoreKey = (catKey, entry) => {
@@ -551,10 +574,16 @@ export function mergeSimuladosWithCategoryHistory(categories = [], simulados = [
     return `${catKey}|${dayBucket}|${scBucket}`;
   };
 
-  const trackDay = (entry) => {
+  const trackCoverage = (entry) => {
     const t = toTime(entry?.date ?? entry?.createdAt);
     if (Number.isFinite(t)) {
       coveredCategoryDays.add(Math.floor(t / 86400000));
+    }
+    if (entry?.batchId) coveredBatchIds.add(String(entry.batchId));
+    if (Array.isArray(entry?.batchIds)) {
+      entry.batchIds.forEach((bid) => {
+        if (bid) coveredBatchIds.add(String(bid));
+      });
     }
   };
 
@@ -573,7 +602,7 @@ export function mergeSimuladosWithCategoryHistory(categories = [], simulados = [
     const dsKey = buildDayScoreKey(catKey, s);
     if (idSig) seenIds.add(idSig);
     seenCatDayScores.add(dsKey);
-    trackDay(s);
+    trackCoverage(s);
     merged.push(s);
   });
 
@@ -581,14 +610,14 @@ export function mergeSimuladosWithCategoryHistory(categories = [], simulados = [
     if (!cat) return;
     const catKey = normalizeGroupKey(cat.id || cat.name);
     safeArray(cat?.simuladoStats?.history).forEach((h) => {
-      if (!h || h.valid === false || h.validated === false) return;
+      if (!h || h.valid === false || h.validated === false || h.source === 'manual-error-notebook') return;
       const idSig = h.id && !String(h.id).startsWith('legacy-') ? String(h.id) : null;
       if (idSig && seenIds.has(idSig)) return;
       const dsKey = buildDayScoreKey(catKey, h);
       if (seenCatDayScores.has(dsKey)) return;
       if (idSig) seenIds.add(idSig);
       seenCatDayScores.add(dsKey);
-      trackDay(h);
+      trackCoverage(h);
       merged.push({
         ...h,
         categoryId: h?.categoryId ?? cat?.id,
@@ -597,11 +626,12 @@ export function mergeSimuladosWithCategoryHistory(categories = [], simulados = [
     });
   });
 
-  // Preserva simulados globais avulsos ("Simulado Geral") em dias que NÃO já estejam
+  // Preserva simulados globais/mistos avulsos ("Simulado Geral" / "Simulado Misto (IA)") em dias/lotes que NÃO já estejam
   // representados por entradas de disciplinas específicas (evita dupla contagem e evita perda de dados).
   genericSims.forEach((g) => {
     const idSig = g.id && !String(g.id).startsWith('legacy-') ? String(g.id) : null;
     if (idSig && seenIds.has(idSig)) return;
+    if (g?.batchId && coveredBatchIds.has(String(g.batchId))) return;
     const t = toTime(g?.date ?? g?.createdAt);
     const dayBucket = Number.isFinite(t) ? Math.floor(t / 86400000) : null;
     if (dayBucket !== null && coveredCategoryDays.has(dayBucket)) return;

@@ -88,9 +88,22 @@ export function extractObservabilitySeries(simulados = [], options = {}) {
 
   const maxAllowedFutureMs = Date.now() + 24 * 60 * 60 * 1000;
   const seenObsSigs = new Set();
+  const isGenericOrMixedKey = (key, catId) => {
+    const cid = catId != null ? String(catId).trim().toLowerCase() : '';
+    if (cid === 'mixed' || cid === 'global' || cid === 'geral') return true;
+    return (
+      !key ||
+      key === 'geral' ||
+      key === 'global' ||
+      key === 'simulado geral' ||
+      key === 'mixed' ||
+      key === 'simulado misto (ia)' ||
+      key === 'simulado misto'
+    );
+  };
 
-  const sorted = safeArray(simulados)
-    .filter((simulado) => simulado && simulado.valid !== false && simulado.validated !== false)
+  const preMapped = safeArray(simulados)
+    .filter((simulado) => simulado && simulado.valid !== false && simulado.validated !== false && simulado.source !== 'manual-error-notebook')
     // FIX (A6): preserva o índice original — o tiebreak do sort lia
     // `a._idx`, que nunca era criado (código morto).
     .map((simulado, _idx) => ({
@@ -110,17 +123,41 @@ export function extractObservabilitySeries(simulados = [], options = {}) {
       time: toTime(simulado?.date ?? simulado?.createdAt),
       score: resolveSimuladoScoreOnGlobalScale(simulado),
       _idx,
-    }))
+    }));
+
+  const coveredSpecificDays = new Set();
+  const coveredSpecificBatches = new Set();
+  preMapped.forEach((entry) => {
+    if (!Number.isFinite(entry.score)) return;
+    if (Number.isFinite(entry.time) && entry.time > maxAllowedFutureMs) return;
+    if (isGenericOrMixedKey(entry.subjectKey, entry.simulado?.categoryId)) return;
+    if (Number.isFinite(entry.time)) {
+      coveredSpecificDays.add(Math.floor(entry.time / 86_400_000));
+    }
+    if (entry.simulado?.batchId) {
+      coveredSpecificBatches.add(String(entry.simulado.batchId));
+    }
+  });
+
+  const sorted = preMapped
     .filter((entry) => {
       if (!Number.isFinite(entry.score)) return false;
       // Descarta datas corrompidas no futuro (> 24h) que ficariam presas no fim da série distorcendo o drift recente
       if (Number.isFinite(entry.time) && entry.time > maxAllowedFutureMs) return false;
+      const dayBucket = Number.isFinite(entry.time) ? Math.floor(entry.time / 86_400_000) : null;
+      if (isGenericOrMixedKey(entry.subjectKey, entry.simulado?.categoryId)) {
+        const bId = entry.simulado?.batchId ? String(entry.simulado.batchId) : '';
+        if (bId && coveredSpecificBatches.has(bId)) return false;
+        if (dayBucket !== null && coveredSpecificDays.has(dayBucket)) return false;
+      }
       const rawId = entry.simulado?.id && !String(entry.simulado.id).startsWith('legacy-')
         ? `id:${entry.simulado.id}`
         : null;
-      const dayBucket = Number.isFinite(entry.time) ? Math.floor(entry.time / 86_400_000) : null;
+      const normSubjSig = isGenericOrMixedKey(entry.subjectKey, entry.simulado?.categoryId)
+        ? '__global__'
+        : entry.subjectKey;
       const dsSig = dayBucket !== null
-        ? `ds:${entry.subjectKey || '__global__'}:${dayBucket}:${Math.round(entry.score * 10)}`
+        ? `ds:${normSubjSig}:${dayBucket}:${Math.round(entry.score * 10)}`
         : null;
       if (rawId && seenObsSigs.has(rawId)) return false;
       if (dsSig && seenObsSigs.has(dsSig)) return false;

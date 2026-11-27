@@ -243,7 +243,7 @@ export function backfillObservedFromSimulados(calibrationEvents = [], simuladoRo
   if (!Array.isArray(simuladoRows) || simuladoRows.length === 0) return calibrationEvents;
   const timed = simuladoRows
     .map(row => {
-      if (!row || row.valid === false || row.validated === false) return null;
+      if (!row || row.valid === false || row.validated === false || row.source === 'manual-error-notebook') return null;
       // Priorizar createdAt se disponível para timestamp exato; fallback para date
       const parsed = normalizeDate(row?.createdAt || row?.timestamp || row?.date);
       return { row, ts: parsed ? parsed.getTime() : NaN };

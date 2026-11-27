@@ -64,7 +64,7 @@ export function getAdaptiveInterSubjectCorrelation(_stats = [], simuladoRows = [
     const bucketsByDate = {};
 
     safeSimuladoRows.forEach(row => {
-      if (!row || row.valid === false || row.validated === false) return;
+      if (!row || row.valid === false || row.validated === false || row.source === 'manual-error-notebook') return;
       const dateKey = getDateKey(row.date || row.createdAt);
       if (!dateKey) return;
       if (maxAllowedDateKey && dateKey > maxAllowedDateKey) return;

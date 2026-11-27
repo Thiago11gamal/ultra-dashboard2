@@ -80,7 +80,9 @@ const DEFAULT_CATEGORY_PALETTE = [
 
 function hydrateCategoriesWithSimuladoRows(baseCategories, simuladoRows, globalMin = 0, globalMax = 100) {
     const safeBase = Array.isArray(baseCategories) ? baseCategories : [];
-    const validRows = (Array.isArray(simuladoRows) ? simuladoRows : []).filter(r => r && r.valid !== false && r.validated !== false);
+    const validRows = (Array.isArray(simuladoRows) ? simuladoRows : []).filter(
+        r => r && r.valid !== false && r.validated !== false && r.source !== 'manual-error-notebook'
+    );
     if (!validRows.length) return safeBase;
 
     const rowMatchesCategory = (row, cat) => {

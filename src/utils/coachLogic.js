@@ -325,7 +325,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
         const stageDateScores = new Set();
         const stageDates = new Set();
         safeArray(list).forEach(s => {
-            if (!s || s.valid === false || s.validated === false) return;
+            if (!s || s.valid === false || s.validated === false || s.source === 'manual-error-notebook') return;
             const matches = (safeCategory.id && s.categoryId && String(s.categoryId) === String(safeCategory.id)) ||
                 (catName && isSubjectMatch(s.subject || s.categoryName || s.materia || s.disciplina || '', catName));
             if (!matches) return;
@@ -359,7 +359,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
 
     // 3. Linhas de simuladoRows (agrupadas por batchId ou data)
     const rawRows = safeArray(safeOptions.simuladoRows || safeOptions.history);
-    const rowsForCat = rawRows.filter(r => r && r.valid !== false && r.validated !== false && (
+    const rowsForCat = rawRows.filter(r => r && r.valid !== false && r.validated !== false && r.source !== 'manual-error-notebook' && (
         (safeCategory.id && r.categoryId && String(r.categoryId) === String(safeCategory.id)) ||
         (catName && isSubjectMatch(r.subject || r.categoryName || r.materia || r.disciplina || '', catName))
     ));
@@ -425,8 +425,8 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
 
     const relevantAllPreSort = catSims.length > 0 ? catSims : (
         catName
-            ? safeSimulados.filter(s => s && s.valid !== false && s.validated !== false && isSubjectMatch(s.subject || s.categoryName || s.materia || s.disciplina || "", catName))
-            : safeSimulados.filter(s => s && s.valid !== false && s.validated !== false)
+            ? safeSimulados.filter(s => s && s.valid !== false && s.validated !== false && s.source !== 'manual-error-notebook' && isSubjectMatch(s.subject || s.categoryName || s.materia || s.disciplina || "", catName))
+            : safeSimulados.filter(s => s && s.valid !== false && s.validated !== false && s.source !== 'manual-error-notebook')
     );
 
     const relevantAll = relevantAllPreSort
@@ -2221,11 +2221,11 @@ function _buildSortedTopics(category, simulados = [], maxScore = 100, minScore =
         ? options.simuladoRows
         : Object.values(options?.simuladoRows || {});
     const catNameForSims = safeCat.name || safeCat.id || '';
-    const matchesCatSim = (s) => s && s.valid !== false && s.validated !== false && (
+    const matchesCatSim = (s) => s && s.valid !== false && s.validated !== false && s.source !== 'manual-error-notebook' && (
         (safeCat.id && s.categoryId && String(s.categoryId) === String(safeCat.id)) ||
         (catNameForSims && isSubjectMatch(s.subject || s.categoryName || s.materia || s.disciplina || '', catNameForSims))
     );
-    const safeSims = catNameForSims ? allSafeSims.filter(matchesCatSim) : allSafeSims.filter(s => s && s.valid !== false && s.validated !== false);
+    const safeSims = catNameForSims ? allSafeSims.filter(matchesCatSim) : allSafeSims.filter(s => s && s.valid !== false && s.validated !== false && s.source !== 'manual-error-notebook');
     const optAllSims = catNameForSims ? optAllSimsRaw.filter(matchesCatSim) : [];
     const optSimRows = catNameForSims ? optSimRowsRaw.filter(matchesCatSim) : [];
     const rawCatHistForHash = safeArray(safeCat.simuladoStats?.history).filter(h => h && h.valid !== false && h.validated !== false);
@@ -2307,7 +2307,7 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100, minSc
     const topicMap = {};
     const rawCatHistory = safeArray(safeCat.simuladoStats?.history);
     const catNameForSims = safeCat.name || safeCat.id || '';
-    const matchesCatSim = (s) => s && (
+    const matchesCatSim = (s) => s && s.valid !== false && s.validated !== false && s.source !== 'manual-error-notebook' && (
         (safeCat.id && s.categoryId && String(s.categoryId) === String(safeCat.id)) ||
         (catNameForSims && isSubjectMatch(s.subject || s.categoryName || s.materia || s.disciplina || '', catNameForSims))
     );
