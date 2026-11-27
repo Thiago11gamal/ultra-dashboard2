@@ -1,11 +1,12 @@
 import { safeClone } from '../utils/safeClone.js';
 import { INITIAL_DATA } from '../data/initialData.js';
 import { generateId } from '../utils/idGenerator.js';
-import { normalize, aliases } from '../utils/normalization.js';
+import { normalize, aliases, isSubjectMatch } from '../utils/normalization.js';
 import { getDateKey, toDateMs } from '../utils/dateHelper.js';
 import { computeCategoryStats } from '../engine/index.js';
 import { RECOVERED_DIREITO_CONTEST } from '../data/recoveredContests.js';
 import { getSyntheticTotal, getSafeScore, extractTopicsTotals } from '../utils/scoreHelper.js';
+import { computeEffectiveScoreRatio } from '../utils/measurement.js';
 import { normalizeHexColor, normalizePriority } from '../utils/colorHelper.js';
 
 export const DEFAULT_TARGET_SCORE = 75; // Unificando como 75 (meio termo entre 70 e 80)
@@ -166,13 +167,15 @@ export const repairContestHistory = (rawData, maxScore = 100, minScore = 0) => {
 
     const myRows = rows.filter(r => {
       if (!r || r.valid === false || r.validated === false || r.source === 'manual-error-notebook') return false;
-      if (r.categoryId && r.categoryId === cat.id) return true;
+      if (r.categoryId && cat.id && String(r.categoryId) === String(cat.id)) return true;
 
-      const subNorm = normalize(r.subject);
+      const rawSub = r.subject || r.categoryName || r.materia || r.disciplina || '';
+      const subNorm = normalize(rawSub);
       if (!subNorm) return false;
 
       return subNorm === catNorm ||
-        catAliases.some(a => normalize(a) === subNorm);
+        catAliases.some(a => normalize(a) === subNorm) ||
+        isSubjectMatch(rawSub, cat.name);
     });
 
     if (myRows.length === 0) return;
@@ -219,13 +222,30 @@ export const repairContestHistory = (rawData, maxScore = 100, minScore = 0) => {
     ) {
       hasRepaired = true;
 
+      const contestPenalty = Math.max(0, Number(rawData?.penaltyPerWrong) || 0);
       const dailyStats = {};
 
       myRows.forEach(r => {
         const dk = getDateKey(extractRowDate(r));
         if (!dk) return;
 
-        if (!dailyStats[dk]) dailyStats[dk] = { correct: 0, total: 0, normalRowCount: 0, directScoreCount: 0, directScoreSum: 0, batchIds: new Set() };
+        if (!dailyStats[dk]) {
+          dailyStats[dk] = {
+            correct: 0,
+            total: 0,
+            blanks: 0,
+            penaltyPerWrong: contestPenalty,
+            timeSpent: 0,
+            timedQuestoes: 0,
+            diffWeightSum: 0,
+            diffWeightTotal: 0,
+            normalRowCount: 0,
+            directScoreCount: 0,
+            directScoreSum: 0,
+            batchIds: new Set(),
+            topicsMap: new Map(),
+          };
+        }
         if (r.batchId) dailyStats[dk].batchIds.add(String(r.batchId));
 
         let rawTotal = Math.max(0, parseInt(r.total ?? r.questoes ?? r.totalQuestoes ?? r.questions, 10) || 0);
@@ -259,6 +279,60 @@ export const repairContestHistory = (rawData, maxScore = 100, minScore = 0) => {
           ? Math.round((Math.max(0, Math.min(1, (safeScore - minScore) / scoreRange))) * rawTotal)
           : Math.min(rawTotal > 0 ? rawTotal : rawCorrect, rawCorrect);
 
+        const rowBlanks = rawTotal > 0 ? Math.min(Math.max(0, rawTotal - corrNorm), Math.max(0, Number(r.blanks) || 0)) : 0;
+        const rowPenalty = Math.max(contestPenalty, Math.max(0, Number(r.penaltyPerWrong) || 0));
+        const rowTime = Math.max(0, Number(r.timeSpent) || 0);
+        const rowTimedQ = rowTime > 0
+          ? (Number(r.timedQuestoes) > 0 ? Math.max(0, Number(r.timedQuestoes)) : rawTotal)
+          : 0;
+        const rowDiff = Number(r.difficulty);
+        if (Number.isFinite(rowDiff) && rowDiff > 0) {
+          const w = rawTotal > 0 ? rawTotal : 1;
+          dailyStats[dk].diffWeightSum += rowDiff * w;
+          dailyStats[dk].diffWeightTotal += w;
+        }
+        dailyStats[dk].blanks += rowBlanks;
+        dailyStats[dk].penaltyPerWrong = Math.max(dailyStats[dk].penaltyPerWrong, rowPenalty);
+        dailyStats[dk].timeSpent += rowTime;
+        dailyStats[dk].timedQuestoes += rowTimedQ;
+
+        const tName = String(r.topic || r.assunto || r.topicName || '').trim() || 'Geral';
+        const tKey = normalize(tName) || 'geral';
+        const rowTaskId = r.taskId ?? r.topicId ?? null;
+        if (rawTotal > 0 || safeScore !== null) {
+          const prevT = dailyStats[dk].topicsMap.get(tKey) || {
+            name: tName,
+            ...(rowTaskId ? { taskId: rowTaskId } : {}),
+            correct: 0,
+            total: 0,
+            blanks: 0,
+            penaltyPerWrong: rowPenalty,
+            timeSpent: 0,
+            timedQuestoes: 0,
+            diffSum: 0,
+            diffW: 0,
+            directSum: 0,
+            directCount: 0,
+          };
+          if (!prevT.taskId && rowTaskId) prevT.taskId = rowTaskId;
+          prevT.correct += corrNorm;
+          prevT.total += rawTotal;
+          prevT.blanks += rowBlanks;
+          prevT.penaltyPerWrong = Math.max(prevT.penaltyPerWrong, rowPenalty);
+          prevT.timeSpent += rowTime;
+          prevT.timedQuestoes += rowTimedQ;
+          if (Number.isFinite(rowDiff) && rowDiff > 0) {
+            const w = rawTotal > 0 ? rawTotal : 1;
+            prevT.diffSum += rowDiff * w;
+            prevT.diffW += w;
+          }
+          if (rawTotal === 0 && safeScore !== null) {
+            prevT.directSum += safeScore;
+            prevT.directCount += 1;
+          }
+          dailyStats[dk].topicsMap.set(tKey, prevT);
+        }
+
         if (rawTotal === 0 && safeScore !== null) {
           dailyStats[dk].directScoreSum += safeScore;
           dailyStats[dk].directScoreCount += 1;
@@ -272,10 +346,18 @@ export const repairContestHistory = (rawData, maxScore = 100, minScore = 0) => {
       const rebuiltHistory = Object.entries(dailyStats).map(([date, stats]) => {
         let finalScore = minScore;
         const isPureDirect = stats.directScoreCount > 0 && stats.normalRowCount === 0;
+        const dayEff = (!isPureDirect && stats.total > 0 && Number.isFinite(stats.correct))
+          ? computeEffectiveScoreRatio(stats.correct, stats.total, {
+              blanks: stats.blanks,
+              penaltyPerWrong: stats.penaltyPerWrong,
+              minScore,
+              maxScore,
+            })
+          : null;
         if (isPureDirect) {
           finalScore = stats.directScoreSum / stats.directScoreCount;
-        } else if (stats.total > 0 && Number.isFinite(stats.correct)) {
-          finalScore = minScore + (stats.correct / stats.total) * scoreRange;
+        } else if (dayEff) {
+          finalScore = minScore + dayEff.ratio * scoreRange;
         } else if (stats.directScoreCount > 0) {
           finalScore = stats.directScoreSum / stats.directScoreCount;
         }
@@ -286,12 +368,43 @@ export const repairContestHistory = (rawData, maxScore = 100, minScore = 0) => {
           ? Math.round(Math.max(0, Math.min(1, (clampedFinal - minScore) / scoreRange)) * synTotal)
           : stats.correct;
         const batchIdsArr = Array.from(stats.batchIds || []);
+        const builtTopics = Array.from(stats.topicsMap.values()).map((td) => {
+          const topEff = td.total > 0
+            ? computeEffectiveScoreRatio(td.correct, td.total, {
+                blanks: td.blanks,
+                penaltyPerWrong: td.penaltyPerWrong,
+                minScore: 0,
+                maxScore: 100,
+              })
+            : null;
+          const directAvg = td.directCount > 0 ? td.directSum / td.directCount : null;
+          const pct = topEff
+            ? Number((topEff.ratio * 100).toFixed(2))
+            : (directAvg !== null ? Number((Math.max(0, Math.min(1, (directAvg - minScore) / scoreRange)) * 100).toFixed(2)) : 0);
+          return {
+            name: td.name,
+            ...(td.taskId ? { taskId: td.taskId } : {}),
+            correct: td.correct,
+            total: td.total,
+            ...(td.blanks > 0 ? { blanks: td.blanks } : {}),
+            ...(topEff?.penaltyApplied ? { penaltyPerWrong: td.penaltyPerWrong } : {}),
+            ...(td.total <= 0 && directAvg !== null ? { score: Number(directAvg.toFixed(2)), isPercentage: false } : {}),
+            percentage: pct,
+            ...(td.diffW > 0 ? { difficulty: Number((td.diffSum / td.diffW).toFixed(2)) } : {}),
+            ...(td.timeSpent > 0 ? { timeSpent: td.timeSpent, timedQuestoes: td.timedQuestoes } : {}),
+          };
+        });
         return {
           date,
           correct: outCorrect,
           total: outTotal,
           score: clampedFinal,
           syntheticVolume: isPureDirect,
+          ...(dayEff && dayEff.blanks > 0 ? { blanks: dayEff.blanks } : {}),
+          ...(dayEff && dayEff.penaltyApplied ? { penaltyPerWrong: stats.penaltyPerWrong, netPoints: dayEff.netPoints } : {}),
+          ...(stats.timeSpent > 0 ? { timeSpent: stats.timeSpent, timedQuestoes: stats.timedQuestoes } : {}),
+          ...(stats.diffWeightTotal > 0 ? { difficulty: Number((stats.diffWeightSum / stats.diffWeightTotal).toFixed(2)) } : {}),
+          ...(builtTopics.length > 0 ? { topics: builtTopics } : {}),
           ...(batchIdsArr.length > 0 ? { batchId: batchIdsArr[batchIdsArr.length - 1], batchIds: batchIdsArr } : {})
         };
       }).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);

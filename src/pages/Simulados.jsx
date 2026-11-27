@@ -39,7 +39,19 @@ const getRowTimestamp = (r) => {
    HELPER: Formata data/hora para exibição
    ───────────────────────────────────────────── */
 const formatDateTime = (r) => {
-  const raw = r?.lastUpdated || r?.createdAt || r?.date;
+  const rawDate = r?.date;
+  const rawTs = r?.lastUpdated || r?.createdAt;
+  const dateKey = rawDate ? getDateKey(normalizeDate(rawDate)) : null;
+  const tsKey = rawTs ? getDateKey(normalizeDate(rawTs)) : null;
+  if (dateKey && tsKey && dateKey !== tsKey) {
+    const refD = normalizeDate(rawDate);
+    if (refD && !isNaN(refD.getTime())) {
+      return refD.toLocaleDateString('pt-BR', {
+        day: '2-digit', month: '2-digit', year: 'numeric'
+      });
+    }
+  }
+  const raw = rawTs || rawDate;
   if (!raw) return '—';
   const d = normalizeDate(raw);
   if (!d || isNaN(d.getTime())) return '—';
@@ -658,9 +670,15 @@ export default function Simulados() {
           }
         });
 
-        // Evento global de simulado
+        // Evento global de simulado manual (exclui rows IA para não duplicar eventos ai-simulado do mesmo dia)
         const todayValidatedRows = validatedRows.filter(
-          (r) => r && r.valid !== false && r.validated !== false && !isErrorNotebookOnlyRow(r) && getDateKey(normalizeDate(r?.date || r?.createdAt)) === todayKey
+          (r) =>
+            r &&
+            r.valid !== false &&
+            r.validated !== false &&
+            !isErrorNotebookOnlyRow(r) &&
+            !isAiSimuladoRow(r) &&
+            getDateKey(normalizeDate(r?.date || r?.createdAt)) === todayKey
         );
         let totalQ = 0;
         let totalC = 0;
@@ -701,7 +719,10 @@ export default function Simulados() {
             score: globalPoints,
             scorePoints: globalPoints,
             scorePct: globalPct,
-            total: totalQ, correct: totalC, type: 'auto-analyzer', subject: 'Simulado Geral',
+            total: totalQ, correct: totalC,
+            ...(globalEff.blanks > 0 ? { blanks: globalEff.blanks } : {}),
+            ...(globalEff.penaltyApplied ? { netPoints: globalEff.netPoints, penaltyPerWrong: globalPenalty } : {}),
+            type: 'auto-analyzer', subject: 'Simulado Geral',
             source: 'manual',
             scoreUnit: 'points',
             isPercentage: false,

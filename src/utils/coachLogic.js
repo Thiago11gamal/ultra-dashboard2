@@ -451,13 +451,13 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
     const validCatIds = new Set(safeAllCats.map(c => c?.id != null ? String(c.id) : "").filter(Boolean));
     let allSimsForBaseline = (validCatNorms.size > 0 || validCatIds.size > 0)
         ? safeSimulados.filter(s => {
-            if (!s || s.valid === false || s.validated === false) return false;
+            if (!s || s.valid === false || s.validated === false || s.source === 'manual-error-notebook') return false;
             if (s.categoryId != null && validCatIds.has(String(s.categoryId))) return true;
             const rawSub = s.subject || s.categoryName || s.materia || s.disciplina || "";
             if (!rawSub) return false;
             return validCatNorms.has(normalize(rawSub)) || validCatNames.some(cn => isSubjectMatch(rawSub, cn));
         })
-        : safeSimulados.filter(s => s && s.valid !== false && s.validated !== false);
+        : safeSimulados.filter(s => s && s.valid !== false && s.validated !== false && s.source !== 'manual-error-notebook');
     if (allSimsForBaseline.length === 0 && safeAllCats.length > 0) {
         allSimsForBaseline = safeAllCats.flatMap(c =>
             safeArray(c?.simuladoStats?.history)

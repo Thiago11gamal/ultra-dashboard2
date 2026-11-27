@@ -21,6 +21,7 @@ import { clearMcCache } from '../utils/coachAdaptive';
 import { resolveUserTargetScorePoints } from '../utils/scoreHelper';
 import { getDateKey } from '../utils/dateHelper';
 import { removeCategoryTombstone } from '../utils/tombstones';
+import { reconcileContestCategoriesHistory, isRealSimuladoRow } from '../utils/simuladoReconciler';
 
 export default function Dashboard() {
     // P06 PERF FIX: Group store actions with useShallow to prevent re-rendering Dashboard on every store mutation
@@ -71,7 +72,8 @@ export default function Dashboard() {
         settings,
         studySessions,
         contestMaxScore,
-        contestMinScore
+        contestMinScore,
+        contestPenalty
     } = useAppStore(useShallow(state => {
         const currentActiveId = state.appState?.activeId;
         const contest = state.appState?.contests?.[currentActiveId] || {};
@@ -86,20 +88,14 @@ export default function Dashboard() {
             settings: contest.settings,
             studySessions: contest.studySessions,
             contestMaxScore: contest.maxScore,
-            contestMinScore: contest.minScore
+            contestMinScore: contest.minScore,
+            contestPenalty: contest.penaltyPerWrong
         };
     }));
 
     const studyLogs = React.useMemo(() => {
         return toArray(rawStudyLogs);
     }, [rawStudyLogs]);
-
-    const safeCategories = React.useMemo(() => {
-        return toArray(categories).map(c => ({
-            ...c,
-            tasks: toArray(c.tasks).filter(t => t && typeof t === 'object' && (t.title || t.text || t.id))
-        }));
-    }, [categories]);
 
     const safeSimulados = React.useMemo(() => {
         return toArray(simulados);
@@ -108,6 +104,23 @@ export default function Dashboard() {
     const safeSimuladoRows = React.useMemo(() => {
         return toArray(simuladoRows);
     }, [simuladoRows]);
+
+    const safeCategories = React.useMemo(() => {
+        const normalizedCats = toArray(categories).map(c => ({
+            ...c,
+            tasks: toArray(c.tasks).filter(t => t && typeof t === 'object' && (t.title || t.text || t.id))
+        }));
+        if (!normalizedCats.length || !safeSimuladoRows.some(isRealSimuladoRow)) {
+            return normalizedCats;
+        }
+        return reconcileContestCategoriesHistory(
+            normalizedCats,
+            safeSimuladoRows,
+            Number(contestMaxScore) || 100,
+            Number.isFinite(Number(contestMinScore)) ? Number(contestMinScore) : 0,
+            { penaltyPerWrong: Number(contestPenalty) || 0 }
+        );
+    }, [categories, safeSimuladoRows, contestMaxScore, contestMinScore, contestPenalty]);
 
     const safeFlashcardDecks = React.useMemo(() => {
         return toArray(flashcardDecks);

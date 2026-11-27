@@ -66,6 +66,9 @@ export const createSimuladoSlice = (set) => ({
       if (item.batchId && String(item.batchId).trim() === normalizedInput) {
         return true;
       }
+      if (item.source === 'manual-error-notebook') {
+        return false;
+      }
       const raw = item.date || item.createdAt;
       if (!raw) return false;
       const normalizedRaw = String(raw).trim();
@@ -126,7 +129,68 @@ export const createSimuladoSlice = (set) => ({
     }
     const remainingRows = safeRows.filter(r => !matchesItem(r));
     activeData.simuladoRows = remainingRows;
-    activeData.simulados = safeSimulados.filter(s => !matchesItem(s));
+    let remainingSimulados = safeSimulados.filter(s => !matchesItem(s));
+
+    // Se rows foram removidas em datas que tinham resumo manual 'auto-analyzer', reconciliar ou remover esse resumo
+    if (removedRows.length > 0 && remainingSimulados.some(s => s && s.type === 'auto-analyzer')) {
+      const removedDates = new Set(
+        removedRows.map(r => getDateKey(normalizeDate(r?.date || r?.createdAt))).filter(Boolean)
+      );
+      if (removedDates.size > 0) {
+        const rawContestMax = Number.isFinite(Number(activeData.maxScore)) && Number(activeData.maxScore) > 0 ? Number(activeData.maxScore) : 100;
+        const rawContestMin = Number.isFinite(Number(activeData.minScore)) ? Number(activeData.minScore) : 0;
+        const contestMin = Math.min(rawContestMin, rawContestMax);
+        const contestMax = Math.max(rawContestMin, rawContestMax);
+        const contestRange = Math.max(1e-9, contestMax - contestMin);
+        const globalPenalty = Math.max(0, Number(activeData.penaltyPerWrong) || 0);
+
+        remainingSimulados = remainingSimulados.map((sim) => {
+          if (!sim || sim.type !== 'auto-analyzer') return sim;
+          const simDateKey = getDateKey(normalizeDate(sim.date || sim.createdAt));
+          if (!simDateKey || !removedDates.has(simDateKey)) return sim;
+
+          const manualRowsForDay = remainingRows.filter((r) => {
+            if (!r || r.valid === false || r.validated === false || r.source === 'manual-error-notebook') return false;
+            const rIsAi = r.source === 'ai-generated' || (Boolean(r.batchId) && r.source !== 'manual' && !String(r.id || '').startsWith('manual'));
+            if (rIsAi) return false;
+            return getDateKey(normalizeDate(r.date || r.createdAt)) === simDateKey;
+          });
+
+          const totalQ = manualRowsForDay.reduce((sum, r) => sum + getSimuladoRowTotal(r), 0);
+          if (totalQ <= 0) return null;
+          const totalC = manualRowsForDay.reduce((sum, r) => sum + getSimuladoRowCorrect(r), 0);
+          const totalB = manualRowsForDay.reduce((sum, r) => sum + Math.min(Math.max(0, getSimuladoRowTotal(r) - getSimuladoRowCorrect(r)), Math.max(0, Number(r.blanks) || 0)), 0);
+          const eff = computeEffectiveScoreRatio(totalC, totalQ, {
+            blanks: totalB,
+            penaltyPerWrong: globalPenalty,
+            minScore: contestMin,
+            maxScore: contestMax,
+          });
+          const pts = Number(Math.max(contestMin, Math.min(contestMax, contestMin + eff.ratio * contestRange)).toFixed(2));
+          const pct = Number(Math.max(0, Math.min(100, eff.ratio * 100)).toFixed(2));
+          const nextSim = {
+            ...sim,
+            total: totalQ,
+            correct: totalC,
+            score: pts,
+            scorePoints: pts,
+            scorePct: pct,
+            lastUpdated: new Date().toISOString(),
+          };
+          if (eff.blanks > 0) nextSim.blanks = eff.blanks;
+          else delete nextSim.blanks;
+          if (eff.penaltyApplied) {
+            nextSim.penaltyPerWrong = globalPenalty;
+            nextSim.netPoints = eff.netPoints;
+          } else {
+            delete nextSim.penaltyPerWrong;
+            delete nextSim.netPoints;
+          }
+          return nextSim;
+        }).filter(Boolean);
+      }
+    }
+    activeData.simulados = remainingSimulados;
 
     const affectedCategorySet = new Set();
     const affectedCategoryDates = new Map();
@@ -225,7 +289,10 @@ if (c.simuladoStats?.history) {
         0
       );
       const dayBlanks = catRowsForDay.reduce((sum, r) => sum + Math.max(0, Number(r.blanks) || 0), 0);
-      const dayPenalty = catRowsForDay.reduce((maxP, r) => Math.max(maxP, Math.max(0, Number(r.penaltyPerWrong) || 0)), 0);
+      const dayPenalty = catRowsForDay.reduce(
+        (maxP, r) => Math.max(maxP, Math.max(0, Number(r.penaltyPerWrong) || 0)),
+        Math.max(0, Number(activeData.penaltyPerWrong) || 0)
+      );
 
       const topicsMap = {};
       let totalDiffWeight = 0;
@@ -234,8 +301,13 @@ if (c.simuladoStats?.history) {
         const tName = String(r.topic || '').trim() || 'Geral';
         const rTot = getSimuladoRowTotal(r);
         const rCor = getSimuladoRowCorrect(r);
+        const rBlanks = Math.min(Math.max(0, rTot - rCor), Math.max(0, Number(r.blanks) || 0));
+        const rPen = Math.max(0, Number(r.penaltyPerWrong) || 0);
         const rDiff = Number.isFinite(Number(r.difficulty)) && Number(r.difficulty) > 0 ? Number(r.difficulty) : 1.0;
         const rTime = Number(r.timeSpent) || 0;
+        const rTimedQ = rTime > 0
+          ? (Number(r.timedQuestoes) > 0 ? Math.max(0, Number(r.timedQuestoes)) : rTot)
+          : 0;
         const rowTaskId = r.taskId || r.topicId || null;
         totalDiffWeight += rDiff * (rTot > 0 ? rTot : 1);
         diffRowSum += rTot > 0 ? rTot : 1;
@@ -245,9 +317,12 @@ if (c.simuladoStats?.history) {
             name: tName,
             correct: 0,
             total: 0,
+            blanks: 0,
+            penaltyPerWrong: 0,
             diffWeight: 0,
             diffWeightCount: 0,
             timeSpent: 0,
+            timedQuestoes: 0,
             taskId: rowTaskId,
             scores: []
           };
@@ -256,9 +331,12 @@ if (c.simuladoStats?.history) {
         }
         topicsMap[tName].correct += rCor;
         topicsMap[tName].total += rTot;
+        topicsMap[tName].blanks += rBlanks;
+        topicsMap[tName].penaltyPerWrong = Math.max(topicsMap[tName].penaltyPerWrong, rPen);
         topicsMap[tName].diffWeight += rDiff * (rTot > 0 ? rTot : 1);
         topicsMap[tName].diffWeightCount += rTot > 0 ? rTot : 1;
         topicsMap[tName].timeSpent += rTime;
+        topicsMap[tName].timedQuestoes += rTimedQ;
         if (rTot <= 0 && r.score != null && Number.isFinite(Number(r.score))) {
           topicsMap[tName].scores.push(getSafeScore(r, catMaxScore, catMinScore));
         }
@@ -268,18 +346,25 @@ if (c.simuladoStats?.history) {
         const avgTopicScore = td.scores.length > 0
           ? td.scores.reduce((s, v) => s + v, 0) / td.scores.length
           : null;
-        const pct = td.total > 0
-          ? (td.correct / td.total) * 100
+        const effPen = Math.max(td.penaltyPerWrong, dayPenalty);
+        const effTop = td.total > 0
+          ? computeEffectiveScoreRatio(td.correct, td.total, { blanks: td.blanks, penaltyPerWrong: effPen, minScore: 0, maxScore: 100 })
+          : null;
+        const pct = effTop
+          ? Number((effTop.ratio * 100).toFixed(2))
           : (avgTopicScore !== null && catRange > 0 ? ((avgTopicScore - catMinScore) / catRange) * 100 : 0);
         return {
           name: td.name,
           taskId: td.taskId,
           correct: td.correct,
           total: td.total,
+          ...(td.blanks > 0 ? { blanks: td.blanks } : {}),
+          ...(effTop?.penaltyApplied ? { penaltyPerWrong: effPen } : {}),
           ...(avgTopicScore !== null && td.total <= 0 ? { score: Number(avgTopicScore.toFixed(2)), isPercentage: false } : {}),
           percentage: pct,
           difficulty: td.diffWeightCount > 0 ? Number((td.diffWeight / td.diffWeightCount).toFixed(2)) : 1.0,
-          timeSpent: td.timeSpent
+          timeSpent: td.timeSpent,
+          ...(td.timedQuestoes > 0 ? { timedQuestoes: td.timedQuestoes } : {})
         };
       });
 

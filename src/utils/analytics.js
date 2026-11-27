@@ -366,8 +366,12 @@ export const calculateStudyStreak = (studyLogs) => {
             return histArr?.some(h => h && (getSafeScore(h, maxS, minS) >= maxS || (h.correct === h.total && h.total > 0)));
         }) || false;
 
-        const simuladosArray = toArray(contestData?.simulados).filter(filterByReset);
-        const simuladoRowsArray = toArray(contestData?.simuladoRows).filter(filterByReset);
+        const simuladosArray = toArray(contestData?.simulados)
+            .filter(s => s && s.valid !== false && s.validated !== false && s.source !== 'manual-error-notebook')
+            .filter(filterByReset);
+        const simuladoRowsArray = toArray(contestData?.simuladoRows)
+            .filter(r => r && r.valid !== false && r.validated !== false && r.source !== 'manual-error-notebook')
+            .filter(filterByReset);
 
         const hasPerfectScoreFromSimulados = simuladosArray.some(s => {
             const total = Number(s?.total);

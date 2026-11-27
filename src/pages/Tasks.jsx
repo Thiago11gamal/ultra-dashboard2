@@ -17,6 +17,7 @@ import {
   resolveContestScoreDomain,
   computeCategoryPerformanceStats
 } from '../utils/tasksStatsHelper';
+import { reconcileContestCategoriesHistory, isRealSimuladoRow } from '../utils/simuladoReconciler';
 
 const EMPTY_ARRAY = Object.freeze([]);
 
@@ -57,25 +58,46 @@ export default function Tasks() {
     contests: state.appState?.contests || {}
   })));
 
-  const { rawCategories, contestMaxScore, contestMinScore, hasContestSimulados } = useAppStore(useShallow(state => {
+  const { rawCategories, rawSimuladoRows, contestMaxScore, contestMinScore, contestPenalty, hasContestSimulados } = useAppStore(useShallow(state => {
     const currentActiveId = state.appState?.activeId || 'default';
     const activeContest = state.appState?.contests?.[currentActiveId];
+    const rowsArr = toSafeArray(activeContest?.simuladoRows);
+    const simsArr = toSafeArray(activeContest?.simulados);
     return {
       rawCategories: activeContest?.categories ?? EMPTY_ARRAY,
+      rawSimuladoRows: activeContest?.simuladoRows ?? EMPTY_ARRAY,
       contestMaxScore: activeContest?.maxScore ?? activeContest?.user?.maxScore,
       contestMinScore: activeContest?.minScore ?? activeContest?.user?.minScore,
+      contestPenalty: activeContest?.penaltyPerWrong ?? 0,
       hasContestSimulados:
-        toSafeArray(activeContest?.simuladoRows).length > 0 ||
-        toSafeArray(activeContest?.simulados).length > 0
+        rowsArr.some(isRealSimuladoRow) ||
+        simsArr.some(s => s && s.valid !== false && s.validated !== false && s.source !== 'manual-error-notebook')
     };
   }));
 
-  const categories = useMemo(() => {
+  const baseCategories = useMemo(() => {
     return toSafeArray(rawCategories).map(c => ({
       ...c,
       tasks: toSafeArray(c?.tasks)
     }));
   }, [rawCategories]);
+
+  const { maxScore, minScore } = useMemo(() => {
+    return resolveContestScoreDomain(
+      { maxScore: contestMaxScore, minScore: contestMinScore },
+      baseCategories
+    );
+  }, [contestMaxScore, contestMinScore, baseCategories]);
+
+  const categories = useMemo(() => {
+    const rowsArr = toSafeArray(rawSimuladoRows);
+    if (!baseCategories.length || !rowsArr.some(isRealSimuladoRow)) {
+      return baseCategories;
+    }
+    return reconcileContestCategoriesHistory(baseCategories, rowsArr, maxScore, minScore, {
+      penaltyPerWrong: Number(contestPenalty) || 0
+    });
+  }, [baseCategories, rawSimuladoRows, maxScore, minScore, contestPenalty]);
 
   const handleStartStudyingFromTasks = useCallback((categoryId, taskId) => {
     const cat = categories.find(c => c && (c.id === categoryId || c.name === categoryId));
@@ -92,13 +114,6 @@ export default function Tasks() {
     showToast(`Iniciando estudos: ${cat.name} - ${tsk.title || tsk.text || 'Estudo'}`, 'success');
     navigate('/pomodoro');
   }, [categories, storeActions, showToast, navigate]);
-
-  const { maxScore, minScore } = useMemo(() => {
-    return resolveContestScoreDomain(
-      { maxScore: contestMaxScore, minScore: contestMinScore },
-      categories
-    );
-  }, [contestMaxScore, contestMinScore, categories]);
 
   const overviewStats = useMemo(() => {
     let totalQuestions = 0;

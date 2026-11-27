@@ -8,6 +8,13 @@ import { safeClone } from './safeClone.js';
 
 export const DEFAULT_SIMULADO_HISTORY_CAP = 150;
 
+export function isRealSimuladoRow(row) {
+  if (!row || typeof row !== 'object') return false;
+  if (row.valid === false || row.validated === false) return false;
+  if (row.source === 'manual-error-notebook') return false;
+  return true;
+}
+
 export function getSimuladoRowTotal(row) {
   const n = Number(row?.total ?? row?.questoes ?? row?.totalQuestoes ?? row?.questions);
   return Number.isFinite(n) && n > 0 ? Math.round(n) : 0;
@@ -38,26 +45,45 @@ export function reconcileDayTopics(oldTopics = [], incomingTopics = []) {
     const name = String(topic?.name ?? topic?.topic ?? topic ?? '').trim();
     if (!name) return;
     const key = normalize(name);
+    const incTaskId = topic?.taskId ?? topic?.topicId ?? null;
     const prev = incomingByKey.get(key) || {
       name,
+      ...(incTaskId ? { taskId: incTaskId } : {}),
       correct: 0,
       total: 0,
       blanks: 0,
       penaltyPerWrong: 0,
+      timeSpent: 0,
+      timedQuestoes: 0,
+      _diffWeightSum: 0,
+      _diffWeightTotal: 0,
       score: topic?.score,
       isPercentage: !!topic?.isPercentage,
       _rowCount: 0,
       _scoreSum: 0,
       _scoreCount: 0,
     };
+    if (!prev.taskId && incTaskId) prev.taskId = incTaskId;
     const incTotal = Math.max(0, Number(topic?.total) || 0);
     const incCorrect = Math.min(incTotal, Math.max(0, Number(topic?.correct) || 0));
     const incBlanks = Math.min(Math.max(0, incTotal - incCorrect), Math.max(0, Number(topic?.blanks) || 0));
     const incPenalty = Math.max(0, Number(topic?.penaltyPerWrong) || 0);
+    const incTime = Math.max(0, Number(topic?.timeSpent) || 0);
+    const incTimedQ = incTime > 0
+      ? (Number(topic?.timedQuestoes) > 0 ? Math.max(0, Number(topic.timedQuestoes)) : incTotal)
+      : 0;
+    const incDiff = Number(topic?.difficulty);
+    if (Number.isFinite(incDiff) && incDiff > 0) {
+      const w = incTotal > 0 ? incTotal : 1;
+      prev._diffWeightSum += incDiff * w;
+      prev._diffWeightTotal += w;
+    }
     prev.correct += incCorrect;
     prev.total += incTotal;
     prev.blanks += incBlanks;
     prev.penaltyPerWrong = Math.max(prev.penaltyPerWrong || 0, incPenalty);
+    prev.timeSpent += incTime;
+    prev.timedQuestoes += incTimedQ;
     prev._rowCount += 1;
     if (topic?.score !== undefined && topic?.score !== null && String(topic.score).trim() !== '' && Number.isFinite(Number(topic.score))) {
       prev._scoreSum += Number(topic.score);
@@ -80,28 +106,53 @@ export function reconcileDayTopics(oldTopics = [], incomingTopics = []) {
     const curCorrect = Math.min(curTotal, Math.max(0, Number(topic?.correct) || 0));
     const curBlanks = Math.min(Math.max(0, curTotal - curCorrect), Math.max(0, Number(topic?.blanks) || 0));
     const curPenalty = Math.max(0, Number(topic?.penaltyPerWrong) || 0);
+    const curTaskId = topic?.taskId ?? topic?.topicId ?? null;
+    const curTime = Math.max(0, Number(topic?.timeSpent) || 0);
+    const curTimedQ = curTime > 0
+      ? (Number(topic?.timedQuestoes) > 0 ? Math.max(0, Number(topic.timedQuestoes)) : curTotal)
+      : 0;
+    const curDiff = Number(topic?.difficulty);
+    const curEff = curTotal > 0
+      ? computeEffectiveScoreRatio(curCorrect, curTotal, { blanks: curBlanks, penaltyPerWrong: curPenalty, minScore: 0, maxScore: 100 })
+      : null;
+    const curPct = curEff ? Number((curEff.ratio * 100).toFixed(2)) : (Number.isFinite(Number(topic?.percentage)) ? Number(topic.percentage) : undefined);
     const prev = merged.get(key);
     if (!prev || curTotal > prev.total) {
       merged.set(key, {
         name,
+        ...(curTaskId || prev?.taskId ? { taskId: curTaskId || prev?.taskId } : {}),
         correct: curCorrect,
         total: curTotal,
         ...(curBlanks > 0 ? { blanks: curBlanks } : {}),
         ...(curPenalty > 0 ? { penaltyPerWrong: curPenalty } : {}),
+        ...(curTime > 0 ? { timeSpent: curTime, timedQuestoes: curTimedQ } : {}),
+        ...(Number.isFinite(curDiff) && curDiff > 0 ? { difficulty: Number(curDiff.toFixed(2)) } : {}),
+        ...(curPct !== undefined ? { percentage: curPct } : {}),
         score: topic?.score,
         isPercentage: !!topic?.isPercentage
       });
+    } else if (!prev.taskId && curTaskId) {
+      prev.taskId = curTaskId;
     }
   });
 
   incomingByKey.forEach((inc, key) => {
     const existing = merged.get(key);
+    const incDiff = inc._diffWeightTotal > 0 ? Number((inc._diffWeightSum / inc._diffWeightTotal).toFixed(2)) : undefined;
+    const incEff = inc.total > 0
+      ? computeEffectiveScoreRatio(inc.correct, inc.total, { blanks: inc.blanks, penaltyPerWrong: inc.penaltyPerWrong, minScore: 0, maxScore: 100 })
+      : null;
+    const incPct = incEff ? Number((incEff.ratio * 100).toFixed(2)) : undefined;
     const cleanInc = {
       name: inc.name,
+      ...(inc.taskId ? { taskId: inc.taskId } : {}),
       correct: inc.correct,
       total: inc.total,
       ...(inc.blanks > 0 ? { blanks: inc.blanks } : {}),
       ...(inc.penaltyPerWrong > 0 ? { penaltyPerWrong: inc.penaltyPerWrong } : {}),
+      ...(inc.timeSpent > 0 ? { timeSpent: inc.timeSpent, timedQuestoes: inc.timedQuestoes } : {}),
+      ...(incDiff !== undefined ? { difficulty: incDiff } : {}),
+      ...(incPct !== undefined ? { percentage: incPct } : {}),
       score: inc.score,
       isPercentage: inc.isPercentage,
     };
@@ -110,13 +161,24 @@ export function reconcileDayTopics(oldTopics = [], incomingTopics = []) {
       return;
     }
     if (inc.total >= existing.total) {
+      const nextTime = Math.max(inc.timeSpent || 0, existing.timeSpent || 0);
+      const nextTimedQ = Math.max(inc.timedQuestoes || 0, existing.timedQuestoes || 0);
       merged.set(key, {
         ...existing,
         ...cleanInc,
         name: existing.name || inc.name,
+        ...(inc.taskId || existing.taskId ? { taskId: inc.taskId || existing.taskId } : {}),
+        ...(nextTime > 0 ? { timeSpent: nextTime, timedQuestoes: nextTimedQ } : {}),
+        ...(incDiff !== undefined || existing.difficulty !== undefined ? { difficulty: incDiff ?? existing.difficulty } : {}),
         score: inc.score ?? existing.score,
         isPercentage: inc.total > 0 ? inc.isPercentage : existing.isPercentage
       });
+    } else {
+      if (!existing.taskId && inc.taskId) existing.taskId = inc.taskId;
+      if ((inc.timeSpent || 0) > (existing.timeSpent || 0)) {
+        existing.timeSpent = inc.timeSpent;
+        existing.timedQuestoes = Math.max(inc.timedQuestoes || 0, existing.timedQuestoes || 0);
+      }
     }
   });
 
@@ -224,33 +286,52 @@ export function reconcileContestCategoriesHistory(
     const catNorm = normalize(cat.name);
     const catAliases = aliases[catNorm] || [];
     const myRows = simuladoRows.filter((r) => {
-      if (!r || r.valid === false || r.validated === false || r.source === 'manual-error-notebook') return false;
-      if (r.categoryId) return r.categoryId === cat.id;
-      const subNorm = normalize(r.subject);
+      if (!isRealSimuladoRow(r)) return false;
+      if (r.categoryId && cat.id) return String(r.categoryId) === String(cat.id);
+      const rawSub = r.subject || r.categoryName || r.materia || r.disciplina || '';
+      const subNorm = normalize(rawSub);
       if (!subNorm) return false;
-      return subNorm === catNorm || catAliases.some(a => normalize(a) === subNorm);
+      return subNorm === catNorm || catAliases.some(a => normalize(a) === subNorm) || isSubjectMatch(rawSub, cat.name);
     });
 
     const rowsByDate = {};
     const rowBatchIdsByDate = {};
+    const rowMetaByDate = {};
     myRows.forEach((r) => {
       const dateKey = safeDateKey(r.date || r.createdAt);
       if (!dateKey) return;
       if (!rowsByDate[dateKey]) rowsByDate[dateKey] = [];
+      if (!rowMetaByDate[dateKey]) rowMetaByDate[dateKey] = { timeSpent: 0, timedQuestoes: 0, diffSum: 0, diffWeight: 0 };
       if (r.batchId) {
         if (!rowBatchIdsByDate[dateKey]) rowBatchIdsByDate[dateKey] = new Set();
         rowBatchIdsByDate[dateKey].add(String(r.batchId));
       }
-      const rowTotal = Math.max(0, Number(r.total) || 0);
-      const rowCorrect = Math.min(rowTotal, Math.max(0, Number(r.correct) || 0));
+      const rowTotal = getSimuladoRowTotal(r);
+      const rowCorrect = getSimuladoRowCorrect(r);
       const rowBlanks = Math.min(Math.max(0, rowTotal - rowCorrect), Math.max(0, Number(r.blanks) || 0));
       const rowPenalty = Math.max(0, Number(r.penaltyPerWrong) || 0);
+      const rowTime = Math.max(0, Number(r.timeSpent) || 0);
+      const rowTimedQ = rowTime > 0
+        ? (Number(r.timedQuestoes) > 0 ? Math.max(0, Number(r.timedQuestoes)) : rowTotal)
+        : 0;
+      const rowDiff = Number(r.difficulty);
+      const rowTaskId = r.taskId ?? r.topicId ?? null;
+      rowMetaByDate[dateKey].timeSpent += rowTime;
+      rowMetaByDate[dateKey].timedQuestoes += rowTimedQ;
+      if (Number.isFinite(rowDiff) && rowDiff > 0) {
+        const w = rowTotal > 0 ? rowTotal : 1;
+        rowMetaByDate[dateKey].diffSum += rowDiff * w;
+        rowMetaByDate[dateKey].diffWeight += w;
+      }
       rowsByDate[dateKey].push({
-        name: r.topic || 'Geral',
+        name: String(r.topic || '').trim() || 'Geral',
+        ...(rowTaskId ? { taskId: rowTaskId } : {}),
         correct: rowCorrect,
         total: rowTotal,
         ...(rowBlanks > 0 ? { blanks: rowBlanks } : {}),
         ...(rowPenalty > 0 ? { penaltyPerWrong: rowPenalty } : {}),
+        ...(rowTime > 0 ? { timeSpent: rowTime, timedQuestoes: rowTimedQ } : {}),
+        ...(Number.isFinite(rowDiff) && rowDiff > 0 ? { difficulty: rowDiff } : {}),
         score: r.score,
         isPercentage: !!r.isPercentage
       });
@@ -282,6 +363,11 @@ export function reconcileContestCategoriesHistory(
       const hTopics = Array.isArray(h.topics) ? h.topics : Object.values(h.topics || {});
       const hTotal = Math.max(0, Number(h.total) || 0);
       const hCorrect = Math.min(hTotal > 0 ? hTotal : Infinity, Math.max(0, Number(h.correct) || 0));
+      const hTime = Math.max(0, Number(h.timeSpent) || 0);
+      const hTimedQ = hTime > 0
+        ? (Number(h.timedQuestoes) > 0 ? Math.max(0, Number(h.timedQuestoes)) : hTotal)
+        : 0;
+      const hDiff = Number(h.difficulty);
 
       const prev = mergedHistoryMap[dateKey];
       if (!prev) {
@@ -294,6 +380,9 @@ export function reconcileContestCategoriesHistory(
           ...(hBlanks > 0 ? { blanks: hBlanks } : {}),
           ...(hPenalty > 0 ? { penaltyPerWrong: hPenalty } : {}),
           ...(h.netPoints !== undefined ? { netPoints: h.netPoints } : {}),
+          ...(hTime > 0 ? { timeSpent: hTime, timedQuestoes: hTimedQ } : {}),
+          ...(Number.isFinite(hDiff) && hDiff > 0 ? { difficulty: hDiff } : {}),
+          ...(h.syntheticVolume ? { syntheticVolume: true } : {}),
           score: h.score,
           isPercentage: !!h.isPercentage,
           valid: true,
@@ -315,6 +404,12 @@ export function reconcileContestCategoriesHistory(
         const combCorr = prevCorr + hCorrect;
         const combBlanks = (Math.max(0, Number(prev.blanks) || 0)) + hBlanks;
         const combPenalty = Math.max(Number(prev.penaltyPerWrong) || 0, hPenalty, contestPenalty);
+        const combTime = (Math.max(0, Number(prev.timeSpent) || 0)) + hTime;
+        const combTimedQ = (Math.max(0, Number(prev.timedQuestoes) || 0)) + hTimedQ;
+        if (combTime > 0) {
+          prev.timeSpent = combTime;
+          prev.timedQuestoes = combTimedQ;
+        }
         prev.topics = reconcileDayTopics(prev.topics, hTopics);
         if (combTot > 0) {
           const eff = computeEffectiveScoreRatio(combCorr, combTot, {
@@ -353,6 +448,7 @@ export function reconcileContestCategoriesHistory(
     });
 
     Object.entries(rowsByDate).forEach(([dateKey, topics]) => {
+      const dayMeta = rowMetaByDate[dateKey] || { timeSpent: 0, timedQuestoes: 0, diffSum: 0, diffWeight: 0 };
       const totalC = topics.reduce((s, t) => s + t.correct, 0);
       const totalQ = topics.reduce((s, t) => s + t.total, 0);
       const totalBlanks = topics.reduce((s, t) => s + (Number(t.blanks) || 0), 0);
@@ -378,6 +474,8 @@ export function reconcileContestCategoriesHistory(
           total: 0,
           score: calcScore,
           isPercentage: false,
+          valid: true,
+          validated: true,
           topics: []
         };
       }
@@ -397,6 +495,15 @@ export function reconcileContestCategoriesHistory(
       const prevEntryBlanks = Math.max(0, Number(entry.blanks) || 0);
       const prevEntryPenalty = Math.max(0, Number(entry.penaltyPerWrong) || 0);
       entry.topics = reconcileDayTopics(entry.topics, topics);
+      const nextTimeSpent = Math.max(Number(entry.timeSpent) || 0, dayMeta.timeSpent || 0);
+      const nextTimedQuestoes = Math.max(Number(entry.timedQuestoes) || 0, dayMeta.timedQuestoes || 0);
+      if (nextTimeSpent > 0) {
+        entry.timeSpent = nextTimeSpent;
+        entry.timedQuestoes = nextTimedQuestoes;
+      }
+      if (dayMeta.diffWeight > 0 && !(Number(entry.difficulty) > 0)) {
+        entry.difficulty = Number((dayMeta.diffSum / dayMeta.diffWeight).toFixed(2));
+      }
       const combinedC = entry.topics.reduce((s, t) => s + (Number(t.correct) || 0), 0);
       const combinedQ = entry.topics.reduce((s, t) => s + (Number(t.total) || 0), 0);
       const combinedTopicBlanks = entry.topics.reduce((s, t) => s + (Number(t.blanks) || 0), 0);
@@ -469,10 +576,20 @@ export function reconcileContestCategoriesHistory(
     const rebuiltHistory = Object.values(mergedHistoryMap)
       .sort((a, b) => (toDateMs(a?.date) || 0) - (toDateMs(b?.date) || 0));
 
-    cat.simuladoStats = {
-      ...existingStats,
-      history: rebuiltHistory
-    };
+    if (rebuiltHistory.length > 0 || existingHistory.length > 0) {
+      cat.simuladoStats = computeCategorySimuladoStats(
+        cat,
+        rebuiltHistory,
+        contestMaxScore,
+        contestMinScore,
+        options
+      );
+    } else {
+      cat.simuladoStats = {
+        ...existingStats,
+        history: rebuiltHistory
+      };
+    }
   });
 
   return newCats;

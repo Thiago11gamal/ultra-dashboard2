@@ -163,7 +163,24 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
       let history = cat.simuladoStats.history;
 
       const todayIdx = history.findIndex(h => getDateKey(normalizeDate(h?.date || h?.createdAt)) === todayKey);
-      const newTopicEntry = { name: assunto, correct, total, taskId, timeSpent: timeSpentSecs, difficulty: numericDifficulty };
+      const topicEff = computeEffectiveScoreRatio(correct, total, {
+        blanks: effectiveScore.blanks,
+        penaltyPerWrong,
+        minScore: 0,
+        maxScore: 100,
+      });
+      const newTopicEntry = {
+        name: assunto,
+        correct,
+        total,
+        ...(effectiveScore.blanks > 0 ? { blanks: effectiveScore.blanks } : {}),
+        ...(topicEff.penaltyApplied ? { penaltyPerWrong } : {}),
+        percentage: total > 0 ? Number((topicEff.ratio * 100).toFixed(2)) : 0,
+        taskId,
+        timeSpent: timeSpentSecs,
+        timedQuestoes: timeSpentSecs > 0 ? total : 0,
+        difficulty: numericDifficulty
+      };
 
       if (todayIdx !== -1) {
         const existing = history[todayIdx];
@@ -178,13 +195,25 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
               if (taskId && !t.taskId) t.taskId = taskId;
               const newTTotal = (Number(t.total) || 0) + total;
               const newTCorrect = (Number(t.correct) || 0) + correct;
+              const newTBlanks = (Number(t.blanks) || 0) + effectiveScore.blanks;
+              const newTPenalty = Math.max(Number(t.penaltyPerWrong) || 0, penaltyPerWrong);
               const prevTWeight = (Number(t.difficulty) || 1.0) * (Number(t.total) || 0);
               const newTWeight = numericDifficulty * total;
+              const mergedTEff = computeEffectiveScoreRatio(newTCorrect, newTTotal, {
+                blanks: newTBlanks,
+                penaltyPerWrong: newTPenalty,
+                minScore: 0,
+                maxScore: 100,
+              });
               
               t.correct = newTCorrect;
               t.total = newTTotal;
+              if (newTBlanks > 0) t.blanks = newTBlanks;
+              if (mergedTEff.penaltyApplied) t.penaltyPerWrong = newTPenalty;
+              t.percentage = newTTotal > 0 ? Number((mergedTEff.ratio * 100).toFixed(2)) : 0;
               t.difficulty = newTTotal > 0 ? (prevTWeight + newTWeight) / newTTotal : 1.0;
               t.timeSpent = (Number(t.timeSpent) || 0) + timeSpentSecs;
+              t.timedQuestoes = (Number(t.timedQuestoes) || 0) + (timeSpentSecs > 0 ? total : 0);
           }
         }
         
@@ -204,6 +233,7 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
         const dayTotal = prevTotal + total;
         const dayCorrect = prevCorrect + correct;
         const dayBlanks = (Number(existing.blanks) || 0) + effectiveScore.blanks;
+        const dayPenalty = Math.max(Number(existing.penaltyPerWrong) || 0, penaltyPerWrong);
         const dayTimeSpent = (Number(existing.timeSpent) || 0) + timeSpentSecs;
         const dayTimedQuestoes = (Number(existing.timedQuestoes) || 0) + (timeSpentSecs > 0 ? total : 0);
 
@@ -212,7 +242,7 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
         const newDiff = dayTotal > 0 ? (prevWeight + newWeight) / dayTotal : 1.0;
         const dayEff = computeEffectiveScoreRatio(dayCorrect, dayTotal, {
           blanks: dayBlanks,
-          penaltyPerWrong,
+          penaltyPerWrong: dayPenalty,
           minScore: catMinScore,
           maxScore: catMaxScore,
         });
@@ -220,6 +250,10 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
         existing.correct = dayCorrect;
         existing.total = dayTotal;
         if (dayBlanks > 0) existing.blanks = dayBlanks;
+        if (dayEff.penaltyApplied) {
+          existing.penaltyPerWrong = dayPenalty;
+          existing.netPoints = dayEff.netPoints;
+        }
         existing.isPercentage = false;
         existing.score = dayTotal > 0 ? Math.min(catMaxScore, Math.max(catMinScore, catMinScore + dayEff.ratio * catScoreRange)) : catMinScore;
         existing.difficulty = newDiff;
@@ -248,6 +282,7 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
           correct,
           total,
           ...(effectiveScore.blanks > 0 ? { blanks: effectiveScore.blanks } : {}),
+          ...(entryEff.penaltyApplied ? { penaltyPerWrong, netPoints: entryEff.netPoints } : {}),
           isPercentage: false,
           timeSpent: timeSpentSecs,
           timedQuestoes: timeSpentSecs > 0 ? total : 0,

@@ -13,6 +13,7 @@ import ConfirmModal from '../components/ConfirmModal';
 import { getFlashcardDueTodayCount, getFlashcardMasteryPct, getFlashcardTotalCards, getFlashcardDeckCount } from '../utils/analytics';
 import { normalizeArray, toFiniteNumber } from '../utils/retentionCore';
 import { estimateEmpiricalHalfLife } from '../engine/adaptive/empiricalRetention';
+import { reconcileContestCategoriesHistory, isRealSimuladoRow } from '../utils/simuladoReconciler';
 
 export default function Retention() {
     const [confirmModal, setConfirmModal] = useState({
@@ -24,11 +25,21 @@ export default function Retention() {
     // useRef para evitar stale closure no callback do modal
     const pendingCategoryRef = useRef(null);
 
-    const categories = useAppStore(useShallow(state => {
+    const rawCategories = useAppStore(useShallow(state => {
         const activeContest = state.appState?.contests?.[state.appState?.activeId];
-        const rawCategories = activeContest?.categories || [];
-        return normalizeArray(rawCategories).filter(cat => cat && (cat.id || cat.name));
+        const list = activeContest?.categories || [];
+        return normalizeArray(list).filter(cat => cat && (cat.id || cat.name));
     }));
+
+    const simuladoRows = useAppStore(useShallow(state => {
+        const activeContest = state.appState?.contests?.[state.appState?.activeId];
+        return normalizeArray(activeContest?.simuladoRows).filter(Boolean);
+    }));
+
+    const contestPenalty = useAppStore(state => {
+        const activeContest = state.appState?.contests?.[state.appState?.activeId];
+        return activeContest?.penaltyPerWrong ?? 0;
+    });
 
     const flashcardDecks = useAppStore(useShallow(state => {
         const activeContest = state.appState?.contests?.[state.appState?.activeId];
@@ -50,6 +61,15 @@ export default function Retention() {
         const activeContest = state.appState?.contests?.[state.appState?.activeId];
         return activeContest?.maxScore ?? activeContest?.settings?.maxScore ?? 100;
     });
+
+    const categories = useMemo(() => {
+        if (!rawCategories.length || !simuladoRows.some(isRealSimuladoRow)) {
+            return rawCategories;
+        }
+        return reconcileContestCategoriesHistory(rawCategories, simuladoRows, contestMaxScore, contestMinScore, {
+            penaltyPerWrong: Number(contestPenalty) || 0
+        });
+    }, [rawCategories, simuladoRows, contestMaxScore, contestMinScore, contestPenalty]);
 
     const safeDecks = useMemo(() => normalizeArray(flashcardDecks).map(deck => ({
         ...deck,

@@ -1029,11 +1029,11 @@ export default function AIGeneratedSimulado({ drillRequest = null, onDrillConsum
     }
   }, [questions.length]);
 
-  const saveAIResultsToSystem = useCallback(async (formData, correct, total, _answeredQs, timeSpentSecs = 0, preventGlobalEvent = false, batchId = null) => {
+  const saveAIResultsToSystem = useCallback(async (formData, correct, total, _answeredQs, timeSpentSecs = 0, preventGlobalEvent = false, batchId = null, explicitContestId = null) => {
     // FIX: Evitar mutar proxies de draft do Immer enquanto retorna novo estado (causava crash no 2º simulado do dia).
     useAppStore.setState(
       (state) => {
-        const activeContestId = state.appState?.activeId;
+        const activeContestId = explicitContestId || sessionContestIdRef.current || state.appState?.activeId;
         const currentDraft = state.appState?.contests?.[activeContestId];
         if (!currentDraft) return;
         const plainContest = safeClone(isDraft(currentDraft) ? current(currentDraft) : currentDraft);
@@ -1086,7 +1086,8 @@ export default function AIGeneratedSimulado({ drillRequest = null, onDrillConsum
 
       const total = qList.length;
       const blanksCount = answeredQuestions.filter((q) => !q.wasAnswered).length;
-      const contestForScore = useAppStore.getState().appState?.contests?.[useAppStore.getState().appState?.activeId];
+      const lockedContestId = sessionContestIdRef.current || useAppStore.getState().appState?.activeId;
+      const contestForScore = useAppStore.getState().appState?.contests?.[lockedContestId];
       const finishPenalty = Math.max(0, Number(contestForScore?.penaltyPerWrong) || 0);
       const overallEff = computeEffectiveScoreRatio(correctCount, total, {
         blanks: blanksCount,
@@ -1119,7 +1120,7 @@ export default function AIGeneratedSimulado({ drillRequest = null, onDrillConsum
         }));
 
       if (f.categoryId === 'mixed') {
-        const rawCats = useAppStore.getState().appState?.contests?.[useAppStore.getState().appState?.activeId]?.categories || [];
+        const rawCats = useAppStore.getState().appState?.contests?.[lockedContestId]?.categories || [];
         const cats = Array.isArray(rawCats) ? rawCats : Object.values(rawCats);
         const groups = {};
         answeredQuestions.forEach((q, idx) => {
@@ -1172,7 +1173,7 @@ export default function AIGeneratedSimulado({ drillRequest = null, onDrillConsum
               g.timeSpent > 0
                 ? g.timeSpent
                 : Math.round(fallbackTimeSpent * (g.total / Math.max(1, totalQuestionsInMixed)));
-            await saveAIResultsToSystem(subForm, g.correct, g.total, g.qs, topicTime, true, sessionBatchId);
+            await saveAIResultsToSystem(subForm, g.correct, g.total, g.qs, topicTime, true, sessionBatchId, lockedContestId);
           } catch (err) {
             console.error(`[AI Sim] Falha ao salvar grupo ${groupKey}:`, err);
             failedGroups.push(groupKey);
@@ -1186,7 +1187,7 @@ export default function AIGeneratedSimulado({ drillRequest = null, onDrillConsum
 
         const nowIso = new Date().toISOString();
         const todayKey = getDateKey(new Date()) || new Date().toISOString().slice(0, 10);
-        const activeContest = useAppStore.getState().appState?.contests?.[useAppStore.getState().appState?.activeId];
+        const activeContest = useAppStore.getState().appState?.contests?.[lockedContestId];
         const mixedDomain = safeDomain(Number(activeContest?.maxScore) || 100, Number(activeContest?.minScore) || 0);
         const mixedPenalty = Math.max(0, Number(activeContest?.penaltyPerWrong) || 0);
         const totalBlanksInMixed = answeredQuestions.filter((q) => !q.wasAnswered).length;
@@ -1222,11 +1223,12 @@ export default function AIGeneratedSimulado({ drillRequest = null, onDrillConsum
         };
         useAppStore.setState(
           (state) => {
+            const targetId = lockedContestId || state.appState.activeId;
             const nextContests = { ...state.appState.contests };
-            const currentDraft = nextContests[state.appState.activeId];
+            const currentDraft = nextContests[targetId];
             if (!currentDraft) return state;
             const existingSims = Array.isArray(currentDraft.simulados) ? currentDraft.simulados : Object.values(currentDraft.simulados || {});
-            nextContests[state.appState.activeId] = {
+            nextContests[targetId] = {
               ...currentDraft,
               simulados: [...existingSims, globalMixedEvent].slice(-DEFAULT_SIMULADO_HISTORY_CAP),
               lastUpdated: new Date().toISOString()
@@ -1465,69 +1467,126 @@ export default function AIGeneratedSimulado({ drillRequest = null, onDrillConsum
   }, [lastSessionBatchId, setData]);
 
   const handleCreateErrorFlashcards = useCallback(() => {
-    const wrongQs = (results?.questions || []).filter((q) => q && !q.isCorrect);
-    if (!wrongQs.length) {
+    const allQs = results?.questions || [];
+    const wrongItems = [];
+    allQs.forEach((q, idx) => {
+      if (q && !q.isCorrect) wrongItems.push({ q, idx });
+    });
+    if (!wrongItems.length) {
       showToast('Nenhuma questão errada para converter em flashcard.', 'info');
       return;
     }
     const nowIso = new Date().toISOString();
-    const deckName = `Erros IA — ${form.materia || 'Geral'}`;
+    const todayKey = getDateKey(new Date()) || nowIso.slice(0, 10);
     let createdCount = 0;
+    const touchedDeckNames = new Set();
 
     setData((contest) => {
       if (!contest) return contest;
+      const cats = Array.isArray(contest.categories)
+        ? contest.categories
+        : Object.values(contest.categories || {}).filter(Boolean);
       const decks = (Array.isArray(contest.flashcardDecks)
         ? [...contest.flashcardDecks]
         : Object.values(contest.flashcardDecks || {})).filter(Boolean);
-      let targetIdx = decks.findIndex((d) => d && normalize(d.name) === normalize(deckName));
-      const newCards = wrongQs.map((q) => {
-        const isCritical = confidences[q.id] === 'certeza';
-        const front = `${isCritical ? '[ERRO CRÍTICO] ' : ''}${String(q.enunciado || '').slice(0, 220)}`;
-        const back = `Gabarito: ${q.alternativa_correta}\n${q.justificativa || ''}`.trim();
-        return {
-          id: generateId('card'),
-          front,
-          back,
-          interval: 1,
-          ease: isCritical ? 2.1 : 2.5,
-          priority: isCritical ? 'critical' : 'normal',
-          confidence: confidences[q.id] || null,
-          errorType: errorTypes[q.id] || null,
-          reviews: 0,
-          lapses: isCritical ? 1 : 0,
-          due: getDateKey(new Date()) || nowIso.slice(0, 10),
-          createdAt: nowIso,
-          source: 'ai-error',
-        };
+
+      const bySubject = new Map();
+      wrongItems.forEach(({ q, idx }) => {
+        let resolvedMateria = form.materia || 'Geral';
+        let resolvedCatId = form.categoryId !== 'mixed' ? form.categoryId : null;
+        if (form.categoryId === 'mixed') {
+          const meta = resolveMixedQuestionMeta(q, idx, form.targets, cats);
+          resolvedMateria = meta.materia || 'Geral';
+          const matchedCat = (meta.realCategoryId && cats.find((c) => c && String(c.id) === String(meta.realCategoryId))) ||
+            cats.find((c) => c && isSubjectMatch(c.name, resolvedMateria));
+          if (matchedCat) {
+            resolvedMateria = matchedCat.name;
+            resolvedCatId = matchedCat.id;
+          } else {
+            resolvedCatId = meta.realCategoryId || null;
+          }
+        }
+        const key = normalize(resolvedMateria) || 'geral';
+        if (!bySubject.has(key)) {
+          bySubject.set(key, {
+            subject: resolvedMateria,
+            categoryId: resolvedCatId,
+            questions: [],
+          });
+        }
+        bySubject.get(key).questions.push(q);
       });
-      createdCount = newCards.length;
-      if (targetIdx === -1) {
-        decks.push({
-          id: generateId('deck'),
-          name: deckName,
-          categoryId: form.categoryId !== 'mixed' ? form.categoryId : null,
-          subject: form.materia || 'Geral',
-          cards: newCards,
-          createdAt: nowIso,
-          lastUpdated: nowIso,
-          updatedAt: nowIso,
+
+      bySubject.forEach((group) => {
+        const deckName = `Erros IA — ${group.subject}`;
+        let targetIdx = decks.findIndex((d) => d && normalize(d.name) === normalize(deckName));
+        const existingCards = targetIdx !== -1
+          ? (Array.isArray(decks[targetIdx].cards) ? decks[targetIdx].cards : Object.values(decks[targetIdx].cards || {})).filter(Boolean)
+          : [];
+        const existingFrontSet = new Set(existingCards.map((c) => normalize(c?.front || '')));
+
+        const newCards = [];
+        group.questions.forEach((q) => {
+          const isCritical = confidences[q.id] === 'certeza';
+          const front = `${isCritical ? '[ERRO CRÍTICO] ' : ''}${String(q.enunciado || '').slice(0, 220)}`;
+          const normFront = normalize(front);
+          if (!normFront || existingFrontSet.has(normFront)) return;
+          existingFrontSet.add(normFront);
+          const back = `Gabarito: ${q.alternativa_correta}\n${q.justificativa || ''}`.trim();
+          newCards.push({
+            id: generateId('card'),
+            front,
+            back,
+            interval: 1,
+            ease: isCritical ? 2.1 : 2.5,
+            priority: isCritical ? 'critical' : 'normal',
+            confidence: confidences[q.id] || null,
+            errorType: errorTypes[q.id] || null,
+            reviews: 0,
+            lapses: isCritical ? 1 : 0,
+            due: todayKey,
+            createdAt: nowIso,
+            source: 'ai-error',
+          });
         });
-      } else {
-        const existingDeck = decks[targetIdx];
-        const existingCards = (Array.isArray(existingDeck.cards)
-          ? existingDeck.cards
-          : Object.values(existingDeck.cards || {})).filter(Boolean);
-        decks[targetIdx] = {
-          ...existingDeck,
-          cards: [...existingCards, ...newCards],
-          lastUpdated: nowIso,
-          updatedAt: nowIso,
-        };
-      }
+
+        if (!newCards.length) return;
+        createdCount += newCards.length;
+        touchedDeckNames.add(deckName);
+
+        if (targetIdx === -1) {
+          decks.push({
+            id: generateId('deck'),
+            name: deckName,
+            categoryId: group.categoryId || null,
+            subject: group.subject,
+            cards: newCards,
+            createdAt: nowIso,
+            lastUpdated: nowIso,
+            updatedAt: nowIso,
+          });
+        } else {
+          decks[targetIdx] = {
+            ...decks[targetIdx],
+            ...(group.categoryId && !decks[targetIdx].categoryId ? { categoryId: group.categoryId } : {}),
+            cards: [...existingCards, ...newCards],
+            lastUpdated: nowIso,
+            updatedAt: nowIso,
+          };
+        }
+      });
+
       return { ...contest, flashcardDecks: decks, lastUpdated: nowIso };
     });
 
-    showToast(`${createdCount} flashcard(s) FSRS criado(s) no deck "${deckName}"!`, 'success');
+    if (createdCount === 0) {
+      showToast('Estes erros já estavam convertidos em flashcards.', 'info');
+      return;
+    }
+    const deckLabel = touchedDeckNames.size === 1
+      ? `no deck "${Array.from(touchedDeckNames)[0]}"`
+      : `em ${touchedDeckNames.size} decks por disciplina`;
+    showToast(`${createdCount} flashcard(s) FSRS criado(s) ${deckLabel}!`, 'success');
   }, [results, form.materia, form.categoryId, confidences, errorTypes, setData, showToast]);
 
   const handleStartAdaptiveNextRound = useCallback((nextDiff) => {

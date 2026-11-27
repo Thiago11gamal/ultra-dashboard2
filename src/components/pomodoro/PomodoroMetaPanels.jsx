@@ -60,7 +60,7 @@ export const DataTriviaPanel = React.memo(function DataTriviaPanel({ studyLogs, 
     });
 
     (simulados || []).forEach(s => {
-      if (!s || s.valid === false || s.validated === false) return;
+      if (!s || s.valid === false || s.validated === false || s.source === 'manual-error-notebook') return;
       const sDate = s.date || s.createdAt;
       const sTime = sDate ? normalizeDate(sDate)?.getTime() : NaN;
       if (!Number.isNaN(sTime) && sTime >= startOfLast30Days) recentSimulados++;
@@ -176,7 +176,7 @@ export const AICoachPanel = React.memo(function AICoachPanel({ activeSubject, st
         ? targetCategory.simuladoStats.history.length > 0
         : Object.keys(targetCategory?.simuladoStats?.history || {}).length > 0;
       const hasSimulados = hasCategoryHistory || (simulados || []).some(s => {
-        if (!s || s.valid === false || s.validated === false) return false;
+        if (!s || s.valid === false || s.validated === false || s.source === 'manual-error-notebook') return false;
         if (targetCategory.id != null && s.categoryId != null && String(s.categoryId) === String(targetCategory.id)) return true;
         if (targetCategory.name && isSubjectMatch(s.subject || s.categoryName || s.materia || s.disciplina || '', targetCategory.name)) return true;
         return Boolean(s.categoryScores && (

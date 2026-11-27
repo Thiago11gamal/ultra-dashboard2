@@ -778,7 +778,7 @@ export function useMonteCarloStats({
         ? timelineDates[timeIndex]
         : getDateKey(new Date());
       const timeFilteredSimuladoRows = (rawSimuladoRowsRef.current || []).filter(r => {
-        if (!r || r.valid === false || r.validated === false) return false;
+        if (!r || r.valid === false || r.validated === false || r.source === 'manual-error-notebook') return false;
         const dk = getDateKey(r.date || r.createdAt);
         return !dk || !activeCutoffDate || dk <= activeCutoffDate;
       });

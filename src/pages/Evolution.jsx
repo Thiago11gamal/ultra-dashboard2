@@ -69,7 +69,7 @@ export default function Evolution() {
       return topics.some(t => t && (Number(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions) > 0 || hasScoreField(t)));
     });
   })) || (Array.isArray(safeSimuladoRows) && safeSimuladoRows.some(row => {
-    if (!row || row.valid === false || row.validated === false) return false;
+    if (!row || row.valid === false || row.validated === false || row.source === 'manual-error-notebook') return false;
     if (Number(row.total ?? row.questoes ?? row.totalQuestoes ?? row.questions) > 0 || hasScoreField(row)) return true;
     const topics = Array.isArray(row.topics) ? row.topics : Object.values(row.topics || {});
     return topics.some(t => t && (Number(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions) > 0 || hasScoreField(t)));

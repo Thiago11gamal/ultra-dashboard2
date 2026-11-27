@@ -12,6 +12,7 @@ import { parseCoachTask, isSystemAlertTask } from '../utils/coachText';
 import { PageErrorBoundary } from '../components/ErrorBoundary';
 import ConfirmModal from '../components/ConfirmModal';
 import { generateOptimalWeeklySchedule, rebalanceRemainingWeekSchedule } from '../engine/adaptive/allocationOptimizer';
+import { reconcileContestCategoriesHistory, isRealSimuladoRow } from '../utils/simuladoReconciler';
 
 const EMPTY_ARRAY = Object.freeze([]);
 
@@ -34,6 +35,13 @@ export default function Agenda() {
   const studySessions = useMemo(() => (Array.isArray(rawStudySessions) ? rawStudySessions : Object.values(rawStudySessions || {})).filter(Boolean), [rawStudySessions]);
   const rawSimuladoRows = useAppStore(state => getActiveContest(state).simuladoRows || EMPTY_ARRAY);
   const simuladoRows = useMemo(() => (Array.isArray(rawSimuladoRows) ? rawSimuladoRows : Object.values(rawSimuladoRows || {})).filter(Boolean), [rawSimuladoRows]);
+  const contestMaxScore = useAppStore(state => getActiveContest(state).maxScore ?? 100);
+  const contestMinScore = useAppStore(state => getActiveContest(state).minScore ?? 0);
+  const contestPenalty = useAppStore(state => getActiveContest(state).penaltyPerWrong ?? 0);
+  const reconciledCategories = useMemo(() => {
+    if (!categories.length || !simuladoRows.some(isRealSimuladoRow)) return categories;
+    return reconcileContestCategoriesHistory(categories, simuladoRows, contestMaxScore, contestMinScore, { penaltyPerWrong: contestPenalty });
+  }, [categories, simuladoRows, contestMaxScore, contestMinScore, contestPenalty]);
   const setData = useAppStore(state => state.setData);
   const startPomodoroSession = useAppStore(state => state.startPomodoroSession);
   const showToast = useToast();
@@ -44,8 +52,8 @@ export default function Agenda() {
 
   const optimalPreview = useMemo(() => {
     if (!showAutoModal) return null;
-    return generateOptimalWeeklySchedule(categories, studyLogs, studySessions, simuladoRows, { dailyHours });
-  }, [showAutoModal, categories, studyLogs, studySessions, simuladoRows, dailyHours]);
+    return generateOptimalWeeklySchedule(reconciledCategories, studyLogs, studySessions, simuladoRows, { dailyHours });
+  }, [showAutoModal, reconciledCategories, studyLogs, studySessions, simuladoRows, dailyHours]);
 
   const applyOptimalSchedule = () => {
     if (!optimalPreview?.events?.length) {
@@ -60,11 +68,11 @@ export default function Agenda() {
   };
 
   const handleRebalanceRemainingWeek = () => {
-    if (!categories.length) {
+    if (!reconciledCategories.length) {
       showToast('Cadastre ao menos 1 disciplina para rebalancear a semana.', 'warning');
       return;
     }
-    const res = rebalanceRemainingWeekSchedule(agenda, categories, studyLogs, studySessions, simuladoRows, { dailyHours });
+    const res = rebalanceRemainingWeekSchedule(agenda, reconciledCategories, studyLogs, studySessions, simuladoRows, { dailyHours });
     if (!res.addedCount) {
       showToast('Nenhum bloco pendente para rebalancear hoje.', 'info');
       return;

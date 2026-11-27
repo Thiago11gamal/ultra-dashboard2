@@ -12,6 +12,7 @@ import { AdaptiveMaturityBadge } from '../components/ui/AdaptiveMaturityBadge';
 import { mapFocusEvolutionData, mapSubjectHoursData } from '../utils/chartDataMappers';
 import { getDateKey, normalizeDate } from '../utils/dateHelper';
 import { getSafeScore, isPhantomZeroTimeAttempt, resolveUserTargetScorePoints } from '../utils/scoreHelper';
+import { reconcileContestCategoriesHistory, isRealSimuladoRow } from '../utils/simuladoReconciler';
 import { useAppStore } from '../store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
 
@@ -39,7 +40,7 @@ const useDayTick = () => {
 export default function Stats() {
     const dayTick = useDayTick();
 
-    const { rawCategories, rawStudyLogs, rawStudySessions, rawFlashcards, rawSimuladoRows, user, rawContestMinScore, rawContestMaxScore } = useAppStore(useShallow(state => {
+    const { rawCategories, rawStudyLogs, rawStudySessions, rawFlashcards, rawSimuladoRows, user, rawContestMinScore, rawContestMaxScore, contestPenalty } = useAppStore(useShallow(state => {
         const contests = state?.appState?.contests || {};
         const activeId = state?.appState?.activeId;
         const contest = contests[activeId] || {};
@@ -51,7 +52,8 @@ export default function Stats() {
             rawSimuladoRows: contest.simuladoRows,
             user: contest.user || null,
             rawContestMinScore: contest.minScore ?? contest.settings?.minScore,
-            rawContestMaxScore: contest.maxScore ?? contest.settings?.maxScore
+            rawContestMaxScore: contest.maxScore ?? contest.settings?.maxScore,
+            contestPenalty: contest.penaltyPerWrong ?? 0
         };
     }));
 
@@ -68,7 +70,7 @@ export default function Stats() {
     }, [rawSimuladoRows]);
 
     // FIX E-01: normalização profunda — garante `tasks` como array em todas as categorias.
-    const categories = useMemo(() => {
+    const baseCategories = useMemo(() => {
         const list = Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories || {});
         return list.filter(Boolean).map(c => {
             const rawTasks = Array.isArray(c?.tasks) ? c.tasks : Object.values(c?.tasks || {});
@@ -87,16 +89,16 @@ export default function Stats() {
 
         let resolvedMax = toOptNum(rawContestMaxScore);
         if (!Number.isFinite(resolvedMax) || resolvedMax <= 0) {
-            const catMaxes = categories.map(c => toOptNum(c?.maxScore)).filter(s => Number.isFinite(s) && s > 0);
-            resolvedMax = (catMaxes.length > 0 && catMaxes.length === categories.length && new Set(catMaxes).size === 1)
+            const catMaxes = baseCategories.map(c => toOptNum(c?.maxScore)).filter(s => Number.isFinite(s) && s > 0);
+            resolvedMax = (catMaxes.length > 0 && catMaxes.length === baseCategories.length && new Set(catMaxes).size === 1)
                 ? catMaxes[0]
                 : 100;
         }
 
         let resolvedMin = toOptNum(rawContestMinScore);
         if (!Number.isFinite(resolvedMin)) {
-            const catMins = categories.map(c => toOptNum(c?.minScore)).filter(Number.isFinite);
-            resolvedMin = (catMins.length > 0 && catMins.length === categories.length && new Set(catMins).size === 1)
+            const catMins = baseCategories.map(c => toOptNum(c?.minScore)).filter(Number.isFinite);
+            resolvedMin = (catMins.length > 0 && catMins.length === baseCategories.length && new Set(catMins).size === 1)
                 ? catMins[0]
                 : 0;
         }
@@ -106,7 +108,16 @@ export default function Stats() {
         }
 
         return { minScore: resolvedMin, maxScore: resolvedMax };
-    }, [rawContestMinScore, rawContestMaxScore, categories]);
+    }, [rawContestMinScore, rawContestMaxScore, baseCategories]);
+
+    const categories = useMemo(() => {
+        if (!baseCategories.length || !simuladoRows.some(isRealSimuladoRow)) {
+            return baseCategories;
+        }
+        return reconcileContestCategoriesHistory(baseCategories, simuladoRows, maxScore, minScore, {
+            penaltyPerWrong: Number(contestPenalty) || 0
+        });
+    }, [baseCategories, simuladoRows, maxScore, minScore, contestPenalty]);
 
     const allocationTargetScore = useMemo(
         () => resolveUserTargetScorePoints(user, minScore, maxScore, 0.8),
@@ -126,7 +137,7 @@ export default function Stats() {
             ? rawSimuladoRows
             : Object.values(rawSimuladoRows || {});
         const hasValidRows = rowsArray.some(r => {
-            if (!r || r.validated === false || r.valid === false) return false;
+            if (!isRealSimuladoRow(r)) return false;
             const dk = getDateKey(r.date || r.createdAt);
             if (dk && todayKey && dk > todayKey) return false;
             const rMax = isOptNum(r.maxScore) && Number(r.maxScore) > 0 ? Number(r.maxScore) : maxScore;

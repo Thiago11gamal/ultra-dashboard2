@@ -16,8 +16,9 @@ export default function Sessions() {
     }));
     const deleteSession = useAppStore(state => state.deleteSession);
     const deleteSimulado = useAppStore(state => state.deleteSimulado);
+    const safeRows = Array.isArray(data?.simuladoRows) ? data.simuladoRows : Object.values(data?.simuladoRows || {});
     const hasSessions = Array.isArray(data?.studySessions) ? data.studySessions.length > 0 : Object.keys(data?.studySessions || {}).length > 0;
-    const hasSimulados = Array.isArray(data?.simuladoRows) ? data.simuladoRows.length > 0 : Object.keys(data?.simuladoRows || {}).length > 0;
+    const hasSimulados = safeRows.some(r => r && r.valid !== false && r.validated !== false && r.source !== 'manual-error-notebook');
  
     if (!hasSessions && !hasSimulados) {
         return (

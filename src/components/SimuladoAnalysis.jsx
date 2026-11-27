@@ -174,7 +174,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
     };
 
     const handleConfirmResetScores = () => {
-        const newRows = rows.map(row => withPctScore({ ...row, correct: 0, total: 0, difficulty: 1.0 }, 0, 0));
+        const newRows = rows.map(row => withPctScore({ ...row, correct: 0, total: 0, blanks: 0, difficulty: 1.0 }, 0, 0, effectivePenalty));
         setRows(newRows);
         setShowResetScoresConfirm(false);
     };
@@ -183,7 +183,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
         const newRows = rows.map(row => {
             const newTotal = Math.min(10000, (parseInt(row.total, 10) || 0) + 10);
             const currentCorrect = parseInt(row.correct, 10) || 0;
-            return withPctScore({ ...row, total: newTotal }, currentCorrect, newTotal);
+            return withPctScore({ ...row, total: newTotal }, currentCorrect, newTotal, effectivePenalty);
         });
         setRows(newRows);
     };
@@ -201,7 +201,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                 }
             }
 
-            return withPctScore({ ...row, correct: newCorrect, total: currentTotal }, newCorrect, currentTotal);
+            return withPctScore({ ...row, correct: newCorrect, total: currentTotal }, newCorrect, currentTotal, effectivePenalty);
         });
         setRows(newRows);
     };
