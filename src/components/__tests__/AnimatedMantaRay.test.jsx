@@ -129,6 +129,9 @@ describe('AnimatedMantaRay kinematics and entrance screens', () => {
         expect(flushNextFrame(500)).toBe(true);
         const frame2D = pathEl.getAttribute('d');
         expect(frame2D).not.toBe(frame1D);
+        const bubbles = container.querySelectorAll('[data-manta-bubble="true"]');
+        expect(bubbles.length).toBeGreaterThan(0);
+        expect(Array.from(bubbles).some((bubble) => Number(bubble.getAttribute('opacity')) > 0.2)).toBe(true);
 
         unmount();
         expect(rafCallbacks.size).toBe(0);

@@ -389,14 +389,15 @@ export default function AnimatedMantaRay({
                             <g key={`mote-${idx}`}>
                                 <circle
                                     ref={(el) => { moteRefs.current[idx] = el; }}
+                                    data-manta-bubble="true"
                                     cx={m.startX}
                                     cy={m.startY}
                                     r={m.r}
                                     fill="#cffafe"
-                                    fillOpacity="0.1"
+                                    fillOpacity="0.16"
                                     stroke="#e0f7ff"
-                                    strokeOpacity="0.58"
-                                    strokeWidth="0.55"
+                                    strokeOpacity="0.86"
+                                    strokeWidth="0.8"
                                     opacity="0"
                                 />
                                 <circle
