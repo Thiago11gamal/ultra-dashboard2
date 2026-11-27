@@ -31,6 +31,7 @@ export default function AnimatedMantaRay({
     const shadowRef = useRef(null);
     const gradRef = useRef(null);
     const moteRefs = useRef([]);
+    const moteHighlightRefs = useRef([]);
 
     const hoverTargetRef = useRef({ x: 0, y: 0, active: false });
     const hoverCurrentRef = useRef({ x: 0, y: 0, speedBoost: 0 });
@@ -78,6 +79,12 @@ export default function AnimatedMantaRay({
                 el.setAttribute('cx', String(m.startX));
                 el.setAttribute('cy', String(m.startY));
                 el.setAttribute('opacity', '0');
+                const highlight = moteHighlightRefs.current[i];
+                if (highlight) {
+                    highlight.setAttribute('cx', String(m.startX - m.r * 0.35));
+                    highlight.setAttribute('cy', String(m.startY - m.r * 0.35));
+                    highlight.setAttribute('opacity', '0');
+                }
             }
         };
 
@@ -189,6 +196,12 @@ export default function AnimatedMantaRay({
                     el.setAttribute('cx', mx.toFixed(1));
                     el.setAttribute('cy', my.toFixed(1));
                     el.setAttribute('opacity', (m.opacity * edgeFade).toFixed(3));
+                    const highlight = moteHighlightRefs.current[i];
+                    if (highlight) {
+                        highlight.setAttribute('cx', (mx - m.r * 0.35).toFixed(1));
+                        highlight.setAttribute('cy', (my - m.r * 0.35).toFixed(1));
+                        highlight.setAttribute('opacity', (m.opacity * edgeFade * 0.72).toFixed(3));
+                    }
                 }
             }
 
@@ -373,19 +386,28 @@ export default function AnimatedMantaRay({
                 {showFlow && (
                     <g aria-hidden="true">
                         {FLOW_MOTES.map((m, idx) => (
-                            <circle
-                                key={`mote-${idx}`}
-                                ref={(el) => { moteRefs.current[idx] = el; }}
-                                cx={m.startX}
-                                cy={m.startY}
-                                r={m.r}
-                                fill="#a5f3fc"
-                                fillOpacity="0.12"
-                                stroke="#cffafe"
-                                strokeOpacity="0.3"
-                                strokeWidth="0.45"
-                                opacity="0"
-                            />
+                            <g key={`mote-${idx}`}>
+                                <circle
+                                    ref={(el) => { moteRefs.current[idx] = el; }}
+                                    cx={m.startX}
+                                    cy={m.startY}
+                                    r={m.r}
+                                    fill="#cffafe"
+                                    fillOpacity="0.1"
+                                    stroke="#e0f7ff"
+                                    strokeOpacity="0.58"
+                                    strokeWidth="0.55"
+                                    opacity="0"
+                                />
+                                <circle
+                                    ref={(el) => { moteHighlightRefs.current[idx] = el; }}
+                                    cx={m.startX - m.r * 0.35}
+                                    cy={m.startY - m.r * 0.35}
+                                    r={m.r * 0.19}
+                                    fill="#ffffff"
+                                    opacity="0"
+                                />
+                            </g>
                         ))}
                     </g>
                 )}

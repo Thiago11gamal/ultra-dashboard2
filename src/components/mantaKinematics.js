@@ -9,13 +9,18 @@ export const SWIM_OMEGA = (Math.PI * 2) / SWIM_PERIOD_SEC;
 export const ROLL_RATIO = 0.32;
 
 export const FLOW_MOTES = [
-    { startX: 430, startY: 95, r: 0.9, speed: 10, phase: 0.12, opacity: 0.19 },
-    { startX: 315, startY: 70, r: 0.75, speed: 8, phase: 0.48, opacity: 0.15 },
-    { startX: 470, startY: 210, r: 1.05, speed: 12, phase: 0.77, opacity: 0.17 },
-    { startX: 390, startY: 295, r: 0.8, speed: 9, phase: 0.31, opacity: 0.14 },
-    { startX: 250, startY: 115, r: 0.85, speed: 9, phase: 0.64, opacity: 0.14 },
-    { startX: 465, startY: 365, r: 0.7, speed: 7, phase: 0.90, opacity: 0.13 },
-    { startX: 345, startY: 385, r: 0.95, speed: 11, phase: 0.19, opacity: 0.16 },
+    { startX: 430, startY: 95, r: 1.05, speed: 10, phase: 0.12, opacity: 0.24 },
+    { startX: 315, startY: 70, r: 0.85, speed: 8, phase: 0.48, opacity: 0.19 },
+    { startX: 470, startY: 210, r: 1.25, speed: 12, phase: 0.77, opacity: 0.22 },
+    { startX: 390, startY: 295, r: 0.9, speed: 9, phase: 0.31, opacity: 0.18 },
+    { startX: 250, startY: 115, r: 0.95, speed: 9, phase: 0.64, opacity: 0.19 },
+    { startX: 465, startY: 365, r: 0.8, speed: 7, phase: 0.90, opacity: 0.18 },
+    { startX: 345, startY: 385, r: 1.1, speed: 11, phase: 0.19, opacity: 0.21 },
+    { startX: 285, startY: 250, r: 0.8, speed: 8, phase: 0.37, opacity: 0.17 },
+    { startX: 425, startY: 430, r: 1.3, speed: 13, phase: 0.58, opacity: 0.22 },
+    { startX: 205, startY: 340, r: 0.9, speed: 9, phase: 0.83, opacity: 0.18 },
+    { startX: 365, startY: 160, r: 0.75, speed: 7, phase: 0.26, opacity: 0.16 },
+    { startX: 490, startY: 300, r: 1.15, speed: 12, phase: 0.69, opacity: 0.20 },
 ];
 
 const TRAIL_POINTS = 16;
