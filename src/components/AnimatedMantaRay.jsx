@@ -35,6 +35,8 @@ export default function AnimatedMantaRay({
     const hoverTargetRef = useRef({ x: 0, y: 0, active: false });
     const hoverCurrentRef = useRef({ x: 0, y: 0, speedBoost: 0 });
     const floatElapsedRef = useRef(7);
+    const floatStartRef = useRef({ x: 0, y: 0 });
+    const floatOffsetRef = useRef({ x: 0, y: 0 });
 
     const restPath = useMemo(() => buildMantaPath(0, 0, 0, 0, true), []);
 
@@ -126,13 +128,18 @@ export default function AnimatedMantaRay({
                 floatElapsedRef.current = Math.min(floatDuration, floatElapsedRef.current + dt);
                 const progress = floatElapsedRef.current / floatDuration;
                 const envelope = Math.sin(Math.PI * progress);
-                const driftX = 48 * Math.sin(progress * Math.PI * 2) * envelope;
-                const driftY = 7 * Math.sin(progress * Math.PI * 4) * envelope;
+                const returnEase = progress * progress * (3 - 2 * progress);
+                const driftX = floatStartRef.current.x * (1 - returnEase)
+                    + 48 * Math.sin(progress * Math.PI * 2) * envelope;
+                const driftY = floatStartRef.current.y * (1 - returnEase)
+                    + 7 * Math.sin(progress * Math.PI * 4) * envelope;
+                floatOffsetRef.current = { x: driftX, y: driftY };
                 if (driftRef.current) {
                     driftRef.current.setAttribute('transform', `translate(${driftX.toFixed(2)} ${driftY.toFixed(2)})`);
                 }
-            } else if (driftRef.current) {
-                driftRef.current.setAttribute('transform', 'translate(0 0)');
+            } else {
+                floatOffsetRef.current = { x: 0, y: 0 };
+                if (driftRef.current) driftRef.current.setAttribute('transform', 'translate(0 0)');
             }
 
             const updateWake = (tipIndex, pathEl, gradEl) => {
@@ -282,7 +289,9 @@ export default function AnimatedMantaRay({
     };
 
     const handleClick = () => {
-        if (interactive) floatElapsedRef.current = 0;
+        if (!interactive) return;
+        floatStartRef.current = { ...floatOffsetRef.current };
+        floatElapsedRef.current = 0;
     };
 
     const bodyPathId = `manta-body-path-${uid}`;
@@ -344,14 +353,14 @@ export default function AnimatedMantaRay({
                     </radialGradient>
 
                     <linearGradient id={leftWakeGradId} ref={leftWakeGradRef} gradientUnits="userSpaceOnUse">
-                        <stop offset="0%" stopColor="#c7d2fe" stopOpacity="0.22" />
-                        <stop offset="48%" stopColor="#38bdf8" stopOpacity="0.10" />
+                        <stop offset="0%" stopColor="#c7d2fe" stopOpacity="0.55" />
+                        <stop offset="48%" stopColor="#38bdf8" stopOpacity="0.30" />
                         <stop offset="100%" stopColor="#38bdf8" stopOpacity="0" />
                     </linearGradient>
 
                     <linearGradient id={rightWakeGradId} ref={rightWakeGradRef} gradientUnits="userSpaceOnUse">
-                        <stop offset="0%" stopColor="#c7d2fe" stopOpacity="0.18" />
-                        <stop offset="48%" stopColor="#38bdf8" stopOpacity="0.08" />
+                        <stop offset="0%" stopColor="#c7d2fe" stopOpacity="0.45" />
+                        <stop offset="48%" stopColor="#38bdf8" stopOpacity="0.24" />
                         <stop offset="100%" stopColor="#38bdf8" stopOpacity="0" />
                     </linearGradient>
                 </defs>
@@ -387,13 +396,13 @@ export default function AnimatedMantaRay({
                             ref={leftWakeRef}
                             d=""
                             stroke={`url(#${leftWakeGradId})`}
-                            strokeWidth="0.9"
+                            strokeWidth="2.4"
                         />
                         <path
                             ref={rightWakeRef}
                             d=""
                             stroke={`url(#${rightWakeGradId})`}
-                            strokeWidth="0.9"
+                            strokeWidth="2"
                         />
                     </g>
                 )}

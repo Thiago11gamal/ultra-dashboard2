@@ -149,6 +149,14 @@ describe('AnimatedMantaRay kinematics and entrance screens', () => {
         });
 
         expect(driftGroup.getAttribute('transform')).not.toBe(restingTransform);
+
+        const xBeforeRetap = Number(driftGroup.getAttribute('transform').match(/translate\(([-\d.]+)/)[1]);
+        act(() => {
+            wrapper.click();
+            flushNextFrame(1516);
+        });
+        const xAfterRetap = Number(driftGroup.getAttribute('transform').match(/translate\(([-\d.]+)/)[1]);
+        expect(Math.abs(xAfterRetap - xBeforeRetap)).toBeLessThan(1);
     });
 
     it('keeps swimming by default even under OS reduced-motion, and honors respectReducedMotion when enabled', () => {

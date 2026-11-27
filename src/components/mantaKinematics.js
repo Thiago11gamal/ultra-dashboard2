@@ -19,8 +19,8 @@ export const FLOW_MOTES = [
 ];
 
 const TRAIL_POINTS = 16;
-const TRAIL_SPAN_SEC = 0.72;
-const STREAM_SPEED = 88;
+const TRAIL_SPAN_SEC = 1.35;
+const STREAM_SPEED = 115;
 
 export const clamp = (val, min, max) => (val < min ? min : val > max ? max : val);
 
