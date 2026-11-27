@@ -1,5 +1,5 @@
 import React, { useEffect, useId, useMemo, useRef } from 'react';
-import { MANTA_BASIS, MANTA_VIEWBOX } from './mantaGeometry';
+import { MANTA_VIEWBOX } from './mantaGeometry';
 import {
     FLOW_MOTES,
     LEFT_TIP_INDEX,
@@ -105,8 +105,8 @@ export default function AnimatedMantaRay({
             const ht = hoverTargetRef.current;
             const hc = hoverCurrentRef.current;
             // Hydraulic water damping so pointer tilt and hover glide settle silkily
-            const damp = 1 - Math.exp(-4.0 * dt);
-            const boostDamp = 1 - Math.exp(-2.8 * dt);
+            const damp = 1 - Math.exp(-5.2 * dt);
+            const boostDamp = 1 - Math.exp(-3.6 * dt);
             hc.x += (ht.x - hc.x) * damp;
             hc.y += (ht.y - hc.y) * damp;
             const targetBoost = ht.active ? 0.20 : 0;
@@ -154,16 +154,14 @@ export default function AnimatedMantaRay({
             }
 
             if (showFlow) {
-                const B = MANTA_BASIS;
                 const span = 440;
                 for (let i = 0; i < FLOW_MOTES.length; i++) {
                     const el = moteRefs.current[i];
                     if (!el) continue;
                     const m = FLOW_MOTES[i];
-                    const travel = (simTime * m.speed + m.phase * span) % span;
-                    const mx = m.startX - B.fwdX * travel;
-                    const my = m.startY - B.fwdY * travel;
-                    const edgeFade = Math.sin((travel / span) * Math.PI);
+                    const my = ((m.startY - simTime * m.speed) % span + span) % span;
+                    const mx = m.startX + Math.sin(simTime * 0.8 + m.phase * Math.PI * 2) * 3.5;
+                    const edgeFade = Math.sin(((span - my) / span) * Math.PI);
                     el.setAttribute('cx', mx.toFixed(1));
                     el.setAttribute('cy', my.toFixed(1));
                     el.setAttribute('opacity', (m.opacity * edgeFade).toFixed(3));
@@ -350,6 +348,10 @@ export default function AnimatedMantaRay({
                                 cy={m.startY}
                                 r={m.r}
                                 fill="#a5f3fc"
+                                fillOpacity="0.12"
+                                stroke="#cffafe"
+                                strokeOpacity="0.3"
+                                strokeWidth="0.45"
                                 opacity="0"
                             />
                         ))}
@@ -362,13 +364,13 @@ export default function AnimatedMantaRay({
                             ref={leftWakeRef}
                             d=""
                             stroke={`url(#${leftWakeGradId})`}
-                            strokeWidth="1.4"
+                            strokeWidth="0.9"
                         />
                         <path
                             ref={rightWakeRef}
                             d=""
                             stroke={`url(#${rightWakeGradId})`}
-                            strokeWidth="1.4"
+                            strokeWidth="0.9"
                         />
                     </g>
                 )}

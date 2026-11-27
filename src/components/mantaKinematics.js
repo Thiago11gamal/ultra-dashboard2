@@ -4,23 +4,23 @@ export const VERTEX_COUNT = MANTA_UV_POINTS.length / 2;
 export const LEFT_TIP_INDEX = 0;
 export const RIGHT_TIP_INDEX = 178;
 
-export const SWIM_PERIOD_SEC = 3.4;
+export const SWIM_PERIOD_SEC = 4.6;
 export const SWIM_OMEGA = (Math.PI * 2) / SWIM_PERIOD_SEC;
-export const ROLL_RATIO = 0.36;
+export const ROLL_RATIO = 0.32;
 
 export const FLOW_MOTES = [
-    { startX: 430, startY: 95, r: 1.5, speed: 34, phase: 0.12, opacity: 0.38 },
-    { startX: 315, startY: 70, r: 1.1, speed: 24, phase: 0.48, opacity: 0.28 },
-    { startX: 470, startY: 210, r: 1.8, speed: 40, phase: 0.77, opacity: 0.32 },
-    { startX: 390, startY: 295, r: 1.2, speed: 28, phase: 0.31, opacity: 0.25 },
-    { startX: 250, startY: 115, r: 1.3, speed: 30, phase: 0.64, opacity: 0.24 },
-    { startX: 465, startY: 365, r: 1.0, speed: 22, phase: 0.90, opacity: 0.22 },
-    { startX: 345, startY: 385, r: 1.6, speed: 36, phase: 0.19, opacity: 0.27 },
+    { startX: 430, startY: 95, r: 0.9, speed: 10, phase: 0.12, opacity: 0.19 },
+    { startX: 315, startY: 70, r: 0.75, speed: 8, phase: 0.48, opacity: 0.15 },
+    { startX: 470, startY: 210, r: 1.05, speed: 12, phase: 0.77, opacity: 0.17 },
+    { startX: 390, startY: 295, r: 0.8, speed: 9, phase: 0.31, opacity: 0.14 },
+    { startX: 250, startY: 115, r: 0.85, speed: 9, phase: 0.64, opacity: 0.14 },
+    { startX: 465, startY: 365, r: 0.7, speed: 7, phase: 0.90, opacity: 0.13 },
+    { startX: 345, startY: 385, r: 0.95, speed: 11, phase: 0.19, opacity: 0.16 },
 ];
 
 const TRAIL_POINTS = 16;
-const TRAIL_SPAN_SEC = 0.92;
-const STREAM_SPEED = 118;
+const TRAIL_SPAN_SEC = 0.72;
+const STREAM_SPEED = 88;
 
 export const clamp = (val, min, max) => (val < min ? min : val > max ? max : val);
 
@@ -56,7 +56,9 @@ export function projectVertex(u, v, phase, rollPhase, hoverX, hoverY, isRest, ta
     // wider trailing membrane feathers organically through the stroke cycle.
     const tipTaper = 1 - 0.38 * (s * s * s);
     const wPhase = phase - 0.94 * s + 0.42 * uNorm * tipTaper;
-    const flap = Math.sin(wPhase) + 0.14 * Math.sin(2 * wPhase - 0.55);
+    const flap = Math.sin(wPhase)
+        + 0.10 * Math.sin(2 * wPhase - 0.55)
+        + 0.025 * Math.sin(3 * wPhase - 0.30);
 
     const amp = v >= 0 ? 40 : 29;
     const zWing = amp * flex * flap;
@@ -79,10 +81,10 @@ export function projectVertex(u, v, phase, rollPhase, hoverX, hoverY, isRest, ta
     vDef += tailMask * tailWaveLat;
 
     // Coupled body heave, surge, pitch, slow ocean bank, and subtle cursor bank
-    const bodyLift = -9.0 * Math.sin(phase - 0.35);
-    const bodySurge = 9.5 * Math.sin(phase - 0.78);
-    const bodyPitch = 0.050 * Math.cos(phase) - hoverY * 0.045;
-    const bankRoll = 0.062 * Math.sin(rollPhase) + hoverX * 0.075;
+    const bodyLift = -7.5 * Math.sin(phase - 0.35) - 0.8 * Math.sin(2 * phase - 0.18);
+    const bodySurge = 7.5 * Math.sin(phase - 0.78) + 0.9 * Math.sin(2 * phase - 0.26);
+    const bodyPitch = 0.042 * Math.cos(phase) - hoverY * 0.045;
+    const bankRoll = 0.052 * Math.sin(rollPhase) + hoverX * 0.075;
 
     const zBody = bodyLift + u * bodyPitch + v * bankRoll + tailMask * tailWaveZ;
     const uDef = u + bodySurge;
@@ -96,8 +98,8 @@ export function projectVertex(u, v, phase, rollPhase, hoverX, hoverY, isRest, ta
     wUpY /= len;
 
     // Gentle figure-8 hover drift in water
-    const driftX = 7.5 * Math.sin(rollPhase) + hoverX * 7;
-    const driftY = 5.5 * Math.sin(rollPhase * 2) + hoverY * 5;
+    const driftX = 6.2 * Math.sin(rollPhase) + hoverX * 7;
+    const driftY = 4.6 * Math.sin(rollPhase * 2) + hoverY * 5;
 
     const x = B.centerX + driftX + uDef * B.fwdX + vDef * B.wingX + zBody * B.upBodyX + zWing * wUpX;
     const y = B.centerY + driftY + uDef * B.fwdY + vDef * B.wingY + zBody * B.upBodyY + zWing * wUpY;
@@ -164,7 +166,9 @@ function projectVertexAtIndex(i, phase, rollPhase, hoverX, hoverY, isRest, targe
 
     const flex = VERTEX_FLEX[i];
     const wPhase = phase + VERTEX_PHASE_OFFSET[i];
-    const flap = Math.sin(wPhase) + 0.14 * Math.sin(2 * wPhase - 0.55);
+    const flap = Math.sin(wPhase)
+        + 0.10 * Math.sin(2 * wPhase - 0.55)
+        + 0.025 * Math.sin(3 * wPhase - 0.30);
     const zWing = VERTEX_AMP[i] * flex * flap;
 
     const flexFlap = flex * flap;
@@ -184,16 +188,16 @@ function projectVertexAtIndex(i, phase, rollPhase, hoverX, hoverY, isRest, targe
         vDef += tailMask * tailWaveLat;
     }
 
-    const bodyLift = -9.0 * Math.sin(phase - 0.35);
-    const bodySurge = 9.5 * Math.sin(phase - 0.78);
-    const bodyPitch = 0.050 * Math.cos(phase) - hoverY * 0.045;
-    const bankRoll = 0.062 * Math.sin(rollPhase) + hoverX * 0.075;
+    const bodyLift = -7.5 * Math.sin(phase - 0.35) - 0.8 * Math.sin(2 * phase - 0.18);
+    const bodySurge = 7.5 * Math.sin(phase - 0.78) + 0.9 * Math.sin(2 * phase - 0.26);
+    const bodyPitch = 0.042 * Math.cos(phase) - hoverY * 0.045;
+    const bankRoll = 0.052 * Math.sin(rollPhase) + hoverX * 0.075;
 
     const zBody = bodyLift + u * bodyPitch + v * bankRoll + tailMask * tailWaveZ;
     const uDef = u + bodySurge;
 
-    const driftX = 7.5 * Math.sin(rollPhase) + hoverX * 7;
-    const driftY = 5.5 * Math.sin(rollPhase * 2) + hoverY * 5;
+    const driftX = 6.2 * Math.sin(rollPhase) + hoverX * 7;
+    const driftY = 4.6 * Math.sin(rollPhase * 2) + hoverY * 5;
 
     target.x = B.centerX + driftX + uDef * B.fwdX + vDef * B.wingX + zBody * B.upBodyX + zWing * VERTEX_WUP_X[i];
     target.y = B.centerY + driftY + uDef * B.fwdY + vDef * B.wingY + zBody * B.upBodyY + zWing * VERTEX_WUP_Y[i];
