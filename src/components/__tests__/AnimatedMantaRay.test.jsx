@@ -134,6 +134,23 @@ describe('AnimatedMantaRay kinematics and entrance screens', () => {
         expect(rafCallbacks.size).toBe(0);
     });
 
+    it('drifts gently from side to side after being clicked', () => {
+        const { container } = render(<AnimatedMantaRay ariaLabel="Arraia Flutuante" />);
+        const wrapper = screen.getByRole('img', { name: 'Arraia Flutuante' });
+        const driftGroup = container.querySelector('[data-manta-drift="true"]');
+        const restingTransform = driftGroup.getAttribute('transform');
+
+        act(() => {
+            flushNextFrame(100);
+            wrapper.click();
+            for (let frame = 0; frame < 14; frame++) {
+                flushNextFrame(116 + frame * 100);
+            }
+        });
+
+        expect(driftGroup.getAttribute('transform')).not.toBe(restingTransform);
+    });
+
     it('keeps swimming by default even under OS reduced-motion, and honors respectReducedMotion when enabled', () => {
         window.matchMedia = vi.fn().mockImplementation((query) => ({
             matches: query === '(prefers-reduced-motion: reduce)',

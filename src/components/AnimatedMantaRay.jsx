@@ -23,6 +23,7 @@ export default function AnimatedMantaRay({
     const containerRef = useRef(null);
     const rectRef = useRef(null);
     const pathRef = useRef(null);
+    const driftRef = useRef(null);
     const leftWakeRef = useRef(null);
     const rightWakeRef = useRef(null);
     const leftWakeGradRef = useRef(null);
@@ -33,6 +34,7 @@ export default function AnimatedMantaRay({
 
     const hoverTargetRef = useRef({ x: 0, y: 0, active: false });
     const hoverCurrentRef = useRef({ x: 0, y: 0, speedBoost: 0 });
+    const floatElapsedRef = useRef(7);
 
     const restPath = useMemo(() => buildMantaPath(0, 0, 0, 0, true), []);
 
@@ -66,6 +68,7 @@ export default function AnimatedMantaRay({
                 shadowRef.current.setAttribute('transform', 'translate(268 292) rotate(-31)');
                 shadowRef.current.setAttribute('opacity', '0.32');
             }
+            if (driftRef.current) driftRef.current.setAttribute('transform', 'translate(0 0)');
             for (let i = 0; i < FLOW_MOTES.length; i++) {
                 const el = moteRefs.current[i];
                 if (!el) continue;
@@ -117,6 +120,20 @@ export default function AnimatedMantaRay({
             const rollPhase = phase * ROLL_RATIO;
 
             setBodyPath(buildMantaPath(phase, rollPhase, hc.x, hc.y, false));
+
+            const floatDuration = 7;
+            if (floatElapsedRef.current < floatDuration) {
+                floatElapsedRef.current = Math.min(floatDuration, floatElapsedRef.current + dt);
+                const progress = floatElapsedRef.current / floatDuration;
+                const envelope = Math.sin(Math.PI * progress);
+                const driftX = 48 * Math.sin(progress * Math.PI * 2) * envelope;
+                const driftY = 7 * Math.sin(progress * Math.PI * 4) * envelope;
+                if (driftRef.current) {
+                    driftRef.current.setAttribute('transform', `translate(${driftX.toFixed(2)} ${driftY.toFixed(2)})`);
+                }
+            } else if (driftRef.current) {
+                driftRef.current.setAttribute('transform', 'translate(0 0)');
+            }
 
             const updateWake = (tipIndex, pathEl, gradEl) => {
                 if (!pathEl) return;
@@ -264,6 +281,10 @@ export default function AnimatedMantaRay({
         hoverTargetRef.current = { x: 0, y: 0, active: false };
     };
 
+    const handleClick = () => {
+        if (interactive) floatElapsedRef.current = 0;
+    };
+
     const bodyPathId = `manta-body-path-${uid}`;
     const bodyGradId = `manta-body-grad-${uid}`;
     const shadowGradId = `manta-shadow-grad-${uid}`;
@@ -280,6 +301,7 @@ export default function AnimatedMantaRay({
             onPointerEnter={handlePointerEnter}
             onPointerMove={handlePointerMove}
             onPointerLeave={handlePointerLeave}
+            onClick={handleClick}
         >
             {/* Static radial underwater glow composited once on GPU (avoids per-frame CSS blur thrashing) */}
             <div
@@ -334,6 +356,7 @@ export default function AnimatedMantaRay({
                     </linearGradient>
                 </defs>
 
+                <g ref={driftRef} data-manta-drift="true" transform="translate(0 0)">
                 <g ref={shadowRef} transform="translate(268 292) rotate(-31)" opacity="0.32">
                     <ellipse cx="0" cy="0" rx="150" ry="58" fill={`url(#${shadowGradId})`} />
                 </g>
@@ -397,6 +420,7 @@ export default function AnimatedMantaRay({
                     href={`#${bodyPathId}`}
                     fill={`url(#${bodyGradId})`}
                 />
+                </g>
             </svg>
         </div>
     );
