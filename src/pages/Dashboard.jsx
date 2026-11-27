@@ -178,18 +178,19 @@ export default function Dashboard() {
     }
 }, [setData, showToast]);
 
-const handleStartStudying = React.useCallback((categoryId, taskId) => {
+const handleStartStudying = React.useCallback((categoryId, taskId, taskMeta = null) => {
     const storeState = useAppStore.getState().appState;
     const currentCategories = storeState?.contests?.[storeState?.activeId]?.categories || [];
     const safeCategoriesList = Array.isArray(currentCategories)
         ? currentCategories
         : Object.values(currentCategories || {});
     const cat = safeCategoriesList.find(c => c && (c.id === categoryId || c.name === categoryId));
-    const tsk = toArray(cat?.tasks).find(t => t && (
+    const syllabusTask = toArray(cat?.tasks).find(t => t && (
         (Boolean(taskId) && t.id === taskId) ||
         (Boolean(taskId) && t.text === taskId) ||
         (Boolean(taskId) && t.title === taskId)
     ));
+    const tsk = syllabusTask || (taskMeta && typeof taskMeta === 'object' ? taskMeta : null);
 
     if (!cat || !tsk) return;
 
@@ -199,6 +200,7 @@ const handleStartStudying = React.useCallback((categoryId, taskId) => {
         (Boolean(cat.name) && (currentActiveSubject.category === cat.name || currentActiveSubject.categoryId === cat.name))
     ));
     const taskMatchesActive = Boolean(currentActiveSubject && categoryMatchesActive && (
+        (Boolean(taskMeta?.agendaEventId) && currentActiveSubject.agendaEventId === taskMeta.agendaEventId) ||
         (Boolean(tsk.id) && currentActiveSubject.taskId === tsk.id) ||
         (Boolean(taskId) && currentActiveSubject.taskId === taskId) ||
         (Boolean(currentActiveSubject.task) && (
@@ -206,7 +208,12 @@ const handleStartStudying = React.useCallback((categoryId, taskId) => {
             (Boolean(tsk.text) && currentActiveSubject.task === tsk.text)
         ))
     ));
-    const isAlreadyActive = taskMatchesActive && (tsk.status === 'studying' || Boolean(tsk.completed));
+    const hasRunningOrProgress = Boolean(
+        storeState?.pomodoro?.isRunning ||
+        (storeState?.pomodoro?.completedCycles || 0) > 0 ||
+        (storeState?.pomodoro?.accumulatedMinutes || 0) > 0
+    );
+    const isAlreadyActive = taskMatchesActive && (tsk.status === 'studying' || Boolean(tsk.completed) || hasRunningOrProgress);
     if (isAlreadyActive) {
         navigate('/pomodoro');
         return;
@@ -220,6 +227,8 @@ const handleStartStudying = React.useCallback((categoryId, taskId) => {
         category: cat.name,
         task: tsk.title || tsk.text || 'Estudo',
         priority: normalizePriority(tsk.priority),
+        ...(taskMeta?.agendaEventId ? { agendaEventId: taskMeta.agendaEventId } : {}),
+        ...(!syllabusTask && taskMeta?.isAgendaOnlyBlock ? { isAgendaOnlyBlock: true } : {}),
         source: 'dashboard'
     });
 
@@ -260,7 +269,7 @@ const pulseScoreConfig = React.useMemo(() => {
         : 0;
     const rawDashMax = Number(data.maxScore ?? data.settings?.maxScore);
     const dashMax = Number.isFinite(rawDashMax) && rawDashMax > dashMin ? rawDashMax : Math.max(dashMin + 1, 100);
-    const dashTarget = resolveUserTargetScorePoints(data.user, dashMin, dashMax, 0.85);
+    const dashTarget = resolveUserTargetScorePoints(data.user, dashMin, dashMax, 0.8);
     return { dashMin, dashMax, dashTarget };
 }, [data.minScore, data.maxScore, data.settings?.minScore, data.settings?.maxScore, data.user]);
 

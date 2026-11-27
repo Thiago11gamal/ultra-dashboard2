@@ -1053,9 +1053,14 @@ export default function Pomodoro() {
     const acwrSummary = useMemo(() => computeACWR(studyLogs), [studyLogs]);
 
     const handleUpdateStudyTimeWithMeta = useCallback((categoryId, minutes, taskId, taskTitleOverride = '', extraMeta = null) => {
+        const currentAgendaEventId =
+            extraMeta?.agendaEventId ??
+            useAppStore.getState().appState?.pomodoro?.activeSubject?.agendaEventId ??
+            null;
         const mergedMeta = {
             ...(studyMode ? { studyMode } : {}),
             ...(energyLevel != null ? { energyLevel } : {}),
+            ...(currentAgendaEventId ? { agendaEventId: currentAgendaEventId } : {}),
             ...(extraMeta && typeof extraMeta === 'object' ? extraMeta : {}),
         };
         return handleUpdateStudyTime(categoryId, minutes, taskId, taskTitleOverride, mergedMeta);
@@ -1550,7 +1555,9 @@ export default function Pomodoro() {
             store.setPomodoroAccumulatedMinutes(0);
 
             const activeData = store.appState.contests[store.appState.activeId];
-            const isSyntheticFreeFocus = /^estudo_livre_/i.test(String(currentSubject.taskId || ''));
+            const isSyntheticFreeFocus =
+                /^(?:estudo_livre_|agenda_block_)/i.test(String(currentSubject.taskId || '')) ||
+                Boolean(currentSubject.isAgendaOnlyBlock);
             const canAutoCompleteTask = !isSyntheticFreeFocus && (wasNatural || safeTotalMins > 0);
 
             if (canAutoCompleteTask && (neuralMode || currentSubject.source === 'neural_core')) {

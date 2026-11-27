@@ -367,17 +367,22 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
         return (maxScore === 100 && minScore === 0) ? '%' : ' pts';
     }, [maxScore, minScore]);
 
-    // FIX LÓGICO: Clampar meta à escala [minScore, maxScore] sem loops multiplicativos
+    // FIX LÓGICO: Clampar meta à escala [minScore, maxScore] convertendo percentual legado quando < minScore
     const normalizeTargetToScale = React.useCallback((raw) => {
+        const range = Math.max(0, maxScore - minScore);
         const fallback = (maxScore === 100 && minScore === 0)
-            ? 70
-            : Math.round(minScore + (maxScore - minScore) * 0.7);
+            ? 80
+            : Math.round(minScore + range * 0.8);
 
         if (raw === null || raw === undefined || raw === '' || typeof raw === 'boolean') {
             return fallback;
         }
-        const n = Number(raw);
-        if (!Number.isFinite(n) || n < minScore || n > maxScore) return fallback;
+        let n = Number(raw);
+        if (!Number.isFinite(n)) return fallback;
+        if (n < minScore && n >= 0 && n <= 100 && range > 0) {
+            n = minScore + (n / 100) * range;
+        }
+        if (n < minScore || n > maxScore) return fallback;
 
         return Math.max(minScore, Math.min(maxScore, n));
     }, [maxScore, minScore]);

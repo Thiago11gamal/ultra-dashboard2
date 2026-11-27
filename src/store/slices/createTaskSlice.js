@@ -69,6 +69,17 @@ export const createTaskSlice = (set, get) => ({
                 const activeSubject = state.appState.pomodoro?.activeSubject;
                 if (activeSubject && matchesActiveSubjectTask(category, task, activeSubject, taskId)) {
                     clearPomodoroSession(state);
+                } else if (Array.isArray(state.appState.pomodoro?.neuralQueue) && state.appState.pomodoro.neuralQueue.length > 0) {
+                    state.appState.pomodoro.neuralQueue = state.appState.pomodoro.neuralQueue.filter(qItem => {
+                        if (!qItem) return false;
+                        const qSubj = {
+                            categoryId: qItem.categoryId || qItem.catId,
+                            category: qItem.catName || qItem.category,
+                            taskId: qItem.id || qItem.text || qItem.title,
+                            task: qItem.title || qItem.text,
+                        };
+                        return !matchesActiveSubjectTask(category, task, qSubj, taskId);
+                    });
                 }
             } else {
                 // ✅ FIX N-03: Ao desmarcar, usar o recibo gravado (não o XP atual da prioridade)
@@ -105,6 +116,39 @@ export const createTaskSlice = (set, get) => ({
                 Object.values(activeData.coachPlanner).forEach(rawDayTasks => {
                     const dayTasks = Array.isArray(rawDayTasks) ? rawDayTasks : Object.values(rawDayTasks || {});
                     dayTasks.forEach(syncCoachItem);
+                });
+            }
+            if (Array.isArray(state.appState.pomodoro?.neuralQueue) && state.appState.pomodoro.neuralQueue.length > 0) {
+                state.appState.pomodoro.neuralQueue.forEach(qItem => {
+                    if (!qItem || typeof qItem !== 'object') return;
+                    const qSubj = {
+                        categoryId: qItem.categoryId || qItem.catId,
+                        category: qItem.catName || qItem.category,
+                        taskId: qItem.id || qItem.text || qItem.title,
+                        task: qItem.title || qItem.text,
+                    };
+                    if (matchesActiveSubjectTask(category, task, qSubj, taskId) || matchesCoachMirror(qItem)) {
+                        qItem.completed = completed;
+                    }
+                });
+            }
+            if (activeData.agenda) {
+                const agendaList = Array.isArray(activeData.agenda) ? activeData.agenda : Object.values(activeData.agenda || {});
+                agendaList.forEach(ev => {
+                    if (!ev) return;
+                    const matchesByTaskId = task.id && ev.taskId && String(ev.taskId) === String(task.id);
+                    const matchesSyncedCoach = ev.coachSynced && matchesCoachMirror({
+                        sourceTaskId: ev.taskId,
+                        categoryId: ev.categoryId,
+                        category: ev.subject,
+                        topicName: ev.title,
+                    });
+                    if (matchesByTaskId || matchesSyncedCoach) {
+                        ev.completed = completed;
+                        ev.completedAt = completed ? nowIso : null;
+                        if (!completed) ev.manuallyUnchecked = true;
+                        else delete ev.manuallyUnchecked;
+                    }
                 });
             }
 
@@ -240,6 +284,29 @@ export const createTaskSlice = (set, get) => ({
                 }
 
                 if (found) {
+                    if (Array.isArray(state.appState.pomodoro?.neuralQueue) && state.appState.pomodoro.neuralQueue.length > 0) {
+                        state.appState.pomodoro.neuralQueue.forEach(qItem => {
+                            if (qItem && matchesTask(qItem)) {
+                                qItem.completed = targetCompleted ?? Boolean(qItem.completed);
+                            }
+                        });
+                    }
+                    if (activeData.agenda && matchedCoachTasks.length > 0) {
+                        const coachIds = new Set(matchedCoachTasks.map(ct => ct?.id ? String(ct.id) : '').filter(Boolean));
+                        const sourceIds = new Set(matchedCoachTasks.map(ct => ct?.sourceTaskId ? String(ct.sourceTaskId) : '').filter(Boolean));
+                        const agendaList = Array.isArray(activeData.agenda) ? activeData.agenda : Object.values(activeData.agenda || {});
+                        agendaList.forEach(ev => {
+                            if (!ev) return;
+                            const matchById = (ev.coachPlannerTaskId && coachIds.has(String(ev.coachPlannerTaskId))) ||
+                                (ev.taskId && (coachIds.has(String(ev.taskId)) || sourceIds.has(String(ev.taskId))));
+                            if (matchById && targetCompleted !== null) {
+                                ev.completed = targetCompleted;
+                                ev.completedAt = targetCompleted ? nowIso : null;
+                                if (!targetCompleted) ev.manuallyUnchecked = true;
+                                else delete ev.manuallyUnchecked;
+                            }
+                        });
+                    }
                     activeData.lastUpdated = nowIso;
                     state.appState.version = (state.appState.version || 0) + 1;
                     state.appState.lastUpdated = nowIso;
@@ -438,6 +505,17 @@ export const createTaskSlice = (set, get) => ({
                 const activeSubject = state.appState.pomodoro?.activeSubject;
                 if (activeSubject && matchesActiveSubjectTask(category, task, activeSubject, taskId)) {
                     clearPomodoroSession(state);
+                } else if (Array.isArray(state.appState.pomodoro?.neuralQueue) && state.appState.pomodoro.neuralQueue.length > 0) {
+                    state.appState.pomodoro.neuralQueue = state.appState.pomodoro.neuralQueue.filter(qItem => {
+                        if (!qItem) return false;
+                        const qSubj = {
+                            categoryId: qItem.categoryId || qItem.catId,
+                            category: qItem.catName || qItem.category,
+                            taskId: qItem.id || qItem.text || qItem.title,
+                            task: qItem.title || qItem.text,
+                        };
+                        return !matchesActiveSubjectTask(category, task, qSubj, taskId);
+                    });
                 }
                 const nowIso = new Date().toISOString();
                 if (task) {

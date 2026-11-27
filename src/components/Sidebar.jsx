@@ -26,7 +26,9 @@ import {
     ChevronDown,
     Layers,
     Upload,
-    Download
+    Download,
+    Pencil,
+    Check
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import ConfirmModal from './ConfirmModal';
@@ -110,10 +112,22 @@ const Sidebar = React.memo(function Sidebar({
     const [flyoutAnchorRect, setFlyoutAnchorRect] = useState(null);
     const [hoveredTooltip, setHoveredTooltip] = useState(null);
     const [contestToDelete, setContestToDelete] = useState(null);
+    const [renamingContestId, setRenamingContestId] = useState(null);
+    const [renameDraft, setRenameDraft] = useState('');
     const [showResetConfirm, setShowResetConfirm] = useState(false);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
     const isPomodoroRunning = useAppStore(state => state.appState?.pomodoro?.isRunning || false);
     const pomodoroMode = useAppStore(state => state.appState?.pomodoro?.mode || 'work');
+    const renameContest = useAppStore(state => state.renameContest);
+
+    const commitContestRename = useCallback((id) => {
+        const trimmed = renameDraft.trim();
+        if (id && trimmed && typeof renameContest === 'function') {
+            renameContest(id, trimmed);
+        }
+        setRenamingContestId(null);
+        setRenameDraft('');
+    }, [renameDraft, renameContest]);
 
     const sidebarRef = useRef(null);
     const contestsFlyoutRef = useRef(null);
@@ -489,38 +503,85 @@ const Sidebar = React.memo(function Sidebar({
                                             {contestEntries.map(([id, contestData]) => {
                                                 const name = resolveSidebarContestLabel(contestData);
                                                 const isActive = id === activeContestId;
+                                                const isRenaming = renamingContestId === id;
                                                 return (
                                                     <div
                                                         key={id}
-                                                        className="group relative w-full flex items-center"
+                                                        className="group relative w-full flex items-center gap-0.5"
                                                     >
-                                                        <button
-                                                            type="button"
-                                                            className={`sidebar-item !py-1.5 flex-1 min-w-0 text-left flex items-center ${isActive ? 'active' : ''}`}
-                                                            title={name}
-                                                            onClick={() => {
-                                                                if (id !== activeContestId) onSwitchContest(id);
-                                                                closeMobileSidebar();
-                                                            }}
-                                                        >
-                                                            <div className="nested-item-marker"></div>
-                                                            <Layers size={13} className={isActive ? "text-violet-400 shrink-0" : "text-slate-400 shrink-0"} />
-                                                            <span className="flex-1 truncate text-[0.78rem] font-medium">{name}</span>
-                                                            {isActive && <div className="w-2 h-2 rounded-full bg-emerald-400 ring-1 ring-emerald-400/50 shrink-0"></div>}
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                if (!isSingleContest) setContestToDelete({ id, name });
-                                                            }}
-                                                            disabled={isSingleContest}
-                                                            title={isSingleContest ? 'Mantenha ao menos um painel' : 'Mover para lixeira'}
-                                                            className={`p-1 transition-all shrink-0 ${isSingleContest ? 'opacity-20 cursor-not-allowed' : 'opacity-0 group-hover:opacity-100 hover:text-red-400 hover:bg-red-500/10 rounded'}`}
-                                                            aria-label={`Excluir ${name}`}
-                                                        >
-                                                            <Trash2 size={11} />
-                                                        </button>
+                                                        {isRenaming ? (
+                                                            <div className="flex-1 flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-900 border border-violet-500/40">
+                                                                <input
+                                                                    type="text"
+                                                                    value={renameDraft}
+                                                                    onChange={(e) => setRenameDraft(e.target.value.slice(0, 100))}
+                                                                    onKeyDown={(e) => {
+                                                                        if (e.key === 'Enter') {
+                                                                            e.preventDefault();
+                                                                            commitContestRename(id);
+                                                                        } else if (e.key === 'Escape') {
+                                                                            e.preventDefault();
+                                                                            setRenamingContestId(null);
+                                                                            setRenameDraft('');
+                                                                        }
+                                                                    }}
+                                                                    autoFocus
+                                                                    className="w-full bg-transparent text-xs text-white focus:outline-none"
+                                                                    aria-label={`Novo nome para ${name}`}
+                                                                />
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => commitContestRename(id)}
+                                                                    className="p-1 text-emerald-400 hover:bg-emerald-500/10 rounded"
+                                                                    title="Salvar nome"
+                                                                >
+                                                                    <Check size={12} />
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            <>
+                                                                <button
+                                                                    type="button"
+                                                                    className={`sidebar-item !py-1.5 flex-1 min-w-0 text-left flex items-center ${isActive ? 'active' : ''}`}
+                                                                    title={name}
+                                                                    onClick={() => {
+                                                                        if (id !== activeContestId) onSwitchContest(id);
+                                                                        closeMobileSidebar();
+                                                                    }}
+                                                                >
+                                                                    <div className="nested-item-marker"></div>
+                                                                    <Layers size={13} className={isActive ? "text-violet-400 shrink-0" : "text-slate-400 shrink-0"} />
+                                                                    <span className="flex-1 truncate text-[0.78rem] font-medium">{name}</span>
+                                                                    {isActive && <div className="w-2 h-2 rounded-full bg-emerald-400 ring-1 ring-emerald-400/50 shrink-0"></div>}
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setRenamingContestId(id);
+                                                                        setRenameDraft(name);
+                                                                    }}
+                                                                    title="Renomear painel"
+                                                                    className="p-1 transition-all shrink-0 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-violet-300 hover:bg-violet-500/10 rounded"
+                                                                    aria-label={`Renomear ${name}`}
+                                                                >
+                                                                    <Pencil size={11} />
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        if (!isSingleContest) setContestToDelete({ id, name });
+                                                                    }}
+                                                                    disabled={isSingleContest}
+                                                                    title={isSingleContest ? 'Mantenha ao menos um painel' : 'Mover para lixeira'}
+                                                                    className={`p-1 transition-all shrink-0 ${isSingleContest ? 'opacity-20 cursor-not-allowed' : 'opacity-0 group-hover:opacity-100 hover:text-red-400 hover:bg-red-500/10 rounded'}`}
+                                                                    aria-label={`Excluir ${name}`}
+                                                                >
+                                                                    <Trash2 size={11} />
+                                                                </button>
+                                                            </>
+                                                        )}
                                                     </div>
                                                 );
                                             })}

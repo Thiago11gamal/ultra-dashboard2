@@ -68,10 +68,23 @@ const getTrashItemMeta = (item) => {
 
 const TrashModalContent = ({ isOpen, onClose }) => {
     const rawTrash = useAppStore(state => state.appState?.trash);
+    const contests = useAppStore(state => state.appState?.contests || {});
+    const activeId = useAppStore(state => state.appState?.activeId || 'default');
     const trash = Array.isArray(rawTrash) ? rawTrash : Object.values(rawTrash || {});
     const restoreFromTrash = useAppStore(state => state.restoreFromTrash);
     const emptyTrash = useAppStore(state => state.emptyTrash);
     const [showEmptyTrashConfirm, setShowEmptyTrashConfirm] = useState(false);
+
+    const resolveItemContestBadge = (item) => {
+        if (!item || item.type === 'contest' || !item.contestId) return null;
+        const liveContest = contests[item.contestId];
+        if (liveContest) {
+            const label = liveContest.contestName || liveContest.name || liveContest.user?.name || 'Painel';
+            return { label, isActive: item.contestId === activeId, isMissing: false };
+        }
+        const fallbackLabel = item.contestName || 'Painel excluído';
+        return { label: fallbackLabel, isActive: false, isMissing: true };
+    };
 
     const modalRef = React.useRef(null);
     useModalAccessibility(isOpen, onClose, modalRef);
@@ -121,6 +134,7 @@ const TrashModalContent = ({ isOpen, onClose }) => {
                         ) : (
                             trash.map(item => {
                                 const { title, icon, subtitle } = getTrashItemMeta(item);
+                                const contestBadge = resolveItemContestBadge(item);
                                 return (
                                     <div
                                         key={item.id}
@@ -130,7 +144,23 @@ const TrashModalContent = ({ isOpen, onClose }) => {
                                             <span className="text-xl shrink-0">{icon}</span>
                                             <div className="min-w-0">
                                                 <p className="text-sm font-semibold text-slate-200 truncate">{title}</p>
-                                                <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">{subtitle}</p>
+                                                <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                                                    <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">{subtitle}</p>
+                                                    {contestBadge && (
+                                                        <span
+                                                            className={`text-[9px] font-bold px-1.5 py-0.5 rounded border truncate max-w-[160px] ${
+                                                                contestBadge.isMissing
+                                                                    ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                                                                    : contestBadge.isActive
+                                                                        ? 'bg-indigo-500/10 border-indigo-500/25 text-indigo-300'
+                                                                        : 'bg-slate-800 border-white/10 text-slate-400'
+                                                            }`}
+                                                            title={contestBadge.isMissing ? 'O painel original foi excluído; ao restaurar, o painel será recriado separadamente.' : `Pertence ao painel: ${contestBadge.label}`}
+                                                        >
+                                                            {contestBadge.isMissing ? `${contestBadge.label} (recriar)` : contestBadge.label}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
                                         <button

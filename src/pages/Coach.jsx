@@ -40,7 +40,7 @@ import { ensureCoachTaskId } from '../utils/coachTaskId';
 import { getCalibrationKey, getCalibrationHistoryFor } from '../utils/coachSafe';
 import { isSystemAlertTask } from '../utils/coachText';
 import { resolveUserTargetScorePoints } from '../utils/scoreHelper';
-import { computeCategorySimCounts } from '../utils/simuladoReconciler';
+import { computeCategorySimCounts, reconcileContestCategoriesHistory, isRealSimuladoRow } from '../utils/simuladoReconciler';
 import { getCoachFeature } from '../utils/coachFeatures';
 import { setCoachFeatureContestScope, readFlags, subscribeFlags } from '../utils/coachFeatureStore';
 import { loadPersistedCoachFlags } from '../engine/optimization/flagOptimizer';
@@ -209,10 +209,23 @@ export default function Coach() {
     const simulados = useMemo(() => (Array.isArray(rawSimulados) ? rawSimulados : Object.values(rawSimulados || {})).filter(Boolean), [rawSimulados]);
 
     const rawCategories = data?.categories || EMPTY_ARRAY;
-    const categories = useMemo(() => (Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories || {})).filter(Boolean).map(c => ({
-        ...c,
-        tasks: (Array.isArray(c.tasks) ? c.tasks : Object.values(c.tasks || {})).filter(Boolean)
-    })), [rawCategories]);
+    const currentMaxScoreForReconcile = data?.maxScore ?? data?.settings?.maxScore ?? 100;
+    const currentMinScoreForReconcile = data?.minScore ?? data?.settings?.minScore ?? 0;
+    const contestPenaltyForReconcile = Number(data?.penaltyPerWrong) || 0;
+    const categories = useMemo(() => {
+        const baseCats = (Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories || {})).filter(Boolean).map(c => ({
+            ...c,
+            tasks: (Array.isArray(c.tasks) ? c.tasks : Object.values(c.tasks || {})).filter(Boolean)
+        }));
+        if (!baseCats.length || !history.some(isRealSimuladoRow)) return baseCats;
+        return reconcileContestCategoriesHistory(
+            baseCats,
+            history,
+            currentMaxScoreForReconcile,
+            currentMinScoreForReconcile,
+            { penaltyPerWrong: contestPenaltyForReconcile }
+        );
+    }, [rawCategories, history, currentMaxScoreForReconcile, currentMinScoreForReconcile, contestPenaltyForReconcile]);
 
     const rawFlashcardDecks = data?.flashcardDecks || EMPTY_ARRAY;
     const flashcardDecks = useMemo(() => (Array.isArray(rawFlashcardDecks) ? rawFlashcardDecks : Object.values(rawFlashcardDecks || {})).filter(Boolean), [rawFlashcardDecks]);
@@ -460,7 +473,7 @@ export default function Coach() {
     const targetScorePoints = useMemo(() => {
         const safeMax = Math.max(1, Number(currentMaxScore) || 100);
         const safeMin = Number.isFinite(Number(currentMinScore)) ? Math.min(Number(currentMinScore), safeMax - 1) : 0;
-        return resolveUserTargetScorePoints(userProfile, safeMin, safeMax, 0.85);
+        return resolveUserTargetScorePoints(userProfile, safeMin, safeMax, 0.8);
     }, [userProfile, currentMinScore, currentMaxScore]);
 
     const mcStats = useMonteCarloStats({
@@ -1203,7 +1216,7 @@ export default function Coach() {
                                                     </div>
                                                     <button
                                                         type="button"
-                                                        onClick={() => navigate('/flashcards')}
+                                                        onClick={() => navigate('/flashcards', { state: { autoStartReview: true } })}
                                                         className="shrink-0 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-bold text-amber-200 hover:bg-amber-500/20 transition"
                                                     >
                                                         Revisar agora

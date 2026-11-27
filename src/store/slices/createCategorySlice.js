@@ -7,8 +7,9 @@ import { getCalibrationKey } from '../../utils/coachSafe.js';
 import { PRESET_CATEGORY_COLORS } from '../../utils/colorHelper.js';
 import { computeCategorySimuladoStats } from '../../utils/simuladoReconciler.js';
 import { clearCoachCaches } from '../../utils/coachCaches.js';
+import { getTaskXP } from '../../utils/gamification.js';
 
-export const createCategorySlice = (set) => ({
+export const createCategorySlice = (set, get) => ({
     addCategory: (name) => {
         let added = false;
         set((state) => {
@@ -67,7 +68,9 @@ export const createCategorySlice = (set) => ({
         return added;
     },
 
-    deleteCategory: (id) => set((state) => {
+    deleteCategory: (id) => {
+        let xpToDeduct = 0;
+        set((state) => {
         const activeData = state.appState.contests[state.appState.activeId];
         if (!activeData) return;
         if (!Array.isArray(activeData.categories)) {
@@ -110,20 +113,49 @@ export const createCategorySlice = (set) => ({
                 });
             }
 
+            const deletedSessions = (Array.isArray(activeData.studySessions) ? activeData.studySessions : Object.values(activeData.studySessions || {}))
+                .filter(s => s && (matchesCatId(s.categoryId) || (normName && normalize(s.subject || s.category || s.categoryName || '') === normName)));
+            const deletedNotes = (Array.isArray(activeData.studyNotes) ? activeData.studyNotes : Object.values(activeData.studyNotes || {}))
+                .filter(n => n && (matchesCatId(n.categoryId) || (normName && normalize(n.subject || '') === normName)));
+            const deletedDecks = (Array.isArray(activeData.flashcardDecks) ? activeData.flashcardDecks : Object.values(activeData.flashcardDecks || {}))
+                .filter(d => d && (matchesCatId(d.categoryId) || (normName && normalize(d.subject || d.category || d.categoryName || '') === normName)));
+            const deletedAgenda = (Array.isArray(activeData.agenda) ? activeData.agenda : Object.values(activeData.agenda || {}))
+                .filter(ev => ev && (matchesCatId(ev.categoryId) || (normName && normalize(ev.subject || ev.category || ev.categoryName || '') === normName)));
+
+            const catTasksList = Array.isArray(category.tasks) ? category.tasks : Object.values(category.tasks || {});
+            catTasksList.forEach(t => {
+                if (t && t.completed) {
+                    const rawAwarded = t.awardedXP;
+                    xpToDeduct += (rawAwarded !== undefined && rawAwarded !== null && Number.isFinite(Number(rawAwarded)))
+                        ? Math.abs(Number(rawAwarded))
+                        : Math.abs(getTaskXP(t, true));
+                }
+            });
+            deletedSessions.forEach(s => {
+                if (s && Number.isFinite(Number(s.awardedXP))) {
+                    xpToDeduct += Math.max(0, Number(s.awardedXP));
+                }
+            });
+
             if (!state.appState.trash) state.appState.trash = [];
             state.appState.trash.push({
                 id: generateId('trash'),
                 type: 'category',
                 contestId: state.appState.activeId,
+                contestName: activeData.contestName || activeData.name || activeData.user?.name || null,
                 data: safeClone({
                     category: category,
                     studyLogs: (Array.isArray(activeData.studyLogs) ? activeData.studyLogs : Object.values(activeData.studyLogs || {})).filter(l => l && (matchesCatId(l.categoryId) || (normName && normalize(l.subject || l.category || l.categoryName || '') === normName))),
-                    studySessions: (Array.isArray(activeData.studySessions) ? activeData.studySessions : Object.values(activeData.studySessions || {})).filter(s => s && (matchesCatId(s.categoryId) || (normName && normalize(s.subject || s.category || s.categoryName || '') === normName))),
+                    studySessions: deletedSessions,
                     simuladoRows: deletedSimuladoRows,
                     simulados: (Array.isArray(activeData.simulados) ? activeData.simulados : Object.values(activeData.simulados || {})).filter(s => s && (matchesCatId(s.categoryId) || (normName && normalize(s.subject || '') === normName))),
                     mcWeight: activeData.mcWeights?.[targetId] ?? activeData.mcWeights?.[id] ?? activeData.mcWeights?.[category.name],
                     coachPlan: deletedCoachPlan,
-                    coachPlanner: deletedCoachPlanner
+                    coachPlanner: deletedCoachPlanner,
+                    studyNotes: deletedNotes,
+                    flashcardDecks: deletedDecks,
+                    agenda: deletedAgenda,
+                    deductedXP: xpToDeduct
                 }),
                 deletedAt: new Date().toISOString()
             });
@@ -252,12 +284,64 @@ export const createCategorySlice = (set) => ({
         }
 
         const nowIso = new Date().toISOString();
+        if (activeData.studyNotes) {
+            const safeNotes = Array.isArray(activeData.studyNotes) ? activeData.studyNotes : Object.values(activeData.studyNotes || {});
+            const removedNoteIds = [];
+            activeData.studyNotes = safeNotes.filter(n => {
+                if (!n) return false;
+                const hit = matchesCatId(n.categoryId) || (normName && normalize(n.subject || '') === normName);
+                if (hit && n.id) removedNoteIds.push(n.id);
+                return !hit;
+            });
+            if (removedNoteIds.length > 0) {
+                const prevDel = Array.isArray(activeData.deletedStudyNoteIds) ? activeData.deletedStudyNoteIds : [];
+                activeData.deletedStudyNoteIds = [...prevDel, ...removedNoteIds.map(nid => ({ id: nid, deletedAt: nowIso }))].slice(-100);
+            }
+        }
+        if (activeData.flashcardDecks) {
+            const safeDecks = Array.isArray(activeData.flashcardDecks) ? activeData.flashcardDecks : Object.values(activeData.flashcardDecks || {});
+            const removedDeckIds = [];
+            activeData.flashcardDecks = safeDecks.filter(d => {
+                if (!d) return false;
+                const hit = matchesCatId(d.categoryId) || (normName && normalize(d.subject || d.category || d.categoryName || '') === normName);
+                if (hit && d.id) removedDeckIds.push(d.id);
+                return !hit;
+            });
+            if (removedDeckIds.length > 0) {
+                const prevDel = Array.isArray(activeData.deletedFlashcardDeckIds) ? activeData.deletedFlashcardDeckIds : [];
+                activeData.deletedFlashcardDeckIds = [...prevDel, ...removedDeckIds.map(did => ({ id: did, deletedAt: nowIso }))].slice(-100);
+            }
+        }
+        if (activeData.agenda) {
+            const safeAgenda = Array.isArray(activeData.agenda) ? activeData.agenda : Object.values(activeData.agenda || {});
+            const removedAgendaIds = [];
+            activeData.agenda = safeAgenda.filter(ev => {
+                if (!ev) return false;
+                const hit = matchesCatId(ev.categoryId) || (normName && normalize(ev.subject || ev.category || ev.categoryName || '') === normName);
+                if (hit && ev.id) removedAgendaIds.push(ev.id);
+                return !hit;
+            });
+            if (removedAgendaIds.length > 0) {
+                const prevDel = Array.isArray(activeData.deletedAgendaIds) ? activeData.deletedAgendaIds : [];
+                activeData.deletedAgendaIds = [...prevDel, ...removedAgendaIds.map(aid => ({ id: aid, deletedAt: nowIso }))].slice(-200);
+            }
+        }
+        if (Array.isArray(state.appState.pomodoro?.neuralQueue) && state.appState.pomodoro.neuralQueue.length > 0) {
+            state.appState.pomodoro.neuralQueue = state.appState.pomodoro.neuralQueue.filter(
+                q => !matchesCoachItem(q) && !matchesCatId(q?.catId)
+            );
+        }
+
         activeData.lastUpdated = nowIso;
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = nowIso;
         clearCoachCaches();
         markStorageDirty();
-    }),
+        });
+        if (xpToDeduct > 0 && typeof get === 'function' && typeof get()?.awardExperience === 'function') {
+            get().awardExperience(-xpToDeduct, { skipVersionBump: true });
+        }
+    },
 
     updateCategoryFields: (id, fields) => set((state) => {
         if (!fields || typeof fields !== 'object') return;
@@ -376,10 +460,12 @@ export const createCategorySlice = (set) => ({
                     if (activeData.coachPlan) {
                         const planList = Array.isArray(activeData.coachPlan) ? activeData.coachPlan : Object.values(activeData.coachPlan || {});
                         planList.forEach(item => {
-                            if (item && (matchesCatId(item.categoryId) || normalize(item.subject || item.category || item.categoryName || '') === normalize(oldName))) {
+                            if (item && (matchesCatId(item.categoryId) || normalize(item.subject || item.category || item.categoryName || item.catName || item.subjectName || '') === normalize(oldName))) {
                                 if (item.subject) item.subject = sanitizedFields.name;
                                 if (item.category) item.category = sanitizedFields.name;
                                 if (item.categoryName) item.categoryName = sanitizedFields.name;
+                                if (item.catName) item.catName = sanitizedFields.name;
+                                if (item.subjectName) item.subjectName = sanitizedFields.name;
                             }
                         });
                     }
@@ -387,14 +473,58 @@ export const createCategorySlice = (set) => ({
                         Object.values(activeData.coachPlanner).forEach(dayTasks => {
                             if (Array.isArray(dayTasks)) {
                                 dayTasks.forEach(item => {
-                                    if (item && (matchesCatId(item.categoryId) || normalize(item.subject || item.category || item.categoryName || '') === normalize(oldName))) {
+                                    if (item && (matchesCatId(item.categoryId) || normalize(item.subject || item.category || item.categoryName || item.catName || item.subjectName || '') === normalize(oldName))) {
                                         if (item.subject) item.subject = sanitizedFields.name;
                                         if (item.category) item.category = sanitizedFields.name;
                                         if (item.categoryName) item.categoryName = sanitizedFields.name;
+                                        if (item.catName) item.catName = sanitizedFields.name;
+                                        if (item.subjectName) item.subjectName = sanitizedFields.name;
                                     }
                                 });
                             }
                         });
+                    }
+                    if (Array.isArray(state.appState.pomodoro?.neuralQueue)) {
+                        state.appState.pomodoro.neuralQueue.forEach(q => {
+                            if (q && (matchesCatId(q.categoryId || q.catId) || normalize(q.catName || q.category || q.subject || '') === normalize(oldName))) {
+                                if (q.catName) q.catName = sanitizedFields.name;
+                                if (q.category) q.category = sanitizedFields.name;
+                                if (q.subject) q.subject = sanitizedFields.name;
+                            }
+                        });
+                    }
+                    if (activeData.studyNotes) {
+                        const notesList = toIterableList(activeData.studyNotes);
+                        if (notesList) {
+                            notesList.forEach(n => {
+                                if (n && (matchesCatId(n.categoryId) || normalize(n.subject || '') === normalize(oldName))) {
+                                    n.subject = sanitizedFields.name;
+                                    if (!n.categoryId && targetId) n.categoryId = targetId;
+                                }
+                            });
+                        }
+                    }
+                    const oldCalibKey = getCalibrationKey(oldName);
+                    const newCalibKey = getCalibrationKey(sanitizedFields.name);
+                    if (activeData.calibrationHistoryByCategory && typeof activeData.calibrationHistoryByCategory === 'object') {
+                        if (activeData.calibrationHistoryByCategory[oldName] !== undefined) {
+                            activeData.calibrationHistoryByCategory[sanitizedFields.name] = activeData.calibrationHistoryByCategory[oldName];
+                            delete activeData.calibrationHistoryByCategory[oldName];
+                        }
+                        if (oldCalibKey && newCalibKey && oldCalibKey !== newCalibKey && activeData.calibrationHistoryByCategory[oldCalibKey] !== undefined) {
+                            activeData.calibrationHistoryByCategory[newCalibKey] = activeData.calibrationHistoryByCategory[oldCalibKey];
+                            delete activeData.calibrationHistoryByCategory[oldCalibKey];
+                        }
+                    }
+                    if (activeData.calibrationOps && typeof activeData.calibrationOps === 'object') {
+                        if (activeData.calibrationOps[oldName] !== undefined) {
+                            activeData.calibrationOps[sanitizedFields.name] = activeData.calibrationOps[oldName];
+                            delete activeData.calibrationOps[oldName];
+                        }
+                        if (oldCalibKey && newCalibKey && oldCalibKey !== newCalibKey && activeData.calibrationOps[oldCalibKey] !== undefined) {
+                            activeData.calibrationOps[newCalibKey] = activeData.calibrationOps[oldCalibKey];
+                            delete activeData.calibrationOps[oldCalibKey];
+                        }
                     }
                     if (activeData.flashcardDecks) {
                         const decks = Array.isArray(activeData.flashcardDecks) ? activeData.flashcardDecks : Object.values(activeData.flashcardDecks || {});

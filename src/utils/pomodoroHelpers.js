@@ -115,6 +115,36 @@ export function matchesActiveSubjectTask(category, task, subject, taskIdOverride
   return false;
 }
 
+/**
+ * Returns true if the candidate task/block is already loaded as the active Pomodoro session,
+ * allowing cross-menu callers ("Continuar", Ctrl+K, Agenda, Retenção, Notas) to navigate
+ * to /pomodoro without resetting the running timer or wiping localStorage state.
+ */
+export function isSubjectAlreadyActiveInPomodoro(pomodoroState, candidate, categoryObj = null, taskObj = null) {
+  const active = pomodoroState?.activeSubject;
+  if (!active || !candidate) return false;
+
+  if (
+    candidate.agendaEventId &&
+    active.agendaEventId &&
+    String(candidate.agendaEventId) === String(active.agendaEventId)
+  ) {
+    return true;
+  }
+
+  const effectiveCat = categoryObj || {
+    id: candidate.categoryId ?? null,
+    name: candidate.category ?? null,
+  };
+  const effectiveTask = taskObj || {
+    id: candidate.taskId ?? null,
+    title: candidate.task ?? null,
+    text: candidate.task ?? null,
+  };
+
+  return matchesActiveSubjectTask(effectiveCat, effectiveTask, active, candidate.taskId ?? null);
+}
+
 export function findSubjectTaskInContest(contestData, subject) {
   if (!contestData || !subject) return { catTask: null, targetTask: null };
   const safeCats = asArray(contestData.categories);

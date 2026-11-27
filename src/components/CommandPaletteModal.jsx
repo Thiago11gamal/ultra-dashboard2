@@ -98,14 +98,24 @@ function CommandPaletteDialog({ onClose }) {
     if (!item) return;
     onClose?.();
     if (item.kind === 'task' && typeof startPomodoroSession === 'function') {
-      startPomodoroSession({
+      const nextSubject = {
         categoryId: item.cat.id || item.cat.name,
         taskId: item.tsk.id || item.tsk.title || item.tsk.text,
         category: item.cat.name,
         task: item.tsk.title || item.tsk.text || 'Estudo',
         priority: normalizePriority(item.tsk.priority),
         source: 'command_palette',
-      });
+      };
+      const currentPomodoro = useAppStore.getState().appState?.pomodoro;
+      const activeSub = currentPomodoro?.activeSubject;
+      const isAlreadyActive = Boolean(
+        activeSub &&
+        String(activeSub.categoryId ?? activeSub.category ?? '') === String(nextSubject.categoryId ?? '') &&
+        String(activeSub.taskId ?? activeSub.task ?? '') === String(nextSubject.taskId ?? '')
+      );
+      if (!isAlreadyActive) {
+        startPomodoroSession(nextSubject);
+      }
       navigate('/pomodoro');
       return;
     }

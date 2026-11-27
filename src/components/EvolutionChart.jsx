@@ -1008,9 +1008,13 @@ export default React.memo(function EvolutionChart({
         if (!location?.search) return;
         const params = new URLSearchParams(location.search);
         const requestedEngine = params.get('engine');
+        const requestedFocus = params.get('focus');
         if (requestedEngine && SECONDARY_ENGINES.some((e) => e.id === requestedEngine)) {
             setEngineGroup('all');
             setActiveEngine(requestedEngine);
+        }
+        if (requestedFocus) {
+            setFocusSubjectId(requestedFocus);
         }
     }, [location?.search]);
 

@@ -163,7 +163,10 @@ export const AdaptivePulseStrip = React.memo(function AdaptivePulseStrip({
         {topLeverage && topLeverage.swing > 0 && (
           <button
             type="button"
-            onClick={() => navigate('/evolution')}
+            onClick={() => {
+              const focusParam = topLeverage.id ? `&focus=${encodeURIComponent(topLeverage.id)}` : '';
+              navigate(`/evolution?engine=tornado_whatif${focusParam}`);
+            }}
             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-indigo-400/30 bg-indigo-500/10 text-indigo-200 text-[11px] font-bold hover:bg-indigo-500/20 transition-colors cursor-pointer"
             title="Matéria de maior impacto na probabilidade de aprovação (Diagrama de Tornado)"
           >
@@ -177,7 +180,7 @@ export const AdaptivePulseStrip = React.memo(function AdaptivePulseStrip({
         {dueFlashcards > 0 && (
           <button
             type="button"
-            onClick={() => navigate('/flashcards')}
+            onClick={() => navigate('/flashcards', { state: { autoStartReview: true } })}
             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-amber-400/30 bg-amber-500/10 text-amber-200 text-[11px] font-bold hover:bg-amber-500/20 transition-colors cursor-pointer"
             title="Abrir revisões espaçadas (FSRS) pendentes para hoje"
           >

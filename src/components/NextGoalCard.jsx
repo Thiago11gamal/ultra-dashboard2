@@ -61,7 +61,7 @@ function NextGoalCard({
         effectiveUser,
         effectiveMinScore,
         effectiveMaxScore,
-        0.85
+        0.8
     );
     const effectiveSimuladoRows = propSimuladoRows ?? storeContest?.simuladoRows;
     const effectiveAllSimulados = useMemo(
@@ -419,7 +419,7 @@ function NextGoalCard({
                 <div className="w-full lg:w-auto flex-shrink-0 flex items-center justify-end">
                     <button
                         type="button"
-                        onClick={() => typeof onStartStudying === 'function' && onStartStudying(category.id || category.name, task.id || task.text || task.title)}
+                        onClick={() => typeof onStartStudying === 'function' && onStartStudying(category.id || category.name, task.id || task.text || task.title, task)}
                         aria-label={`Iniciar sessão de ${category.name}${display?.assunto ? `: ${display.assunto}` : ''}`}
                         className={`w-full sm:w-auto px-7 py-3 rounded-xl bg-gradient-to-r ${urgencyStyle.buttonGradient} ${urgencyStyle.glow} text-white font-semibold text-sm sm:text-base flex items-center justify-center gap-2.5 transition-all duration-300 transform hover:-translate-y-0.5 active:scale-95 group/btn overflow-hidden cursor-pointer`}
                     >

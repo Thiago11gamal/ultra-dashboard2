@@ -55,12 +55,15 @@ const Header = React.memo(function Header({
     sidebarCollapsed,
     setSidebarCollapsed
 }) {
-    const displayName = user?.name ?? 'Estudante';
     const activeContestLabel = useMemo(() => {
         if (!contests || !activeContestId) return null;
         const raw = contests[activeContestId];
         return typeof raw === 'string' && raw.trim() ? raw.trim() : null;
     }, [contests, activeContestId]);
+    const rawUserName = typeof user?.name === 'string' ? user.name.trim() : '';
+    const displayName = (rawUserName && rawUserName !== 'Estudante' && rawUserName !== 'Visitante')
+        ? rawUserName
+        : (activeContestLabel || rawUserName || 'Estudante');
 
     const todayDate = useClockDate();
     const todayKey = useMemo(() => getDateKey(todayDate), [todayDate]);
@@ -179,7 +182,7 @@ const Header = React.memo(function Header({
                         type="text"
                         value={localName}
                         onChange={handleNameChange}
-                        placeholder="Seu nome..."
+                        placeholder="Foco principal / concurso..."
                         className="w-full bg-transparent text-lg font-black neon-text placeholder:text-slate-700 focus:outline-none leading-tight"
                         aria-label="Nome do usuário" // FIX 5.3e
                         maxLength={100}
@@ -276,7 +279,7 @@ const Header = React.memo(function Header({
                                 type="text"
                                 value={localName}
                                 onChange={handleNameChange}
-                                placeholder="Nome do utilizador..."
+                                placeholder="Foco principal / concurso..."
                                 className="bg-transparent text-center text-lg lg:text-xl font-black neon-text placeholder:text-slate-800 focus:outline-none transition-all px-4 py-0.5 leading-[1.35] w-full"
                                 style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}
                                 aria-label="Nome do usuário" // FIX 5.3e

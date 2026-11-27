@@ -6,18 +6,101 @@ import { normalize } from '../../utils/normalization.js';
 import { reconcileContestCategoriesHistory, computeCategorySimuladoStats, DEFAULT_SIMULADO_HISTORY_CAP } from '../../utils/simuladoReconciler.js';
 import { getTaskXP } from '../../utils/gamification.js';
 import { clearCoachCaches } from '../../utils/coachCaches.js';
+import { INITIAL_DATA } from '../../data/initialData.js';
+import { PRESET_CATEGORY_COLORS } from '../../utils/colorHelper.js';
+
+const resetPomodoroOnContestChange = (state) => {
+    if (!state?.appState?.pomodoro) return;
+    if (
+        state.appState.pomodoro.activeSubject ||
+        state.appState.pomodoro.isRunning ||
+        (state.appState.pomodoro.accumulatedMinutes || 0) > 0
+    ) {
+        state.appState.pomodoro = {
+            activeSubject: null,
+            sessions: 1,
+            targetCycles: state.appState.pomodoro?.targetCycles || 1,
+            completedCycles: 0,
+            accumulatedMinutes: 0,
+            mode: 'work',
+            neuralQueue: [],
+            neuralMode: false,
+            isRunning: false,
+        };
+        try { localStorage.removeItem('pomodoroState'); } catch { /* ignore */ }
+        try { localStorage.removeItem('pomodoro-endsAt'); } catch { /* ignore */ }
+    }
+};
+
+const resolveOrRecreateContestForItem = (state, item) => {
+    const contests = state.appState.contests || {};
+    if (!item?.contestId) {
+        return contests[state.appState.activeId] ? state.appState.activeId : Object.keys(contests)[0];
+    }
+    if (contests[item.contestId]) {
+        return item.contestId;
+    }
+
+    const nowIso = new Date().toISOString();
+    const trashedContestIdx = Array.isArray(state.appState.trash)
+        ? state.appState.trash.findIndex(t => t && t.type === 'contest' && t.contestId === item.contestId && t.id !== item.id)
+        : -1;
+
+    if (trashedContestIdx !== -1) {
+        const trashedContest = state.appState.trash[trashedContestIdx];
+        const restoredContest = safeClone(trashedContest.data) || {};
+        restoredContest.id = item.contestId;
+        restoredContest.lastUpdated = nowIso;
+        state.appState.contests[item.contestId] = restoredContest;
+        state.appState.trash.splice(trashedContestIdx, 1);
+    } else {
+        const label = item.contestName || 'Painel Recuperado';
+        const baseClone = safeClone(INITIAL_DATA);
+        state.appState.contests[item.contestId] = {
+            ...baseClone,
+            id: item.contestId,
+            contestName: label,
+            name: label,
+            user: { ...(baseClone.user || {}), name: label },
+            categories: [],
+            simuladoRows: [],
+            simulados: [],
+            studyLogs: [],
+            studySessions: [],
+            flashcardDecks: [],
+            agenda: [],
+            studyNotes: [],
+            mcWeights: {},
+            historicalCutoffs: [],
+            lastUpdated: nowIso,
+        };
+    }
+
+    if (Array.isArray(state.appState.deletedContestIds)) {
+        state.appState.deletedContestIds = state.appState.deletedContestIds.filter(d => {
+            const cid = typeof d === 'string' ? d : d?.contestId;
+            return cid !== item.contestId;
+        });
+    }
+
+    return item.contestId;
+};
 
 export const createTrashSlice = (set, get) => ({
     archiveToTrash: (entry) => set((state) => {
         if (!entry || typeof entry !== 'object' || !entry.type || !entry.data) return;
         const nowIso = new Date().toISOString();
+        const cid = entry.contestId || state.appState.activeId || 'default';
+        const liveContest = state.appState.contests?.[cid];
+        const contestName = entry.contestName || liveContest?.contestName || liveContest?.name || liveContest?.user?.name || null;
         if (!Array.isArray(state.appState.trash)) state.appState.trash = [];
         state.appState.trash = [
             ...state.appState.trash,
             {
                 id: entry.id || generateId('trash'),
                 type: entry.type,
-                contestId: entry.contestId || state.appState.activeId || 'default',
+                contestId: cid,
+                ...(contestName ? { contestName } : {}),
                 deletedAt: entry.deletedAt || nowIso,
                 data: safeClone(entry.data),
             }
@@ -29,12 +112,12 @@ export const createTrashSlice = (set, get) => ({
         let restoredTaskContestId = null;
         set((state) => {
         if (!state.appState.trash) return;
-        const index = state.appState.trash.findIndex(t => t.id === trashId);
-        if (index === -1) return;
+        const initialIndex = state.appState.trash.findIndex(t => t.id === trashId);
+        if (initialIndex === -1) return;
 
-        const item = state.appState.trash[index];
+        const item = state.appState.trash[initialIndex];
         if (item.type === 'category') {
-            const targetContestId = state.appState.contests[item.contestId] ? item.contestId : state.appState.activeId;
+            const targetContestId = resolveOrRecreateContestForItem(state, item);
             const contest = state.appState.contests[targetContestId];
             if (!contest) {
                 console.warn('[Trash] Concurso de destino não encontrado. Restauração adiada para evitar perda de dados.');
@@ -129,9 +212,50 @@ export const createTrashSlice = (set, get) => ({
                     }
                 });
             }
+            if (item.data.studyNotes?.length) {
+                const safeNotes = Array.isArray(contest.studyNotes) ? contest.studyNotes : Object.values(contest.studyNotes || {});
+                const noteIds = new Set(safeNotes.map(n => n?.id).filter(Boolean));
+                const restoredNotes = fixRef(item.data.studyNotes).filter(n => n && (!n.id || !noteIds.has(n.id)));
+                contest.studyNotes = [...restoredNotes, ...safeNotes];
+                if (Array.isArray(contest.deletedStudyNoteIds) && restoredNotes.length > 0) {
+                    const restoredNoteIdSet = new Set(restoredNotes.map(n => String(n.id)));
+                    contest.deletedStudyNoteIds = contest.deletedStudyNoteIds.filter(e => e && !restoredNoteIdSet.has(String(e.id)));
+                }
+            } else if (Array.isArray(contest.studyNotes)) {
+                contest.studyNotes = fixRef(contest.studyNotes);
+            }
+            if (item.data.flashcardDecks?.length) {
+                const safeDecks = Array.isArray(contest.flashcardDecks) ? contest.flashcardDecks : Object.values(contest.flashcardDecks || {});
+                const deckIds = new Set(safeDecks.map(d => d?.id).filter(Boolean));
+                const restoredDecks = fixRef(item.data.flashcardDecks).filter(d => d && (!d.id || !deckIds.has(d.id)));
+                contest.flashcardDecks = [...safeDecks, ...restoredDecks];
+                if (Array.isArray(contest.deletedFlashcardDeckIds) && restoredDecks.length > 0) {
+                    const restoredDeckIdSet = new Set(restoredDecks.map(d => String(d.id)));
+                    contest.deletedFlashcardDeckIds = contest.deletedFlashcardDeckIds.filter(e => e && !restoredDeckIdSet.has(String(e.id)));
+                }
+            } else if (Array.isArray(contest.flashcardDecks)) {
+                contest.flashcardDecks = fixRef(contest.flashcardDecks);
+            }
+            if (item.data.agenda?.length) {
+                const safeAgenda = Array.isArray(contest.agenda) ? contest.agenda : Object.values(contest.agenda || {});
+                const evIds = new Set(safeAgenda.map(e => e?.id).filter(Boolean));
+                const restoredEvents = fixRef(item.data.agenda).filter(e => e && (!e.id || !evIds.has(e.id)));
+                contest.agenda = [...safeAgenda, ...restoredEvents];
+                if (Array.isArray(contest.deletedAgendaIds) && restoredEvents.length > 0) {
+                    const restoredEvIdSet = new Set(restoredEvents.map(e => String(e.id)));
+                    contest.deletedAgendaIds = contest.deletedAgendaIds.filter(e => e && !restoredEvIdSet.has(String(e.id)));
+                }
+            } else if (Array.isArray(contest.agenda)) {
+                contest.agenda = fixRef(contest.agenda);
+            }
+            if (Number(item.data.deductedXP) > 0) {
+                restoredCompletedTaskXp = Number(item.data.deductedXP);
+                restoredTaskContestId = targetContestId;
+            }
             contest.lastUpdated = new Date().toISOString();
         } else if (item.type === 'contest') {
             const nowIso = new Date().toISOString();
+            const prevActiveId = state.appState.activeId;
             let newId = item.contestId;
             if (state.appState.contests[newId]) {
                 newId = generateId('contest');
@@ -140,6 +264,9 @@ export const createTrashSlice = (set, get) => ({
             if (contestPayload && typeof contestPayload === 'object') {
                 contestPayload.id = newId;
                 contestPayload.lastUpdated = nowIso;
+            }
+            if (prevActiveId !== newId) {
+                resetPomodoroOnContestChange(state);
             }
             state.appState.contests[newId] = contestPayload;
             state.appState.activeId = newId;
@@ -150,18 +277,49 @@ export const createTrashSlice = (set, get) => ({
                 });
             }
         } else if (item.type === 'task') {
-            const targetContestId = state.appState.contests[item.contestId] ? item.contestId : state.appState.activeId;
+            const targetContestId = resolveOrRecreateContestForItem(state, item);
             const contest = state.appState.contests[targetContestId];
             if (!contest) return;
-            const cats = Array.isArray(contest.categories) ? contest.categories : Object.values(contest.categories || {});
+            const cats = Array.isArray(contest.categories) ? [...contest.categories] : Object.values(contest.categories || {});
             const taskData = safeClone(item.data?.task || item.data);
             if (!taskData) return;
-            const cat = cats.find(c => c && (String(c.id) === String(item.data?.categoryId) || c.name === item.data?.categoryName)) || cats[0];
+            let cat = cats.find(c => c && (
+                (item.data?.categoryId && String(c.id) === String(item.data.categoryId)) ||
+                (item.data?.categoryName && normalize(c.name || '') === normalize(item.data.categoryName))
+            ));
+            if (!cat) {
+                if (!item.data?.categoryId && !item.data?.categoryName && cats.length > 0) {
+                    cat = cats[0];
+                } else {
+                    const nowIso = new Date().toISOString();
+                    const recreatedId = item.data?.categoryId || generateId('cat');
+                    const recreatedName = item.data?.categoryName || 'Geral';
+                    removeCategoryTombstone(recreatedId, recreatedName, targetContestId);
+                    cat = {
+                        id: recreatedId,
+                        name: recreatedName,
+                        icon: item.data?.categoryIcon || '📚',
+                        color: PRESET_CATEGORY_COLORS[cats.length % PRESET_CATEGORY_COLORS.length],
+                        tasks: [],
+                        weight: 10,
+                        maxScore: Number(contest.maxScore) > 0 ? Number(contest.maxScore) : 100,
+                        minScore: Number.isFinite(Number(contest.minScore)) ? Number(contest.minScore) : 0,
+                        minCutoff: null,
+                        simuladoStats: { history: [], average: 0, lastAttempt: 0, trend: 'stable', level: '-' },
+                        totalMinutes: 0,
+                        lastStudiedAt: null,
+                        createdAt: nowIso,
+                        lastUpdated: nowIso,
+                        updatedAt: nowIso,
+                    };
+                    cats.push(cat);
+                }
+            }
             if (cat) {
                 const tasks = Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {});
                 const normText = normalize(String(taskData.text || taskData.title || ''));
                 if (!tasks.some(t => t && (t.id === taskData.id || normalize(String(t.text || t.title || '')) === normText))) {
-                    tasks.push({ ...taskData, updatedAt: new Date().toISOString() });
+                    tasks.push({ ...taskData, categoryId: cat.id, updatedAt: new Date().toISOString() });
                     if (taskData.completed) {
                         const rawAwarded = taskData.awardedXP;
                         restoredCompletedTaskXp = (rawAwarded !== undefined && rawAwarded !== null && Number.isFinite(Number(rawAwarded)))
@@ -178,7 +336,7 @@ export const createTrashSlice = (set, get) => ({
                 contest.lastUpdated = new Date().toISOString();
             }
         } else if (item.type === 'flashcard_deck') {
-            const targetContestId = state.appState.contests[item.contestId] ? item.contestId : state.appState.activeId;
+            const targetContestId = resolveOrRecreateContestForItem(state, item);
             const contest = state.appState.contests[targetContestId];
             if (!contest) return;
             const deckData = safeClone(item.data);
@@ -194,7 +352,7 @@ export const createTrashSlice = (set, get) => ({
             }
             contest.lastUpdated = new Date().toISOString();
         } else if (item.type === 'agenda_event') {
-            const targetContestId = state.appState.contests[item.contestId] ? item.contestId : state.appState.activeId;
+            const targetContestId = resolveOrRecreateContestForItem(state, item);
             const contest = state.appState.contests[targetContestId];
             if (!contest) return;
             const evData = safeClone(item.data);
@@ -209,7 +367,7 @@ export const createTrashSlice = (set, get) => ({
             }
             contest.lastUpdated = new Date().toISOString();
         } else if (item.type === 'simulado') {
-            const targetContestId = state.appState.contests[item.contestId] ? item.contestId : state.appState.activeId;
+            const targetContestId = resolveOrRecreateContestForItem(state, item);
             const contest = state.appState.contests[targetContestId];
             if (!contest) return;
             const restoredRows = safeClone(item.data?.rows || []);
@@ -247,7 +405,7 @@ export const createTrashSlice = (set, get) => ({
             }
             contest.lastUpdated = new Date().toISOString();
         } else if (item.type === 'study_note') {
-            const targetContestId = state.appState.contests[item.contestId] ? item.contestId : state.appState.activeId;
+            const targetContestId = resolveOrRecreateContestForItem(state, item);
             const contest = state.appState.contests[targetContestId];
             if (!contest) return;
             const noteData = safeClone(item.data);
@@ -262,7 +420,10 @@ export const createTrashSlice = (set, get) => ({
             }
             contest.lastUpdated = new Date().toISOString();
         }
-        state.appState.trash.splice(index, 1);
+        const removeIdx = state.appState.trash.findIndex(t => t.id === trashId);
+        if (removeIdx !== -1) {
+            state.appState.trash.splice(removeIdx, 1);
+        }
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = new Date().toISOString();
         clearCoachCaches();

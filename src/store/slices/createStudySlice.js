@@ -26,6 +26,9 @@ export const createStudySlice = (set, get) => ({
     const safeEnergyLevel = Number.isFinite(rawEnergy)
       ? Math.min(5, Math.max(1, Math.round(rawEnergy)))
       : null;
+    const safeAgendaEventId = (metadata && metadata.agendaEventId != null && String(metadata.agendaEventId).trim() !== '')
+      ? String(metadata.agendaEventId).trim()
+      : null;
 
     let pendingXp = 0;
 
@@ -74,7 +77,8 @@ export const createStudySlice = (set, get) => ({
         minutes: safeMinutes,
         taskTitle,
         ...(safeStudyMode ? { studyMode: safeStudyMode } : {}),
-        ...(safeEnergyLevel != null ? { energyLevel: safeEnergyLevel } : {})
+        ...(safeEnergyLevel != null ? { energyLevel: safeEnergyLevel } : {}),
+        ...(safeAgendaEventId ? { agendaEventId: safeAgendaEventId } : {})
       };
 
       const xpPerMinute = (XP_CONFIG.pomodoro.base / 25) || 1;
@@ -94,7 +98,8 @@ export const createStudySlice = (set, get) => ({
         logReferenceId: logId,
         awardedXP: pendingXp, // ✅ FIX: Guarda o recibo exato de XP concedido
         ...(safeStudyMode ? { studyMode: safeStudyMode } : {}),
-        ...(safeEnergyLevel != null ? { energyLevel: safeEnergyLevel } : {})
+        ...(safeEnergyLevel != null ? { energyLevel: safeEnergyLevel } : {}),
+        ...(safeAgendaEventId ? { agendaEventId: safeAgendaEventId } : {})
       };
 
       const safeLogs = Array.isArray(activeData.studyLogs)
@@ -119,20 +124,25 @@ export const createStudySlice = (set, get) => ({
         }
       }
 
-      // Auto-concluir bloco correspondente do dia na Agenda de Estudos quando sessão real é registrada
+      // Auto-concluir bloco correspondente na Agenda de Estudos quando sessão real é registrada
       if (activeData.agenda) {
         const todayIsoDate = getDateKey(now) || now.slice(0, 10);
         const agendaList = Array.isArray(activeData.agenda) ? activeData.agenda : Object.values(activeData.agenda || {});
-        const matchingBlock = agendaList.find(ev => {
-          if (!ev || ev.completed || ev.date !== todayIsoDate) return false;
-          if (metadata?.agendaEventId && String(ev.id) === String(metadata.agendaEventId)) return true;
+        const explicitBlock = safeAgendaEventId
+          ? agendaList.find(ev => ev && String(ev.id) === safeAgendaEventId)
+          : null;
+        const matchingBlock = explicitBlock || agendaList.find(ev => {
+          if (!ev || ev.completed || ev.manuallyUnchecked || ev.date !== todayIsoDate) return false;
           if (category?.id && ev.categoryId && String(ev.categoryId) === String(category.id)) return true;
           return Boolean(ev.subject && resolvedSubject && isSubjectMatch(ev.subject, resolvedSubject));
         });
-        if (matchingBlock) {
+        if (matchingBlock && !matchingBlock.completed) {
           matchingBlock.completed = true;
           matchingBlock.completedAt = now;
           matchingBlock.autoCompletedBySession = true;
+          matchingBlock.fulfilledBySessionId = sessionId;
+          delete matchingBlock.manuallyUnchecked;
+          newSession.fulfilledAgendaEventId = matchingBlock.id;
         }
         activeData.agenda = agendaList;
       }
@@ -203,6 +213,44 @@ export const createStudySlice = (set, get) => ({
         } else {
           activeData.studyLogs = safeLogs.filter(l => l.id !== session.id);
         }
+      }
+
+      if (activeData.agenda) {
+        const sessionDateKey = getDateKey(session.startTime || session.date || session.createdAt);
+        const agendaList = Array.isArray(activeData.agenda) ? activeData.agenda : Object.values(activeData.agenda || {});
+        agendaList.forEach(ev => {
+          if (!ev || !ev.completed || !ev.autoCompletedBySession) return;
+          const linkedDirectly =
+            (ev.fulfilledBySessionId && String(ev.fulfilledBySessionId) === String(session.id)) ||
+            (session.fulfilledAgendaEventId && String(ev.id) === String(session.fulfilledAgendaEventId)) ||
+            (session.agendaEventId && String(ev.id) === String(session.agendaEventId));
+          if (linkedDirectly) {
+            ev.completed = false;
+            ev.completedAt = null;
+            delete ev.autoCompletedBySession;
+            delete ev.fulfilledBySessionId;
+            return;
+          }
+          if (!ev.fulfilledBySessionId && sessionDateKey && ev.date === sessionDateKey) {
+            const sameSubject =
+              (ev.categoryId && session.categoryId && String(ev.categoryId) === String(session.categoryId)) ||
+              (ev.subject && (session.subject || session.categoryName) && isSubjectMatch(ev.subject, session.subject || session.categoryName));
+            if (sameSubject) {
+              const hasOtherSession = safeSessions.some(other => {
+                if (!other) return false;
+                if (getDateKey(other.startTime || other.date || other.createdAt) !== sessionDateKey) return false;
+                if (ev.categoryId && other.categoryId && String(ev.categoryId) === String(other.categoryId)) return true;
+                return Boolean(ev.subject && (other.subject || other.categoryName) && isSubjectMatch(ev.subject, other.subject || other.categoryName));
+              });
+              if (!hasOtherSession) {
+                ev.completed = false;
+                ev.completedAt = null;
+                delete ev.autoCompletedBySession;
+              }
+            }
+          }
+        });
+        activeData.agenda = agendaList;
       }
 
       const now = new Date().toISOString();

@@ -7,6 +7,7 @@ import ParetoAnalysis from '../components/ParetoAnalysis';
 import { useAppStore } from '../store/useAppStore';
 import { useToast } from '../hooks/useToast';
 import { reconcileContestCategoriesHistory } from '../utils/simuladoReconciler';
+import { isSubjectAlreadyActiveInPomodoro } from '../utils/pomodoroHelpers';
 import { isSubjectMatch, normalize } from '../utils/normalization';
 import { generateId } from '../utils/idGenerator';
 
@@ -88,15 +89,19 @@ function NotesContent({ navigate }) {
             tasks.find(t => normalize(t.title || t.text || '').includes(normTopic));
 
         if (typeof startPomodoroSession === 'function') {
-            startPomodoroSession({
+            const nextSubject = {
                 categoryId: matchedCat?.id || categoryName || 'geral',
                 taskId: matchedTask?.id || topicName || 'estudo-pareto',
                 category: matchedCat?.name || categoryName || 'Geral',
                 task: matchedTask ? (matchedTask.title || matchedTask.text) : (topicName || 'Revisão Focada'),
                 priority: 'high',
                 source: 'notes'
-            });
-            showToast(`Foco iniciado: ${categoryName} — ${topicName}`, 'success');
+            };
+            const currentPomodoro = useAppStore.getState().appState?.pomodoro;
+            if (!isSubjectAlreadyActiveInPomodoro(currentPomodoro, nextSubject, matchedCat || null, matchedTask || null)) {
+                startPomodoroSession(nextSubject);
+                showToast(`Foco iniciado: ${categoryName} — ${topicName}`, 'success');
+            }
             navigate?.('/pomodoro');
         }
     }, [enhancedCategories, startPomodoroSession, showToast, navigate]);
@@ -136,14 +141,25 @@ function NotesContent({ navigate }) {
 
     const filteredNotes = useMemo(() => {
         const q = normalize(noteSearch || '');
+        const selectedCat = noteSubjectFilter !== 'all'
+            ? enhancedCategories.find(c => c && c.name === noteSubjectFilter)
+            : null;
         return studyNotes
             .filter(n => {
-                if (noteSubjectFilter !== 'all' && n.subject !== noteSubjectFilter) return false;
+                if (noteSubjectFilter !== 'all') {
+                    const matchesExactName = n.subject === noteSubjectFilter;
+                    const matchesCategoryRef = Boolean(
+                        selectedCat &&
+                        ((n.categoryId && String(n.categoryId) === String(selectedCat.id)) ||
+                            (n.subject && isSubjectMatch(n.subject, selectedCat.name)))
+                    );
+                    if (!matchesExactName && !matchesCategoryRef) return false;
+                }
                 if (!q) return true;
                 return normalize(`${n.title || ''} ${n.content || ''} ${n.subject || ''}`).includes(q);
             })
             .sort((a, b) => String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || '')));
-    }, [studyNotes, noteSearch, noteSubjectFilter]);
+    }, [studyNotes, noteSearch, noteSubjectFilter, enhancedCategories]);
 
     const handleSaveNote = () => {
         if (!noteForm.title.trim() && !noteForm.content.trim()) {

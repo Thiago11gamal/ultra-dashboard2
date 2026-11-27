@@ -1,6 +1,6 @@
 import { cleanTaskTitle } from '../../utils/taskTitleHelper.js';
 import { markStorageDirty } from '../../utils/storageSafe.js';
-import { safeArray, MAX_TARGET_CYCLES, matchesActiveSubjectTask } from '../../utils/pomodoroHelpers.js';
+import { safeArray, MAX_TARGET_CYCLES, matchesActiveSubjectTask, findSubjectTaskInContest } from '../../utils/pomodoroHelpers.js';
 
 const syncStudyingStatusInContest = (activeData, targetSubject) => {
     if (!activeData || !activeData.categories) return;
@@ -495,7 +495,33 @@ export const createPomodoroSlice = (set, get) => ({
             return tid && tid === activeIdStr;
         });
 
-        if (currentIndex === -1 || currentIndex >= neuralQueue.length - 1) {
+        const activeData = get().appState?.contests?.[get().appState?.activeId];
+        const isQueuedTaskStillPending = (candidate) => {
+            if (!candidate || candidate.completed) return false;
+            if (!activeData) return true;
+            const catName = extractCategoryFromTask(candidate);
+            const catId = resolveTaskCategoryId(activeData, candidate, catName);
+            const probeSubject = {
+                categoryId: catId,
+                category: catName,
+                taskId: candidate.id || candidate.text || candidate.title,
+                task: formatTaskName(candidate),
+            };
+            const { targetTask } = findSubjectTaskInContest(activeData, probeSubject);
+            if (targetTask && targetTask.completed) return false;
+            return true;
+        };
+
+        const searchStart = currentIndex >= 0 ? currentIndex + 1 : 0;
+        let nextIndex = -1;
+        for (let i = searchStart; i < neuralQueue.length; i += 1) {
+            if (isQueuedTaskStillPending(neuralQueue[i])) {
+                nextIndex = i;
+                break;
+            }
+        }
+
+        if (nextIndex === -1) {
             clearPomodoroStorage();
             set((state) => {
                 const p = state.appState?.pomodoro;
@@ -515,9 +541,8 @@ export const createPomodoroSlice = (set, get) => ({
             return false;
         }
 
-        const nextTask = neuralQueue[currentIndex + 1];
+        const nextTask = neuralQueue[nextIndex];
         const taskCategoryName = extractCategoryFromTask(nextTask);
-        const activeData = get().appState?.contests?.[get().appState?.activeId];
         const resolvedCatId = resolveTaskCategoryId(activeData, nextTask, taskCategoryName);
 
         const nextSubject = {

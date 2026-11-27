@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { getSafeScore, formatValue, formatPercent, getSyntheticTotal, resolveEffectiveCorrect } from '../utils/scoreHelper';
-import { BarChart2, Filter, ChevronDown, Trophy, AlertCircle, Play, Brain } from 'lucide-react';
+import { BarChart2, Filter, ChevronDown, Trophy, AlertCircle, Play, Brain, BookOpen } from 'lucide-react';
 
 const hasValidNum = (v) =>
     v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
@@ -10,7 +10,8 @@ export default function TopicPerformance({
     maxScore: globalMaxScore = 100,
     minScore: globalMinScore = 0,
     onStartStudy = null,
-    onStartSimulado = null
+    onStartSimulado = null,
+    onCreateFlashcard = null
 }) {
     // FIX T-01: Normalizar categories e tasks de objeto Firebase para array.
     const safeCategories = useMemo(() => {
@@ -244,6 +245,19 @@ export default function TopicPerformance({
                                                 className="px-2 py-1 rounded bg-purple-500/15 hover:bg-purple-500/30 border border-purple-400/30 text-purple-200 text-[10px] font-bold inline-flex items-center gap-1 transition-colors cursor-pointer"
                                             >
                                                 <Brain size={10} /> IA
+                                            </button>
+                                        )}
+                                        {topic.percentage < 80 && typeof onCreateFlashcard === 'function' && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const catName = safeCategories.find(c => c.id === effectiveCategoryId)?.name || 'Geral';
+                                                    onCreateFlashcard(catName, topic.name);
+                                                }}
+                                                title="Criar Flashcard FSRS para este assunto"
+                                                className="px-2 py-1 rounded bg-amber-500/15 hover:bg-amber-500/30 border border-amber-400/30 text-amber-200 text-[10px] font-bold inline-flex items-center gap-1 transition-colors cursor-pointer"
+                                            >
+                                                <BookOpen size={10} /> Flashcard
                                             </button>
                                         )}
                                         <span className={`text-[10px] font-bold px-2 py-1 rounded-none border flex items-center gap-1 leading-snug shrink-0 whitespace-nowrap ${badgeColor}`}>

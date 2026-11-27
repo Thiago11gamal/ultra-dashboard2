@@ -134,19 +134,21 @@ export function normalizeProbability(value, fallback = 0) {
   return Math.max(0, Math.min(100, n));
 }
 
-export function resolveUserTargetScorePoints(userProfile, minScore = 0, maxScore = 100, defaultRatio = 0.85) {
+export function resolveUserTargetScorePoints(userProfile, minScore = 0, maxScore = 100, defaultRatio = 0.8) {
   const { safeMin, range, clamp: clampScore } = normalizeScoreDomain(minScore, maxScore);
 
-  if (userProfile?.targetScore != null && Number.isFinite(Number(userProfile.targetScore))) {
+  if (userProfile?.targetScore != null && String(userProfile.targetScore).trim() !== '' && Number.isFinite(Number(userProfile.targetScore))) {
     let ts = Number(userProfile.targetScore);
-    if (ts < safeMin && ts >= 0 && ts <= 100 && range > 0) {
+    const isExplicitPct = userProfile?.targetScoreIsPercentage === true || userProfile?.targetScoreUnit === '%';
+    if ((ts < safeMin || isExplicitPct) && ts >= 0 && ts <= 100 && range > 0) {
       ts = safeMin + (ts / 100) * range;
     }
     return clampScore(ts);
   }
 
-  if (userProfile?.targetProbability != null && Number.isFinite(Number(userProfile.targetProbability))) {
-    return clampScore(safeMin + (Number(userProfile.targetProbability) / 100) * range);
+  if (userProfile?.targetProbability != null && String(userProfile.targetProbability).trim() !== '' && Number.isFinite(Number(userProfile.targetProbability))) {
+    const pct = normalizeProbability(userProfile.targetProbability);
+    return clampScore(safeMin + (pct / 100) * range);
   }
 
   return clampScore(safeMin + range * defaultRatio);

@@ -13,6 +13,7 @@ import { PageErrorBoundary } from '../components/ErrorBoundary';
 import ConfirmModal from '../components/ConfirmModal';
 import { generateOptimalWeeklySchedule, rebalanceRemainingWeekSchedule } from '../engine/adaptive/allocationOptimizer';
 import { reconcileContestCategoriesHistory, isRealSimuladoRow } from '../utils/simuladoReconciler';
+import { isSubjectAlreadyActiveInPomodoro } from '../utils/pomodoroHelpers';
 
 const EMPTY_ARRAY = Object.freeze([]);
 
@@ -94,49 +95,96 @@ export default function Agenda() {
     }
     const dayKeyByJsDay = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
     const baseToday = getTodayAlignedDate();
+    const todayStr = format(baseToday, 'yyyy-MM-dd');
     const currentJsDay = baseToday.getDay();
     const mondayOffset = currentJsDay === 0 ? -6 : 1 - currentJsDay;
     const weekMonday = addDays(baseToday, mondayOffset);
 
-    const existingCoachSigs = new Set(
-      agenda.map((ev) => `${ev?.date || ''}|${normalize(ev?.title || '')}|${normalize(ev?.subject || '')}`)
-    );
-    const imported = [];
+    const plannerCompletionById = new Map();
+    const plannerCompletionBySig = new Map();
     const orderedKeys = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 
-    orderedKeys.forEach((colKey, colIdx) => {
-      const targetDate = addDays(weekMonday, colIdx);
-      const dateStr = format(targetDate, 'yyyy-MM-dd');
+    orderedKeys.forEach((colKey) => {
       const rawTasks = Array.isArray(rawCoachPlanner[colKey])
         ? rawCoachPlanner[colKey]
         : Object.values(rawCoachPlanner[colKey] || {});
-      rawTasks.filter((t) => t && !isSystemAlertTask(t)).forEach((task, idx) => {
+      rawTasks.filter((t) => t && !isSystemAlertTask(t)).forEach((task) => {
+        if (task.id) plannerCompletionById.set(String(task.id), Boolean(task.completed));
         const parsed = parseCoachTask(task, categories);
         const subjectName = parsed.subjectRaw || task.category || task.catName || categories[0]?.name || 'Geral';
         const matchedCat = categories.find((c) => c && isSubjectMatch(subjectName, c.name));
         const title = parsed.topic || task.topicName || task.title || task.text || 'Missão do Coach';
-        const sig = `${dateStr}|${normalize(title)}|${normalize(matchedCat?.name || subjectName)}`;
-        if (existingCoachSigs.has(sig)) return;
+        plannerCompletionBySig.set(`${normalize(title)}|${normalize(matchedCat?.name || subjectName)}`, Boolean(task.completed));
+      });
+    });
+
+    let updatedExistingCount = 0;
+    const nowIso = new Date().toISOString();
+    const syncedExistingAgenda = agenda.map((ev) => {
+      if (!ev || !ev.coachSynced) return ev;
+      const sigKey = `${normalize(ev.title || '')}|${normalize(ev.subject || '')}`;
+      const nextDone = ev.coachPlannerTaskId && plannerCompletionById.has(String(ev.coachPlannerTaskId))
+        ? plannerCompletionById.get(String(ev.coachPlannerTaskId))
+        : plannerCompletionBySig.get(sigKey);
+      if (typeof nextDone === 'boolean' && Boolean(ev.completed) !== nextDone) {
+        updatedExistingCount += 1;
+        return {
+          ...ev,
+          completed: nextDone,
+          completedAt: nextDone ? (ev.completedAt || nowIso) : null,
+          ...(nextDone ? {} : { manuallyUnchecked: true }),
+        };
+      }
+      return ev;
+    });
+
+    const existingCoachIds = new Set(
+      syncedExistingAgenda.map((ev) => (ev?.coachPlannerTaskId ? String(ev.coachPlannerTaskId) : null)).filter(Boolean)
+    );
+    const existingCoachSigs = new Set(
+      syncedExistingAgenda.map((ev) => `${ev?.date || ''}|${normalize(ev?.title || '')}|${normalize(ev?.subject || '')}`)
+    );
+    const imported = [];
+
+    orderedKeys.forEach((colKey, colIdx) => {
+      const targetDate = addDays(weekMonday, colIdx);
+      const rawDateStr = format(targetDate, 'yyyy-MM-dd');
+      const rawTasks = Array.isArray(rawCoachPlanner[colKey])
+        ? rawCoachPlanner[colKey]
+        : Object.values(rawCoachPlanner[colKey] || {});
+      rawTasks.filter((t) => t && !isSystemAlertTask(t)).forEach((task, idx) => {
+        if (task.id && existingCoachIds.has(String(task.id))) return;
+        const parsed = parseCoachTask(task, categories);
+        const subjectName = parsed.subjectRaw || task.category || task.catName || categories[0]?.name || 'Geral';
+        const matchedCat = categories.find((c) => c && isSubjectMatch(subjectName, c.name));
+        const title = parsed.topic || task.topicName || task.title || task.text || 'Missão do Coach';
+        // Evita criar blocos pendentes já vencidos em dias passados da semana atual
+        const effectiveDateStr = rawDateStr < todayStr && !task.completed ? todayStr : rawDateStr;
+        const sig = `${effectiveDateStr}|${normalize(title)}|${normalize(matchedCat?.name || subjectName)}`;
+        const origSig = `${rawDateStr}|${normalize(title)}|${normalize(matchedCat?.name || subjectName)}`;
+        if (existingCoachSigs.has(sig) || existingCoachSigs.has(origSig)) return;
         existingCoachSigs.add(sig);
+        if (task.id) existingCoachIds.add(String(task.id));
         const slotHour = String(Math.min(21, 8 + idx * 2)).padStart(2, '0');
         imported.push({
           id: generateId('agenda'),
-          date: dateStr,
+          date: effectiveDateStr,
           time: `${slotHour}:00`,
           title,
           subject: matchedCat?.name || subjectName,
           ...(matchedCat?.id ? { categoryId: matchedCat.id } : {}),
           ...(task.sourceTaskId ? { taskId: task.sourceTaskId } : {}),
+          ...(task.id ? { coachPlannerTaskId: String(task.id) } : {}),
           duration: Number(task.estimatedMinutes || task.minutes) || 60,
           completed: Boolean(task.completed),
           coachSynced: true,
           notes: parsed.action || 'Sincronizado do Kanban Semanal do Coach IA',
-          createdAt: new Date().toISOString(),
+          createdAt: nowIso,
         });
       });
     });
 
-    if (imported.length === 0) {
+    if (imported.length === 0 && updatedExistingCount === 0) {
       const hasAnyInPlanner = dayKeyByJsDay.some((k) => {
         const list = Array.isArray(rawCoachPlanner[k]) ? rawCoachPlanner[k] : Object.values(rawCoachPlanner[k] || {});
         return list.some((t) => t && !isSystemAlertTask(t));
@@ -150,22 +198,98 @@ export default function Agenda() {
       return;
     }
 
-    persistAgenda([...agenda, ...imported]);
-    showToast(`${imported.length} missão(ões) do Coach IA sincronizada(s) na Agenda!`, 'success');
+    persistAgenda([...syncedExistingAgenda, ...imported]);
+    if (imported.length > 0) {
+      showToast(`${imported.length} missão(ões) do Coach IA sincronizada(s) na Agenda!`, 'success');
+    } else {
+      showToast(`${updatedExistingCount} bloco(s) atualizados com o status do Coach IA!`, 'success');
+    }
+  };
+
+  const isEventFulfilledBySession = (ev) => {
+    if (!ev) return false;
+    if (ev.completed) return true;
+    if (ev.manuallyUnchecked) return false;
+
+    const directMatch = studySessions.some(
+      (s) =>
+        s &&
+        ((s.agendaEventId && String(s.agendaEventId) === String(ev.id)) ||
+          (s.fulfilledAgendaEventId && String(s.fulfilledAgendaEventId) === String(ev.id)))
+    );
+    if (directMatch) return true;
+
+    const matchesEvSubject = (s) => {
+      if (!s) return false;
+      if (getDateKey(s.startTime || s.date || s.createdAt) !== ev.date) return false;
+      if (s.agendaEventId || s.fulfilledAgendaEventId) return false;
+      if (ev.categoryId && s.categoryId && String(ev.categoryId) === String(s.categoryId)) return true;
+      return Boolean(ev.subject && (s.subject || s.categoryName) && isSubjectMatch(ev.subject, s.subject || s.categoryName));
+    };
+
+    const unlinkedSessionsCount = studySessions.filter(matchesEvSubject).length;
+    if (unlinkedSessionsCount === 0) return false;
+
+    const sameDaySameSubjEvents = agenda.filter((other) => {
+      if (!other || other.date !== ev.date) return false;
+      if (ev.categoryId && other.categoryId && String(ev.categoryId) === String(other.categoryId)) return true;
+      return Boolean(ev.subject && other.subject && isSubjectMatch(ev.subject, other.subject));
+    });
+    const alreadyCompletedCount = sameDaySameSubjEvents.filter((other) => other.completed).length;
+    if (alreadyCompletedCount >= unlinkedSessionsCount) return false;
+
+    const pendingPeers = sameDaySameSubjEvents.filter((other) => !other.completed && !other.manuallyUnchecked);
+    const myRank = pendingPeers.findIndex((other) => other.id === ev.id);
+    return myRank !== -1 && myRank < (unlinkedSessionsCount - alreadyCompletedCount);
   };
 
   const handleToggleEventCompleted = (eventId) => {
     const nowIso = new Date().toISOString();
+    let toggledTarget = null;
+    let toggledNextState = false;
     const next = agenda.map((ev) => {
       if (!ev || ev.id !== eventId) return ev;
-      const nextCompleted = !ev.completed;
-      return {
+      const currentlyDone = isEventFulfilledBySession(ev);
+      const nextCompleted = !currentlyDone;
+      toggledTarget = ev;
+      toggledNextState = nextCompleted;
+      const updated = {
         ...ev,
         completed: nextCompleted,
         completedAt: nextCompleted ? nowIso : null,
+        manuallyUnchecked: !nextCompleted,
       };
+      if (!nextCompleted) {
+        delete updated.autoCompletedBySession;
+        delete updated.fulfilledBySessionId;
+      }
+      return updated;
     });
-    persistAgenda(next);
+
+    setData((contest) => {
+      const updatedContest = { ...contest, agenda: next };
+      if (toggledTarget?.coachSynced && contest?.coachPlanner && typeof contest.coachPlanner === 'object') {
+        const nextPlanner = { ...contest.coachPlanner };
+        Object.keys(nextPlanner).forEach((dayKey) => {
+          const dayList = Array.isArray(nextPlanner[dayKey]) ? nextPlanner[dayKey] : null;
+          if (!dayList) return;
+          nextPlanner[dayKey] = dayList.map((ct) => {
+            if (!ct) return ct;
+            const matchById = toggledTarget.coachPlannerTaskId && ct.id && String(ct.id) === String(toggledTarget.coachPlannerTaskId);
+            const matchByTaskId = toggledTarget.taskId && ct.sourceTaskId && String(ct.sourceTaskId) === String(toggledTarget.taskId);
+            if (!matchById && !matchByTaskId) return ct;
+            return {
+              ...ct,
+              completed: toggledNextState,
+              completedAt: toggledNextState ? nowIso : null,
+              updatedAt: nowIso,
+            };
+          });
+        });
+        updatedContest.coachPlanner = nextPlanner;
+      }
+      return updatedContest;
+    });
   };
 
   const handleStartAgendaPomodoro = (ev) => {
@@ -180,36 +304,34 @@ export default function Agenda() {
       ? (Array.isArray(matchedCat.tasks) ? matchedCat.tasks : Object.values(matchedCat.tasks || {})).filter(Boolean)
       : [];
     const normTitle = normalize(ev.title || '');
-    const matchedTask = catTasks.find((t) =>
-      (ev.taskId && String(t.id) === String(ev.taskId)) ||
-      (normTitle && normalize(t.title || t.text || '').includes(normTitle))
-    ) || catTasks.find((t) => !t.completed);
+    const normCatName = normalize(matchedCat?.name || ev.subject || '');
+    const matchedTask = catTasks.find((t) => {
+      if (ev.taskId && t.id && String(t.id) === String(ev.taskId)) return true;
+      if (!normTitle || normTitle === normCatName) return false;
+      const tNorm = normalize(t.title || t.text || '');
+      return Boolean(tNorm && (tNorm === normTitle || tNorm.includes(normTitle)));
+    }) || null;
 
     if (typeof startPomodoroSession === 'function') {
-      startPomodoroSession({
+      const nextSubject = {
         categoryId: matchedCat?.id || ev.categoryId || 'geral',
-        taskId: matchedTask?.id || ev.taskId || ev.id,
+        taskId: matchedTask?.id || ev.taskId || `agenda_block_${ev.id}`,
         category: matchedCat?.name || ev.subject || 'Geral',
         task: matchedTask ? (matchedTask.title || matchedTask.text) : (ev.title || 'Bloco da Agenda'),
         priority: matchedTask?.priority || 'high',
         agendaEventId: ev.id,
+        isAgendaOnlyBlock: !matchedTask,
         source: 'agenda',
-      });
+      };
+      const currentPomodoro = useAppStore.getState().appState?.pomodoro;
+      if (isSubjectAlreadyActiveInPomodoro(currentPomodoro, nextSubject, matchedCat, matchedTask)) {
+        navigate('/pomodoro');
+        return;
+      }
+      startPomodoroSession(nextSubject);
       showToast(`Iniciando bloco da Agenda: ${ev.title}`, 'success');
       navigate('/pomodoro');
     }
-  };
-
-  const isEventFulfilledBySession = (ev) => {
-    if (!ev) return false;
-    if (ev.completed) return true;
-    return studySessions.some((s) => {
-      if (!s) return false;
-      const sDate = getDateKey(s.startTime || s.date || s.createdAt);
-      if (sDate !== ev.date) return false;
-      if (ev.categoryId && s.categoryId && String(ev.categoryId) === String(s.categoryId)) return true;
-      return Boolean(ev.subject && (s.subject || s.categoryName) && isSubjectMatch(ev.subject, s.subject || s.categoryName));
-    });
   };
 
   const getTodayAlignedDate = () => {

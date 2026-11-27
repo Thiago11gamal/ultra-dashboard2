@@ -194,6 +194,9 @@ export default function Flashcards() {
     setNewDeckCategoryId('');
     setNewDeckSubject('');
     setShowCreateDeck(false);
+    if (front.trim() || back.trim()) {
+      setShowAddCard(true);
+    }
     showToast('Deck criado! 📚', 'success');
   };
 
@@ -545,14 +548,33 @@ export default function Flashcards() {
 
   if (incomingNavState && incomingNavState !== prevNavState) {
     setPrevNavState(incomingNavState);
-    const { focusSubject, focusCategoryId, autoStartReview, prefillCard } = incomingNavState;
-    if (focusSubject || focusCategoryId || prefillCard) {
-      const matchingDeck = decks.find(d => {
+    const { focusDeckId, focusSubject, focusCategoryId, autoStartReview, prefillCard } = incomingNavState;
+    if (focusDeckId || focusSubject || focusCategoryId || prefillCard || autoStartReview) {
+      const getDueForDeck = (d) =>
+        getSafeDeckCards(d)
+          .filter(c => isFlashcardDue(c.due))
+          .sort((a, b) => {
+            const aCrit = (a?.priority === 'critical' || a?.confidence === 'certeza') ? 1 : 0;
+            const bCrit = (b?.priority === 'critical' || b?.confidence === 'certeza') ? 1 : 0;
+            if (bCrit !== aCrit) return bCrit - aCrit;
+            return String(a?.due || '').localeCompare(String(b?.due || ''));
+          });
+
+      const candidateDecks = decks.filter(d => {
         if (!d) return false;
+        if (focusDeckId && String(d.id) === String(focusDeckId)) return true;
         if (focusCategoryId && d.categoryId && String(d.categoryId) === String(focusCategoryId)) return true;
         if (focusSubject && (isSubjectMatch(d.subject || '', focusSubject) || isSubjectMatch(d.name || '', focusSubject))) return true;
-        return false;
+        return !focusDeckId && !focusCategoryId && !focusSubject && Boolean(autoStartReview);
       });
+
+      const exactIdDeck = focusDeckId ? candidateDecks.find(d => String(d.id) === String(focusDeckId)) : null;
+      const deckWithDue = autoStartReview
+        ? (exactIdDeck && getDueForDeck(exactIdDeck).length > 0
+            ? exactIdDeck
+            : candidateDecks.find(d => getDueForDeck(d).length > 0) || decks.find(d => getDueForDeck(d).length > 0))
+        : null;
+      const matchingDeck = deckWithDue || exactIdDeck || candidateDecks[0] || null;
 
       if (matchingDeck) {
         setSelectedDeckId(matchingDeck.id);
@@ -561,14 +583,7 @@ export default function Flashcards() {
           setBack(prefillCard.back || '');
           setShowAddCard(true);
         } else if (autoStartReview) {
-          const due = getSafeDeckCards(matchingDeck)
-            .filter(c => isFlashcardDue(c.due))
-            .sort((a, b) => {
-              const aCrit = (a?.priority === 'critical' || a?.confidence === 'certeza') ? 1 : 0;
-              const bCrit = (b?.priority === 'critical' || b?.confidence === 'certeza') ? 1 : 0;
-              if (bCrit !== aCrit) return bCrit - aCrit;
-              return String(a?.due || '').localeCompare(String(b?.due || ''));
-            });
+          const due = getDueForDeck(matchingDeck);
           if (due.length > 0) {
             setStudyDeck({ ...matchingDeck, cardsToStudy: due });
             setStudyIndex(0);
@@ -598,8 +613,8 @@ export default function Flashcards() {
 
   useEffect(() => {
     if (!incomingNavState) return;
-    const { focusSubject, focusCategoryId, prefillCard } = incomingNavState;
-    if (!focusSubject && !focusCategoryId && !prefillCard) return;
+    const { focusDeckId, focusSubject, focusCategoryId, prefillCard, autoStartReview } = incomingNavState;
+    if (!focusDeckId && !focusSubject && !focusCategoryId && !prefillCard && !autoStartReview) return;
     try {
       window.history.replaceState({}, document.title);
     } catch { /* ignore */ }

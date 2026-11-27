@@ -18,6 +18,7 @@ import {
   computeCategoryPerformanceStats
 } from '../utils/tasksStatsHelper';
 import { reconcileContestCategoriesHistory, isRealSimuladoRow } from '../utils/simuladoReconciler';
+import { isSubjectAlreadyActiveInPomodoro } from '../utils/pomodoroHelpers';
 
 const EMPTY_ARRAY = Object.freeze([]);
 
@@ -103,14 +104,23 @@ export default function Tasks() {
     const cat = categories.find(c => c && (c.id === categoryId || c.name === categoryId));
     const tsk = toSafeArray(cat?.tasks).find(t => t && (t.id === taskId || t.text === taskId || t.title === taskId));
     if (!cat || !tsk || typeof storeActions.startPomodoroSession !== 'function') return;
-    storeActions.startPomodoroSession({
+
+    const nextSubject = {
       categoryId: cat.id || cat.name,
       taskId: tsk.id || taskId,
       category: cat.name,
       task: tsk.title || tsk.text || 'Estudo',
       priority: normalizePriority(tsk.priority),
       source: 'tasks'
-    });
+    };
+
+    const currentPomodoro = useAppStore.getState().appState?.pomodoro;
+    if (isSubjectAlreadyActiveInPomodoro(currentPomodoro, nextSubject, cat, tsk)) {
+      navigate('/pomodoro');
+      return;
+    }
+
+    storeActions.startPomodoroSession(nextSubject);
     showToast(`Iniciando estudos: ${cat.name} - ${tsk.title || tsk.text || 'Estudo'}`, 'success');
     navigate('/pomodoro');
   }, [categories, storeActions, showToast, navigate]);

@@ -76,7 +76,13 @@ export const createContestSlice = (set) => ({
         const initialClone = safeClone(INITIAL_DATA);
         const newContestData = {
             ...initialClone,
+            id: newId,
             contestName: "Novo Concurso",
+            name: "Novo Concurso",
+            user: {
+                ...(initialClone.user || {}),
+                name: "Novo Concurso",
+            },
             simuladoRows: [],
             simulados: [],
             categories: [],
@@ -163,6 +169,8 @@ export const createContestSlice = (set) => ({
         const nowIso = new Date().toISOString();
         contest.contestName = trimmed;
         contest.name = trimmed;
+        if (!contest.user) contest.user = {};
+        contest.user.name = trimmed;
         contest.lastUpdated = nowIso;
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = nowIso;

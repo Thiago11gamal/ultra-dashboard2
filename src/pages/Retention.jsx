@@ -10,10 +10,11 @@ import { useToast } from '../hooks/useToast';
 import { BookOpen, Play } from 'lucide-react';
 import DueForecast from '../components/DueForecast';
 import ConfirmModal from '../components/ConfirmModal';
-import { getFlashcardDueTodayCount, getFlashcardMasteryPct, getFlashcardTotalCards, getFlashcardDeckCount } from '../utils/analytics';
+import { getFlashcardDueTodayCount, getFlashcardMasteryPct, getFlashcardTotalCards, getFlashcardDeckCount, isFlashcardDue } from '../utils/analytics';
 import { normalizeArray, toFiniteNumber } from '../utils/retentionCore';
 import { estimateEmpiricalHalfLife } from '../engine/adaptive/empiricalRetention';
 import { reconcileContestCategoriesHistory, isRealSimuladoRow } from '../utils/simuladoReconciler';
+import { isSubjectAlreadyActiveInPomodoro } from '../utils/pomodoroHelpers';
 
 export default function Retention() {
     const [confirmModal, setConfirmModal] = useState({
@@ -145,24 +146,27 @@ export default function Retention() {
                 showToast('Sessão de estudo indisponível no momento.', 'error');
                 return;
             }
-            if (cat.selectedTask) {
-                startPomodoroSession({
+            const nextSubject = cat.selectedTask
+                ? {
                     categoryId: cat.id,
                     taskId: cat.selectedTask.id || cat.selectedTask.text || `task-${cat.id}`,
                     category: cat.name,
                     task: taskName,
                     priority: cat.selectedTask.priority || 'normal',
                     source: 'retention'
-                });
-            } else {
-                startPomodoroSession({
+                }
+                : {
                     categoryId: cat.id,
                     taskId: cat.id || `cat-${cat.name}`,
                     category: cat.name,
                     task: `${cat.name}: Revisão Geral`,
                     priority: 'normal',
                     source: 'retention'
-                });
+                };
+
+            const currentPomodoro = useAppStore.getState().appState?.pomodoro;
+            if (!isSubjectAlreadyActiveInPomodoro(currentPomodoro, nextSubject, cat, cat.selectedTask || null)) {
+                startPomodoroSession(nextSubject);
             }
 
             navigate('/pomodoro');
@@ -181,6 +185,25 @@ export default function Retention() {
         const taskName = cat.selectedTask
             ? (cat.selectedTask.title || cat.selectedTask.text || 'Estudo')
             : cat.name;
+
+        const probeSubject = cat.selectedTask
+            ? {
+                categoryId: cat.id,
+                taskId: cat.selectedTask.id || cat.selectedTask.text || `task-${cat.id}`,
+                category: cat.name,
+                task: taskName,
+            }
+            : {
+                categoryId: cat.id,
+                taskId: cat.id || `cat-${cat.name}`,
+                category: cat.name,
+                task: `${cat.name}: Revisão Geral`,
+            };
+
+        if (isSubjectAlreadyActiveInPomodoro(useAppStore.getState().appState?.pomodoro, probeSubject, cat, cat.selectedTask || null)) {
+            navigate('/pomodoro');
+            return;
+        }
 
         pendingCategoryRef.current = cat;
         setConfirmModal({
@@ -247,14 +270,18 @@ export default function Retention() {
                             <button
                                 type="button"
                                 onClick={() => {
-                                    const firstDeckWithDue = safeDecks.find(d => Array.isArray(d.cards) && d.cards.length > 0);
+                                    const getDeckCards = (d) => normalizeArray(d?.cards).filter(Boolean);
+                                    const firstDeckWithDue =
+                                        safeDecks.find(d => getDeckCards(d).some(c => isFlashcardDue(c?.due))) ||
+                                        safeDecks.find(d => getDeckCards(d).length > 0);
                                     navigate('/flashcards', firstDeckWithDue ? {
                                         state: {
+                                            focusDeckId: firstDeckWithDue.id || null,
                                             focusSubject: firstDeckWithDue.subject || firstDeckWithDue.name,
                                             focusCategoryId: firstDeckWithDue.categoryId || null,
                                             autoStartReview: srsIndicators.dueToday > 0
                                         }
-                                    } : undefined);
+                                    } : { state: { autoStartReview: srsIndicators.dueToday > 0 } });
                                 }}
                                 className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/35 text-amber-200 font-bold text-[11px] transition-colors cursor-pointer"
                             >
