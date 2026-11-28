@@ -100,6 +100,17 @@ export const safeguardContest = (contest) => {
     calibrationAuditLog: toArray(contest.calibrationAuditLog).slice(-150),
     calibrationEvents: toArray(contest.calibrationEvents).slice(-150),
     coachPlan: toArray(contest.coachPlan).slice(-100),
+    ...(contest.studyNotes !== undefined
+      ? {
+          studyNotes: (() => {
+            const notesArr = toArray(contest.studyNotes).filter(Boolean);
+            if (notesArr.length <= 300) return notesArr;
+            return [...notesArr]
+              .sort((a, b) => toSafeMs(b?.updatedAt || b?.lastUpdated || b?.createdAt) - toSafeMs(a?.updatedAt || a?.lastUpdated || a?.createdAt))
+              .slice(0, 300);
+          })()
+        }
+      : {}),
     calibrationHistoryByCategory: contest.calibrationHistoryByCategory
       ? Object.fromEntries(
           Object.entries(contest.calibrationHistoryByCategory).map(([catId, history]) => [
@@ -268,6 +279,7 @@ export const stateStringForSync = (state) => {
         catFp += (c?.simuladoRows?.length || 0) * 7;
         catFp += (c?.simulados?.length || 0) * 5;
         catFp += (c?.studyLogs?.length || 0) * 3;
+        catFp += (c?.studySessions?.length || 0) * 11;
         catFp += (c?.flashcardDecks?.length || 0) * 17;
         catFp += (Array.isArray(c?.flashcardDecks)
           ? c.flashcardDecks.reduce((acc, d) => acc + (Array.isArray(d?.cards) ? d.cards.length : 0), 0)
@@ -275,6 +287,11 @@ export const stateStringForSync = (state) => {
         catFp += (c?.agenda?.length || 0) * 23;
         catFp += (c?.deletedFlashcardDeckIds?.length || 0) * 29;
         catFp += (c?.deletedAgendaIds?.length || 0) * 31;
+        catFp += (c?.studyNotes?.length || 0) * 37;
+        catFp += (Array.isArray(c?.studyNotes)
+          ? c.studyNotes.reduce((acc, n) => acc + String(n?.updatedAt || n?.title || '').length, 0)
+          : 0) * 41;
+        catFp += (c?.deletedStudyNoteIds?.length || 0) * 43;
         catFp += c?.notes?.length || 0;
         contentFingerprint += catFp;
         const title = String(c?.contestName || c?.name || c?.user?.name || '');
@@ -635,6 +652,59 @@ export const mergeFlashcardDecksPure = (localDecks = [], cloudDecks = [], delete
   return Array.from(deckMap.values());
 };
 
+export const mergeStudyNotesPure = (localNotes = [], cloudNotes = [], deletedNoteIds = [], arrayOptions = {}) => {
+  const { preferCloudBase = false } = arrayOptions || {};
+  const noteTombstones = buildTombstoneLookup(deletedNoteIds);
+  const noteMap = new Map();
+  const safeLocal = Array.isArray(localNotes) ? localNotes : Object.values(localNotes || {});
+  const safeCloud = Array.isArray(cloudNotes) ? cloudNotes : Object.values(cloudNotes || {});
+
+  const getNoteKey = (note, idx, prefix) => {
+    if (!note || typeof note !== 'object') return null;
+    if (note.id) return `id:${String(note.id)}`;
+    const title = String(note.title || '').trim().toLowerCase();
+    const subj = String(note.subject || '').trim().toLowerCase();
+    const created = String(note.createdAt || '');
+    if (title || subj || created) return `note:${subj}:${title}:${created}`;
+    return `fallback:${prefix}:${idx}`;
+  };
+
+  const isNoteDeleted = (note) => {
+    if (!note?.id || noteTombstones.byId.size === 0) return false;
+    const delMs = noteTombstones.byId.get(String(note.id));
+    if (delMs === undefined) return false;
+    const noteMs = toSafeMs(note.lastUpdated || note.updatedAt || note.createdAt);
+    return delMs === 0 || delMs >= noteMs;
+  };
+
+  safeLocal.filter(Boolean).forEach((note, idx) => {
+    if (isNoteDeleted(note)) return;
+    const key = getNoteKey(note, idx, 'L');
+    if (key) noteMap.set(key, note);
+  });
+
+  safeCloud.filter(Boolean).forEach((cloudNote, idx) => {
+    if (isNoteDeleted(cloudNote)) return;
+    const key = getNoteKey(cloudNote, idx, 'C');
+    if (!key) return;
+    const localNote = noteMap.get(key);
+    if (!localNote) {
+      noteMap.set(key, cloudNote);
+      return;
+    }
+    const localMs = toSafeMs(localNote.lastUpdated || localNote.updatedAt || localNote.createdAt);
+    const cloudMs = toSafeMs(cloudNote.lastUpdated || cloudNote.updatedAt || cloudNote.createdAt);
+    const winner = (cloudMs > localMs || (preferCloudBase && cloudMs === localMs))
+      ? { ...localNote, ...cloudNote }
+      : { ...cloudNote, ...localNote };
+    noteMap.set(key, winner);
+  });
+
+  return Array.from(noteMap.values()).sort(
+    (a, b) => toSafeMs(b?.updatedAt || b?.lastUpdated || b?.createdAt) - toSafeMs(a?.updatedAt || a?.lastUpdated || a?.createdAt)
+  );
+};
+
 export const mergeContestCategoriesPure = (
   localCats = [],
   cloudCats = [],
@@ -824,6 +894,11 @@ export const mergeContestPayloadPure = (localContest, cloudContest, preferCloudB
     cloudContest.deletedAgendaIds,
     200
   );
+  const mergedDeletedNotes = mergeTombstoneListsPure(
+    localContest.deletedStudyNoteIds,
+    cloudContest.deletedStudyNoteIds,
+    100
+  );
   const agendaTombs = buildTombstoneLookup(mergedDeletedAgenda);
   const mergedAgenda = mergeArraysPure(localContest.agenda, cloudContest.agenda, arrayOptions).filter((ev) => {
     if (!ev?.id || agendaTombs.byId.size === 0) return true;
@@ -832,6 +907,10 @@ export const mergeContestPayloadPure = (localContest, cloudContest, preferCloudB
     const evMs = toSafeMs(ev.lastUpdated || ev.updatedAt || ev.createdAt);
     return !(delMs === 0 || delMs >= evMs);
   });
+  const hasStudyNotesField =
+    localContest.studyNotes !== undefined ||
+    cloudContest.studyNotes !== undefined ||
+    mergedDeletedNotes.length > 0;
   return {
     ...base,
     categories: mergeContestCategoriesPure(
@@ -853,8 +932,12 @@ export const mergeContestPayloadPure = (localContest, cloudContest, preferCloudB
     coachPlanner: mergeCoachPlannerPure(localContest.coachPlanner, cloudContest.coachPlanner, arrayOptions),
     flashcardDecks: mergeFlashcardDecksPure(localContest.flashcardDecks, cloudContest.flashcardDecks, mergedDeletedDecks, arrayOptions),
     agenda: mergedAgenda,
+    ...(hasStudyNotesField
+      ? { studyNotes: mergeStudyNotesPure(localContest.studyNotes, cloudContest.studyNotes, mergedDeletedNotes, arrayOptions) }
+      : {}),
     ...(mergedDeletedDecks.length > 0 ? { deletedFlashcardDeckIds: mergedDeletedDecks } : {}),
     ...(mergedDeletedAgenda.length > 0 ? { deletedAgendaIds: mergedDeletedAgenda } : {}),
+    ...(mergedDeletedNotes.length > 0 ? { deletedStudyNoteIds: mergedDeletedNotes } : {}),
     ...(() => {
       const localTime = new Date(localContest.lastUpdated || 0).getTime();
       const cloudTime = new Date(cloudContest.lastUpdated || 0).getTime();

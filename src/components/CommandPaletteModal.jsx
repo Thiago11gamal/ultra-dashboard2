@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Search, ArrowRight, Play, TrendingUp, Compass, X } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { normalize } from '../utils/normalization';
@@ -42,6 +42,7 @@ export default function CommandPaletteModal({ isOpen, onClose }) {
 
 function CommandPaletteDialog({ onClose }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const inputRef = useRef(null);
   const [query, setQuery] = useState('');
   const [selectedIdx, setSelectedIdx] = useState(0);
@@ -98,6 +99,8 @@ function CommandPaletteDialog({ onClose }) {
     if (!item) return;
     onClose?.();
     if (item.kind === 'task' && typeof startPomodoroSession === 'function') {
+      const rawPath = location.pathname || '/';
+      const originFrom = rawPath === '/' ? 'dashboard' : `${rawPath}${location.search || ''}`;
       const nextSubject = {
         categoryId: item.cat.id || item.cat.name,
         taskId: item.tsk.id || item.tsk.title || item.tsk.text,
@@ -105,6 +108,7 @@ function CommandPaletteDialog({ onClose }) {
         task: item.tsk.title || item.tsk.text || 'Estudo',
         priority: normalizePriority(item.tsk.priority),
         source: 'command_palette',
+        ...(rawPath !== '/pomodoro' ? { returnTo: originFrom } : {}),
       };
       const currentPomodoro = useAppStore.getState().appState?.pomodoro;
       const activeSub = currentPomodoro?.activeSubject;
@@ -116,7 +120,11 @@ function CommandPaletteDialog({ onClose }) {
       if (!isAlreadyActive) {
         startPomodoroSession(nextSubject);
       }
-      navigate('/pomodoro');
+      if (rawPath !== '/pomodoro') {
+        navigate('/pomodoro', { state: { from: originFrom } });
+      } else {
+        navigate('/pomodoro');
+      }
       return;
     }
     if (item.path) {

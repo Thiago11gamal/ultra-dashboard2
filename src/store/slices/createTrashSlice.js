@@ -350,13 +350,19 @@ export const createTrashSlice = (set, get) => ({
             if (Array.isArray(contest.deletedFlashcardDeckIds)) {
                 contest.deletedFlashcardDeckIds = contest.deletedFlashcardDeckIds.filter(e => e && e.id !== item.data?.id);
             }
-            contest.lastUpdated = new Date().toISOString();
+            const restoredAtIso = new Date().toISOString();
+            deckData.updatedAt = restoredAtIso;
+            deckData.lastUpdated = restoredAtIso;
+            contest.lastUpdated = restoredAtIso;
         } else if (item.type === 'agenda_event') {
             const targetContestId = resolveOrRecreateContestForItem(state, item);
             const contest = state.appState.contests[targetContestId];
             if (!contest) return;
             const evData = safeClone(item.data);
             if (!evData) return;
+            const restoredAtIso = new Date().toISOString();
+            evData.updatedAt = restoredAtIso;
+            evData.lastUpdated = restoredAtIso;
             const agenda = Array.isArray(contest.agenda) ? contest.agenda : Object.values(contest.agenda || {});
             if (agenda.some(e => e && e.id === evData.id)) {
                 evData.id = generateId('agenda');
@@ -365,7 +371,7 @@ export const createTrashSlice = (set, get) => ({
             if (Array.isArray(contest.deletedAgendaIds)) {
                 contest.deletedAgendaIds = contest.deletedAgendaIds.filter(e => e && e.id !== item.data?.id);
             }
-            contest.lastUpdated = new Date().toISOString();
+            contest.lastUpdated = restoredAtIso;
         } else if (item.type === 'simulado') {
             const targetContestId = resolveOrRecreateContestForItem(state, item);
             const contest = state.appState.contests[targetContestId];
@@ -410,6 +416,9 @@ export const createTrashSlice = (set, get) => ({
             if (!contest) return;
             const noteData = safeClone(item.data);
             if (!noteData) return;
+            const restoredAtIso = new Date().toISOString();
+            noteData.updatedAt = restoredAtIso;
+            noteData.lastUpdated = restoredAtIso;
             const notes = Array.isArray(contest.studyNotes) ? contest.studyNotes : Object.values(contest.studyNotes || {});
             if (notes.some(n => n && n.id === noteData.id)) {
                 noteData.id = generateId('note');
@@ -418,7 +427,7 @@ export const createTrashSlice = (set, get) => ({
             if (Array.isArray(contest.deletedStudyNoteIds)) {
                 contest.deletedStudyNoteIds = contest.deletedStudyNoteIds.filter(e => e && e.id !== item.data?.id);
             }
-            contest.lastUpdated = new Date().toISOString();
+            contest.lastUpdated = restoredAtIso;
         }
         const removeIdx = state.appState.trash.findIndex(t => t.id === trashId);
         if (removeIdx !== -1) {

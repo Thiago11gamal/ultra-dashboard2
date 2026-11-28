@@ -33,6 +33,7 @@ export const INITIAL_DATA = {
     studySessions: [], // History of sessions for StudyHistory
 
     notes: "",
+    studyNotes: [],
 
     // NEW TOOLS DATA
     flashcardDecks: [],

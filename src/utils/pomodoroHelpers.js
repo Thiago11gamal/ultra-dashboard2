@@ -209,3 +209,36 @@ export function findSubjectTaskInContest(contestData, subject) {
       ...(prev.coachPlanner !== undefined ? { coachPlanner: nextCoachPlanner } : {})
     };
   }
+
+export const ALLOWED_RETURN_PATHS = [
+  '/', '/dashboard', '/pomodoro', '/tasks', '/simulados', '/stats', '/evolution',
+  '/coach', '/history', '/sessions', '/heatmap', '/retention', '/notes',
+  '/flashcards', '/agenda'
+];
+
+export function resolveReturnPath(source, forceDashboard = false) {
+  if (forceDashboard) return '/';
+  const raw = String(source || '').trim();
+  if (!raw) return '/pomodoro';
+  const qIndex = raw.indexOf('?');
+  const pathPart = qIndex >= 0 ? raw.slice(0, qIndex) : raw;
+  const queryPart = qIndex >= 0 ? raw.slice(qIndex) : '';
+  const normalized = pathPart.replace(/^\/+/, '');
+  if (
+    !normalized ||
+    normalized === 'pomodoro' ||
+    normalized === 'neural_core' ||
+    normalized === 'side_panel' ||
+    normalized === 'command_palette'
+  ) {
+    return '/pomodoro';
+  }
+  if (normalized === 'dashboard' || normalized === 'dashboard_selector') {
+    return '/';
+  }
+  if (normalized === 'activity') {
+    return '/heatmap';
+  }
+  const candidate = `/${normalized}`;
+  return ALLOWED_RETURN_PATHS.includes(candidate) ? `${candidate}${queryPart}` : '/pomodoro';
+}

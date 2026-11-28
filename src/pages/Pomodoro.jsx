@@ -18,7 +18,7 @@ import { resolveCanonicalNextMission } from '../utils/canonicalNextMission';
 import { DataTriviaPanel, AICoachPanel } from '../components/pomodoro/PomodoroMetaPanels';
 import { countPomodorosToday } from '../utils/analytics';
 import { parseTaskDisplay, cleanTaskTitle } from '../utils/taskTitleHelper';
-import { calculateETA, findSubjectTaskInContest, clearStudyingStatusInContest, isActiveSubjectInCategory, matchesSubjectTask } from '../utils/pomodoroHelpers';
+import { calculateETA, findSubjectTaskInContest, clearStudyingStatusInContest, isActiveSubjectInCategory, matchesSubjectTask, resolveReturnPath } from '../utils/pomodoroHelpers';
 import { useLivePomodoroTimeLeft } from '../utils/pomodoroLiveStore';
 import { hexToRgba, normalizePriority } from '../utils/colorHelper';
 import { computeACWR } from '../engine/adaptive/workloadACWR';
@@ -34,28 +34,6 @@ const STUDY_MODE_OPTIONS = [
 // Referências estáticas para evitar loops infinitos em seletores Zustand
 const EMPTY_ARRAY = Object.freeze([]);
 const EMPTY_OBJECT = Object.freeze({});
-
-const ALLOWED_RETURN_PATHS = [
-    '/', '/dashboard', '/pomodoro', '/tasks', '/simulados', '/stats', '/evolution',
-    '/coach', '/history', '/sessions', '/heatmap', '/retention', '/notes',
-    '/flashcards', '/agenda'
-];
-
-const resolveReturnPath = (source, forceDashboard = false) => {
-    if (forceDashboard) return '/';
-    const normalized = String(source || '').replace(/^\/+/, '');
-    if (!normalized || normalized === 'pomodoro' || normalized === 'neural_core' || normalized === 'side_panel') {
-        return '/pomodoro';
-    }
-    if (normalized === 'dashboard' || normalized === 'dashboard_selector') {
-        return '/';
-    }
-    if (normalized === 'activity') {
-        return '/heatmap';
-    }
-    const candidate = `/${normalized}`;
-    return ALLOWED_RETURN_PATHS.includes(candidate) ? candidate : '/pomodoro';
-};
 
 // DataTriviaPanel e AICoachPanel extraídos para src/components/pomodoro/PomodoroMetaPanels.jsx
 
@@ -1248,11 +1226,15 @@ export default function Pomodoro() {
         }
     }, [activeSubject?.taskId, activeSubject?.sessionInstanceId]);
 
-    const resolveSessionSource = (subjectSource) => {
+    const resolveSessionSource = (subjectSource, returnToHint = null) => {
         const entry = String(entrySourceRef.current || '').replace(/^\/+/, '');
         const subject = String(subjectSource || '').replace(/^\/+/, '');
+        const explicitReturn = String(returnToHint || '').trim();
         if (entry === 'dashboard') return 'dashboard';
-        return subject || entry || 'pomodoro';
+        if (subject === 'command_palette') {
+            return explicitReturn || entry || 'pomodoro';
+        }
+        return subject || explicitReturn || entry || 'pomodoro';
     };
 
     const [isLayoutLocked, setIsLayoutLocked] = useState(() => {
@@ -1418,7 +1400,7 @@ export default function Pomodoro() {
 
     const handleExit = useCallback((options = {}) => {
         const subjectSnapshot = options._subjectSnapshot || activeSubjectRef.current;
-        const currentSource = options.source || resolveSessionSource(subjectSnapshot?.source);
+        const currentSource = options.source || resolveSessionSource(subjectSnapshot?.source, subjectSnapshot?.returnTo);
 
         if (subjectSnapshot) {
             setData(prev => clearStudyingStatusInContest(prev, subjectSnapshot));
@@ -1615,7 +1597,7 @@ export default function Pomodoro() {
                 }
             }
 
-            const sourceAfterFinish = resolveSessionSource(currentSubject?.source);
+            const sourceAfterFinish = resolveSessionSource(currentSubject?.source, currentSubject?.returnTo);
             if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current.timerId || completionTimeoutRef.current);
             const completedSessionId = currentSubject?.sessionInstanceId || null;
             const timerId = setTimeout(() => {

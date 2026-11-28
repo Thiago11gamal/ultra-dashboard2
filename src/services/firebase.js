@@ -13,6 +13,7 @@ import { getAuth, signOut } from 'firebase/auth';
 import { getAnalytics } from 'firebase/analytics';
 import { del } from 'idb-keyval';
 import { clearAllCoachFlags } from '../utils/coachFeatureStore.js';
+import { clearClientSessionKeys } from '../utils/storageSafe.js';
 
 export const firebaseConfig = {
     apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -109,80 +110,12 @@ export async function secureLogout() {
 
     // Só limpar persistência e dados locais quando o signOut remoto não falhou
     if (!signOutFailed) {
-        // ✅ FIX N-01: Limpar TODAS as chaves relevantes, incluindo IndexedDB
-        const keysToRemove = [
-            'ultra-dashboard-storage',
-            'ultra-dashboard-storage:meta',
-            'ultra-sync-dirty',
-            'pomodoroState',
-            'pomodoro-endsAt',
-            'pomodoro_muted',
-            'tasks_active_panel',
-            'dismissed_feature_banner_v1',
-            'focusPanelLocked',
-            'pomodoroLayoutLocked',
-            'ultra_local_session',
-            'coach_calibration_events_v1',
-            'coach_flag_optimizer_state_v1',
-            'coach_causal_model_v1',
-            'coach_auto_tuner_history_v1',
-            'coach_evaluation_results_v1',
-            'coach_model_health_v1',
-            'coach_strategy_backtest_v1',
-            'coach_decision_bandit_v1',
-            'coach_control_center_state_v1',
-            'hasSeenWelcomeScreen',
-            'page-has-been-force-refreshed',
-            'ultra-last-activity',
-            'ultra_category_tombstones',
-            'pomodoroSideTab',
-            'focusPanelPosition',
-            'coach_active_flags_v1',
-            'coach_features_v1',
-            'coach_manual_flag_overrides_v1',
-        ];
-        keysToRemove.forEach(key => {
-            try {
-                localStorage.removeItem(key);
-                sessionStorage.removeItem(key);
-            } catch { /* ignore */ }
-        });
+        // ✅ FIX N-01: Limpar TODAS as chaves relevantes de sessão local/sessionStorage de forma unificada
+        clearClientSessionKeys();
 
         // Limpar registro em memória de flags do Coach (evita vazamento de flags Admin entre contas)
         try {
             clearAllCoachFlags();
-        } catch { /* ignore */ }
-
-        // Limpar chaves de rascunho, geração de simulado IA e escopos de flags/dados do Coach AI
-        try {
-            Object.keys(localStorage).forEach(k => {
-                if (
-                    k.startsWith('ai_simulado_draft:') ||
-                    k.startsWith('ai_simulado_generating:') ||
-                    k.startsWith('coach_features_v1::') ||
-                    k.startsWith('coach_active_flags_v1:') ||
-                    k.startsWith('coach_manual_flag_overrides_v1:') ||
-                    k.startsWith('coach_control_center_state_v1:') ||
-                    k.startsWith('coach_calibration_events_v1::') ||
-                    k.startsWith('coach_flag_optimizer_state_v1:') ||
-                    k.startsWith('coach_causal_model_v1:') ||
-                    k.startsWith('coach_auto_tuner_history_v1:') ||
-                    k.startsWith('coach_evaluation_results_v1:') ||
-                    k.startsWith('coach_model_health_v1:') ||
-                    k.startsWith('coach_strategy_backtest_v1:') ||
-                    k.startsWith('coach_decision_bandit_v1:') ||
-                    k.startsWith('pomodoro_transition_lock_') ||
-                    k.startsWith('lastRoute_') ||
-                    k.startsWith('quarantine:')
-                ) {
-                    localStorage.removeItem(k);
-                }
-            });
-            Object.keys(sessionStorage).forEach(k => {
-                if (k.startsWith('ai_simulado_')) {
-                    sessionStorage.removeItem(k);
-                }
-            });
         } catch { /* ignore */ }
 
         // ✅ FIX N-01: Limpar IndexedDB do app (idb-keyval)
@@ -191,16 +124,6 @@ export async function secureLogout() {
         } catch (e) {
             console.warn('[Firebase] Falha ao limpar IndexedDB no logout:', e);
         }
-
-        // ✅ FIX N-01: Limpar chaves de quarantine
-        try {
-            const quarantineKeys = [];
-            for (let i = 0; i < localStorage.length; i++) {
-                const k = localStorage.key(i);
-                if (k && k.startsWith('quarantine:')) quarantineKeys.push(k);
-            }
-            quarantineKeys.forEach(k => localStorage.removeItem(k));
-        } catch { /* ignore */ }
     } else {
         console.warn('[Firebase] Logout cancelado/falhou remotamente — dados locais preservados.');
     }

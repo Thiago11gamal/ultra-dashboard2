@@ -37,6 +37,7 @@ import { useAuth } from '../context/useAuth';
 import './Sidebar.css';
 import { del } from 'idb-keyval';
 import { useAppStore, clearAllDataSecure } from '../store/useAppStore';
+import { clearClientSessionKeys } from '../utils/storageSafe';
 import { getContestDisplayName, isMenuItemActive } from './sidebarUtils';
 import { preloadRoute } from '../utils/lazyRetry';
 
@@ -301,56 +302,7 @@ const Sidebar = React.memo(function Sidebar({
             const ok = await logout();
             if (ok === false) return;
             await del('ultra-dashboard-storage');
-            const appKeys = [
-                'ultra-dashboard-storage',
-                'ultra-dashboard-storage:meta',
-                'ultra-sync-dirty',
-                'pomodoroState',
-                'pomodoro_muted',
-                'focusPanelLocked',
-                'pomodoroLayoutLocked',
-                'hasSeenWelcomeScreen',
-                'page-has-been-force-refreshed',
-                'ultra_local_session',
-                'coach_calibration_events_v1',
-                'coach_flag_optimizer_state_v1',
-                'coach_causal_model_v1',
-                'coach_auto_tuner_history_v1',
-                'coach_evaluation_results_v1',
-                'coach_model_health_v1',
-                'coach_strategy_backtest_v1',
-                'coach_decision_bandit_v1',
-                'coach_control_center_state_v1',
-                'coach_active_flags_v1',
-                'coach_features_v1',
-                'coach_manual_flag_overrides_v1',
-            ];
-            appKeys.forEach(key => {
-                try {
-                    localStorage.removeItem(key);
-                    sessionStorage.removeItem(key);
-                } catch { /* ignore */ }
-            });
-            try {
-                Object.keys(localStorage).forEach(k => {
-                    if (
-                        k.startsWith('coach_calibration_events_v1::') ||
-                        k.startsWith('coach_features_v1::') ||
-                        k.startsWith('coach_active_flags_v1:') ||
-                        k.startsWith('coach_manual_flag_overrides_v1:') ||
-                        k.startsWith('coach_control_center_state_v1:') ||
-                        k.startsWith('coach_flag_optimizer_state_v1:') ||
-                        k.startsWith('coach_causal_model_v1:') ||
-                        k.startsWith('coach_auto_tuner_history_v1:') ||
-                        k.startsWith('coach_evaluation_results_v1:') ||
-                        k.startsWith('coach_model_health_v1:') ||
-                        k.startsWith('coach_strategy_backtest_v1:') ||
-                        k.startsWith('coach_decision_bandit_v1:')
-                    ) {
-                        localStorage.removeItem(k);
-                    }
-                });
-            } catch { /* ignore */ }
+            clearClientSessionKeys();
         } catch (err) {
             console.error("Erro ao sair", err);
         }

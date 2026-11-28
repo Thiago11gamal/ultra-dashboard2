@@ -786,6 +786,83 @@ export const createCategorySlice = (set, get) => ({
                         }
                     });
                 }
+
+                const normOldName = normalize(cat.name || '');
+
+                if (activeData.studyNotes) {
+                    const safeNotes = Array.isArray(activeData.studyNotes)
+                        ? activeData.studyNotes
+                        : Object.values(activeData.studyNotes || {});
+
+                    safeNotes.forEach(n => {
+                        if (!n || typeof n !== 'object') return;
+                        const hitId = n.categoryId != null && String(n.categoryId) === String(oldId);
+                        const hitName = normOldName && normalize(n.subject || '') === normOldName;
+                        if (hitId || hitName) {
+                            n.categoryId = newId;
+                            if (primary.name && n.subject) n.subject = primary.name;
+                        }
+                    });
+
+                    activeData.studyNotes = safeNotes;
+                }
+
+                if (activeData.flashcardDecks) {
+                    const safeDecks = Array.isArray(activeData.flashcardDecks)
+                        ? activeData.flashcardDecks
+                        : Object.values(activeData.flashcardDecks || {});
+
+                    safeDecks.forEach(d => {
+                        if (!d || typeof d !== 'object') return;
+                        const hitId = d.categoryId != null && String(d.categoryId) === String(oldId);
+                        const hitName = normOldName && normalize(d.subject || d.category || d.categoryName || '') === normOldName;
+                        if (hitId || hitName) {
+                            d.categoryId = newId;
+                            if (primary.name) {
+                                if (d.subject) d.subject = primary.name;
+                                if (d.category) d.category = primary.name;
+                                if (d.categoryName) d.categoryName = primary.name;
+                            }
+                        }
+                    });
+
+                    activeData.flashcardDecks = safeDecks;
+                }
+
+                if (activeData.agenda) {
+                    const safeAgenda = Array.isArray(activeData.agenda)
+                        ? activeData.agenda
+                        : Object.values(activeData.agenda || {});
+
+                    safeAgenda.forEach(ev => {
+                        if (!ev || typeof ev !== 'object') return;
+                        const hitId = ev.categoryId != null && String(ev.categoryId) === String(oldId);
+                        const hitName = normOldName && normalize(ev.subject || ev.category || ev.categoryName || '') === normOldName;
+                        if (hitId || hitName) {
+                            ev.categoryId = newId;
+                            if (primary.name) {
+                                if (ev.subject) ev.subject = primary.name;
+                                if (ev.category) ev.category = primary.name;
+                                if (ev.categoryName) ev.categoryName = primary.name;
+                            }
+                        }
+                    });
+
+                    activeData.agenda = safeAgenda;
+                }
+
+                const activeSub = state.appState.pomodoro?.activeSubject;
+                if (activeSub && String(activeSub.categoryId) === String(oldId)) {
+                    activeSub.categoryId = newId;
+                    if (primary.name) activeSub.category = primary.name;
+                }
+                if (Array.isArray(state.appState.pomodoro?.neuralQueue)) {
+                    state.appState.pomodoro.neuralQueue.forEach(q => {
+                        if (!q || typeof q !== 'object') return;
+                        if (String(q.categoryId) === String(oldId)) q.categoryId = newId;
+                        if (String(q.catId) === String(oldId)) q.catId = newId;
+                    });
+                }
             });
 
             const mergedStatsObj = computeCategorySimuladoStats(
@@ -833,6 +910,7 @@ export const createCategorySlice = (set, get) => ({
             activeData.lastUpdated = nowIso;
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = nowIso;
+            clearCoachCaches();
             markStorageDirty();
         }
     }),
