@@ -3,7 +3,7 @@ import { INITIAL_DATA } from '../data/initialData.js';
 import { generateId } from '../utils/idGenerator.js';
 import { normalize, aliases, isSubjectMatch } from '../utils/normalization.js';
 import { getDateKey, toDateMs } from '../utils/dateHelper.js';
-import { computeCategoryStats } from '../engine/index.js';
+import { computeCategorySimuladoStats } from '../utils/simuladoReconciler.js';
 import { RECOVERED_DIREITO_CONTEST } from '../data/recoveredContests.js';
 import { getSyntheticTotal, getSafeScore, extractTopicsTotals } from '../utils/scoreHelper.js';
 import { computeEffectiveScoreRatio } from '../utils/measurement.js';
@@ -410,21 +410,12 @@ export const repairContestHistory = (rawData, maxScore = 100, minScore = 0) => {
       }).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
 
       if (rebuiltHistory.length >= currentHistory.length || currentHistory.length === 0) {
-        const statsResult = computeCategoryStats(rebuiltHistory, cat.weight || 10, 60, maxScore, minScore);
-
-        cat.simuladoStats = {
-          history: rebuiltHistory,
-          average: statsResult ? Number(statsResult.mean.toFixed(2)) : 0,
-          trend: statsResult?.trend || 'stable',
-          lastAttempt: rebuiltHistory.length > 0 ? rebuiltHistory[rebuiltHistory.length - 1].score : 0,
-          level: statsResult?.level || (
-            (statsResult?.mean || 0) > (minScore + 0.7 * scoreRange)
-              ? 'ALTO'
-              : (statsResult?.mean || 0) > (minScore + 0.4 * scoreRange)
-                ? 'MÉDIO'
-                : 'BAIXO'
-          )
-        };
+        cat.simuladoStats = computeCategorySimuladoStats(
+          cat,
+          rebuiltHistory,
+          maxScore,
+          minScore
+        );
       } else {
         console.warn(`[Repair] Reconstrução produziria menos dados (${rebuiltHistory.length} < ${currentHistory.length}). Mantendo original.`);
       }
@@ -597,42 +588,49 @@ export const sanitizeContest = (data, contestId = '') => {
         });
 
       let average = Number(cat.simuladoStats?.average);
-      if (
+      const reconciledStats = cleanHistory.length > 0
+        ? computeCategorySimuladoStats(
+            { ...cat, minScore: catMin, maxScore: catMax },
+            cleanHistory,
+            catMax,
+            catMin
+          )
+        : null;
+
+      if (reconciledStats) {
+        average = reconciledStats.average;
+      } else if (
         !Number.isFinite(average) ||
         average < catMin ||
-        average > catMax ||
-        (average === 0 && cleanHistory.length > 0)
+        average > catMax
       ) {
-        if (cleanHistory.length > 0) {
-          const sum = cleanHistory.reduce((acc, curr) => acc + curr.score, 0);
-          average = Number((sum / cleanHistory.length).toFixed(2));
-        } else {
-          average = Number.isFinite(average)
-            ? Math.min(catMax, Math.max(catMin, average))
-            : catMin;
-        }
+        average = Number.isFinite(average)
+          ? Math.min(catMax, Math.max(catMin, average))
+          : catMin;
       }
 
       let lastAttempt = Number(cat.simuladoStats?.lastAttempt);
-      if (
+      if (reconciledStats) {
+        lastAttempt = reconciledStats.lastAttempt;
+      } else if (
         !Number.isFinite(lastAttempt) ||
         lastAttempt < catMin ||
-        lastAttempt > catMax ||
-        (lastAttempt === 0 && cleanHistory.length > 0)
+        lastAttempt > catMax
       ) {
-        lastAttempt = cleanHistory.length > 0
-          ? cleanHistory[cleanHistory.length - 1].score
-          : (Number.isFinite(lastAttempt) ? Math.min(catMax, Math.max(catMin, lastAttempt)) : catMin);
+        lastAttempt = Number.isFinite(lastAttempt)
+          ? Math.min(catMax, Math.max(catMin, lastAttempt))
+          : catMin;
       }
 
-      let level = cat.simuladoStats?.level;
-      if (!level || (level === 'BAIXO' && average >= (catMin + 0.4 * scoreRange))) {
+      let level = reconciledStats?.level || cat.simuladoStats?.level;
+      if (!level) {
         level = average >= (catMin + 0.7 * scoreRange)
           ? 'ALTO'
           : average >= (catMin + 0.4 * scoreRange)
             ? 'MÉDIO'
             : 'BAIXO';
       }
+      const trend = reconciledStats?.trend || cat.simuladoStats?.trend || 'stable';
 
       const hasExplicitMinCutoff = cat.minCutoff !== undefined &&
         cat.minCutoff !== null &&
@@ -669,7 +667,7 @@ export const sanitizeContest = (data, contestId = '') => {
           history: cleanHistory,
           average,
           lastAttempt,
-          trend: cat.simuladoStats?.trend || "stable",
+          trend,
           level: String(level).toUpperCase() === 'MEDIO' ? 'MÉDIO' : String(level).toUpperCase()
         }
       };

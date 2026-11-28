@@ -87,6 +87,34 @@ describe('Data Integrity & Schema Sanitization Audit', () => {
     expect(cat.simuladoStats.lastAttempt).toBe(800);
   });
 
+  it('recomputes all derived stats and weights category averages by question volume', () => {
+    const rawContest = {
+      categories: [
+        {
+          id: 'cat-weighted-history',
+          name: 'História',
+          simuladoStats: {
+            average: 80,
+            lastAttempt: 90,
+            trend: 'stable',
+            level: 'ALTO',
+            history: [
+              { date: '2026-11-01', score: 60, total: 5, correct: 3 },
+              { date: '2026-11-05', score: 70, total: 100, correct: 70 }
+            ]
+          }
+        }
+      ]
+    };
+
+    const stats = sanitizeContest(rawContest).categories[0].simuladoStats;
+
+    expect(stats.average).toBe(69.52);
+    expect(stats.lastAttempt).toBe(70);
+    expect(stats.trend).toBe('up');
+    expect(stats.level).toBe('MÉDIO');
+  });
+
   it('correctly clamps out-of-range scores and corrects invalid correct/total in history', () => {
     const rawContest = {
       contestName: 'Teste Clamping',

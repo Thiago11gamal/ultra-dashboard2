@@ -649,4 +649,42 @@ describe('Coach AI & Menu Simulado End-to-End Data Pipeline Verification', () =>
     });
     expect(metricsPort.averageScore).toBeCloseTo(90, 1);
   });
+
+  it('recomputes category stats when a category is restored from Trash', () => {
+    const trashSlice = createTrashSlice(setFn, () => mockState);
+    mockState.appState.trash = [];
+    mockState.appState.trash.push({
+      id: 'trash-stale-category',
+      type: 'category',
+      contestId: 'contest-test',
+      data: {
+        category: {
+          id: 'cat-restored',
+          name: 'Direito Administrativo',
+          minScore: 0,
+          maxScore: 100,
+          tasks: [],
+          simuladoStats: {
+            average: 80,
+            lastAttempt: 90,
+            trend: 'stable',
+            level: 'ALTO',
+            history: [
+              { date: '2026-11-01', score: 60, total: 5, correct: 3 },
+              { date: '2026-11-05', score: 70, total: 100, correct: 70 }
+            ]
+          }
+        }
+      }
+    });
+
+    trashSlice.restoreFromTrash('trash-stale-category');
+
+    const restored = mockState.appState.contests['contest-test'].categories
+      .find(category => category.id === 'cat-restored');
+    expect(restored.simuladoStats.average).toBe(69.52);
+    expect(restored.simuladoStats.lastAttempt).toBe(70);
+    expect(restored.simuladoStats.trend).toBe('up');
+    expect(restored.simuladoStats.level).toBe('MÉDIO');
+  });
 });

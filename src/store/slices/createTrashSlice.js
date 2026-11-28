@@ -32,6 +32,18 @@ const resetPomodoroOnContestChange = (state) => {
     }
 };
 
+const reconcileContestStats = (contest) => {
+    if (!contest || typeof contest !== 'object') return contest;
+    contest.categories = reconcileContestCategoriesHistory(
+        contest.categories,
+        contest.simuladoRows,
+        contest.maxScore,
+        contest.minScore,
+        { penaltyPerWrong: contest.penaltyPerWrong }
+    );
+    return contest;
+};
+
 const resolveOrRecreateContestForItem = (state, item) => {
     const contests = state.appState.contests || {};
     if (!item?.contestId) {
@@ -48,7 +60,7 @@ const resolveOrRecreateContestForItem = (state, item) => {
 
     if (trashedContestIdx !== -1) {
         const trashedContest = state.appState.trash[trashedContestIdx];
-        const restoredContest = safeClone(trashedContest.data) || {};
+        const restoredContest = reconcileContestStats(safeClone(trashedContest.data) || {});
         restoredContest.id = item.contestId;
         restoredContest.lastUpdated = nowIso;
         state.appState.contests[item.contestId] = restoredContest;
@@ -177,6 +189,13 @@ export const createTrashSlice = (set, get) => ({
                 const safeSimulados = Array.isArray(contest.simulados) ? contest.simulados : Object.values(contest.simulados || {});
                 contest.simulados = [...safeSimulados, ...fixRef(item.data.simulados)];
             }
+            contest.categories = reconcileContestCategoriesHistory(
+                contest.categories,
+                contest.simuladoRows,
+                contest.maxScore,
+                contest.minScore,
+                { penaltyPerWrong: contest.penaltyPerWrong }
+            );
             if (item.data.mcWeight !== undefined) {
                 if (!contest.mcWeights) contest.mcWeights = {};
                 contest.mcWeights[newId] = item.data.mcWeight;
@@ -264,6 +283,7 @@ export const createTrashSlice = (set, get) => ({
             if (contestPayload && typeof contestPayload === 'object') {
                 contestPayload.id = newId;
                 contestPayload.lastUpdated = nowIso;
+                reconcileContestStats(contestPayload);
             }
             if (prevActiveId !== newId) {
                 resetPomodoroOnContestChange(state);
