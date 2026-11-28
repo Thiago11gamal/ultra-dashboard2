@@ -8,30 +8,69 @@ export const safeClone = (value, fallback = null) => {
     }
   } catch { /* contém funções/DOM/Events → fallback */ }
 
-  // 2) Fallback JSON com saneamento estrito
+  // 2) Fallback recursivo: não converte strings ISO em Date nem perde referências repetidas.
   try {
-    const seen = new WeakSet();
-    return JSON.parse(JSON.stringify(value, (key, val) => {
-      if (val instanceof Date) return val.toISOString();
-      if (typeof val === 'function' || typeof val === 'symbol') return undefined;
-      if (typeof window !== 'undefined' && val === window) return undefined;
-      if (typeof Event !== 'undefined' && val instanceof Event) return undefined;
-      if (typeof HTMLElement !== 'undefined' && val instanceof HTMLElement) return undefined;
-      if (typeof Node !== 'undefined' && val instanceof Node) return undefined;
-      if (typeof val === 'object' && val !== null) {
-        if (seen.has(val)) return undefined; // quebra circular
-        seen.add(val);
+    const seen = new WeakMap();
+    const clone = (current, inArray = false) => {
+      if (current === null || typeof current !== 'object') {
+        return inArray && (typeof current === 'function' || typeof current === 'symbol')
+          ? null
+          : current;
       }
-      return val;
-    }), (key, val) => {
-      if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(val)) {
-        const d = new Date(val);
-        if (!isNaN(d.getTime())) return d;
+
+      if (
+        (typeof window !== 'undefined' && current === window) ||
+        (typeof Event !== 'undefined' && current instanceof Event) ||
+        (typeof HTMLElement !== 'undefined' && current instanceof HTMLElement) ||
+        (typeof Node !== 'undefined' && current instanceof Node)
+      ) {
+        return inArray ? null : undefined;
       }
-      return val;
-    });
-  } catch (jsonError) {
-    console.error('[SafeClone] Falha crítica ao clonar. Retornando fallback.', jsonError);
+
+      if (current instanceof Date) return new Date(current.getTime());
+      if (seen.has(current)) return seen.get(current);
+
+      if (current instanceof Map) {
+        const result = new Map();
+        seen.set(current, result);
+        current.forEach((mapValue, mapKey) => result.set(clone(mapKey), clone(mapValue)));
+        return result;
+      }
+      if (current instanceof Set) {
+        const result = new Set();
+        seen.set(current, result);
+        current.forEach(item => result.add(clone(item)));
+        return result;
+      }
+
+      const result = Array.isArray(current) ? [] : {};
+      seen.set(current, result);
+      if (Array.isArray(current)) {
+        for (let i = 0; i < current.length; i++) {
+          result.push(clone(current[i], true));
+        }
+      } else {
+        Object.entries(current).forEach(([key, item]) => {
+          if (typeof item === 'function' || typeof item === 'symbol') return;
+          const cloned = clone(item);
+          if (cloned !== undefined) {
+            Object.defineProperty(result, key, {
+              value: cloned,
+              enumerable: true,
+              writable: true,
+              configurable: true
+            });
+          }
+        });
+      }
+      return result;
+    };
+
+    const cloned = clone(value);
+    if (cloned !== undefined) return cloned;
+    return Array.isArray(value) ? [] : (typeof value === 'object' ? {} : value);
+  } catch (cloneError) {
+    console.error('[SafeClone] Falha crítica ao clonar. Retornando fallback.', cloneError);
     if (fallback !== null) return fallback;
     return Array.isArray(value) ? [] : (typeof value === 'object' ? {} : value);
   }

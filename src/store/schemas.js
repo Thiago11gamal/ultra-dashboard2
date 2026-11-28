@@ -597,18 +597,32 @@ export const sanitizeContest = (data, contestId = '') => {
         });
 
       let average = Number(cat.simuladoStats?.average);
-      if (!Number.isFinite(average) || (average === 0 && cleanHistory.length > 0)) {
+      if (
+        !Number.isFinite(average) ||
+        average < catMin ||
+        average > catMax ||
+        (average === 0 && cleanHistory.length > 0)
+      ) {
         if (cleanHistory.length > 0) {
           const sum = cleanHistory.reduce((acc, curr) => acc + curr.score, 0);
           average = Number((sum / cleanHistory.length).toFixed(2));
         } else {
-          average = 0;
+          average = Number.isFinite(average)
+            ? Math.min(catMax, Math.max(catMin, average))
+            : catMin;
         }
       }
 
       let lastAttempt = Number(cat.simuladoStats?.lastAttempt);
-      if (!Number.isFinite(lastAttempt) || (lastAttempt === 0 && cleanHistory.length > 0)) {
-        lastAttempt = cleanHistory.length > 0 ? cleanHistory[cleanHistory.length - 1].score : catMin;
+      if (
+        !Number.isFinite(lastAttempt) ||
+        lastAttempt < catMin ||
+        lastAttempt > catMax ||
+        (lastAttempt === 0 && cleanHistory.length > 0)
+      ) {
+        lastAttempt = cleanHistory.length > 0
+          ? cleanHistory[cleanHistory.length - 1].score
+          : (Number.isFinite(lastAttempt) ? Math.min(catMax, Math.max(catMin, lastAttempt)) : catMin);
       }
 
       let level = cat.simuladoStats?.level;

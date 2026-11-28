@@ -61,6 +61,32 @@ describe('Data Integrity & Schema Sanitization Audit', () => {
     expect(cat.simuladoStats.lastAttempt).toBe(85);
   });
 
+  it('repairs average and lastAttempt values outside the category score scale', () => {
+    const rawContest = {
+      categories: [
+        {
+          id: 'cat-scale',
+          name: 'Direito',
+          minScore: 200,
+          maxScore: 1000,
+          simuladoStats: {
+            average: 1500,
+            lastAttempt: 100,
+            history: [
+              { date: '2026-11-01', score: 600, total: 10, correct: 6 },
+              { date: '2026-11-05', score: 800, total: 10, correct: 8 }
+            ]
+          }
+        }
+      ]
+    };
+
+    const cat = sanitizeContest(rawContest).categories[0];
+
+    expect(cat.simuladoStats.average).toBe(700);
+    expect(cat.simuladoStats.lastAttempt).toBe(800);
+  });
+
   it('correctly clamps out-of-range scores and corrects invalid correct/total in history', () => {
     const rawContest = {
       contestName: 'Teste Clamping',
