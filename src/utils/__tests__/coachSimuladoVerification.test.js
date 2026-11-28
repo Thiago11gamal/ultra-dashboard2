@@ -682,7 +682,9 @@ describe('Coach AI & Menu Simulado End-to-End Data Pipeline Verification', () =>
 
     const restored = mockState.appState.contests['contest-test'].categories
       .find(category => category.id === 'cat-restored');
-    expect(restored.simuladoStats.average).toBe(69.52);
+    expect(restored.simuladoStats.averagePerExam).toBe(65);
+    expect(restored.simuladoStats.averagePerQuestion).toBe(69.52);
+    expect(restored.simuladoStats.average).toBe(65);
     expect(restored.simuladoStats.lastAttempt).toBe(70);
     expect(restored.simuladoStats.trend).toBe('up');
     expect(restored.simuladoStats.level).toBe('MÉDIO');

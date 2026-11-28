@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { TrendingUp, TrendingDown, Minus, Wallet, Trophy, Target, Hash, ArrowUpDown, ChevronUp, ChevronDown, BarChart3 } from 'lucide-react';
-import { computeCategoryPerformanceStats, toSafeArray } from '../utils/tasksStatsHelper';
+import { computeCategoryPerformanceStats, hasValidFiniteNumber, toSafeArray } from '../utils/tasksStatsHelper';
 
 const PerformanceTable = ({ categories = [], maxScore = 100, minScore = 0 }) => {
     const [sortColumn, setSortColumn] = useState('balance');
@@ -196,6 +196,13 @@ const PerformanceTable = ({ categories = [], maxScore = 100, minScore = 0 }) => 
                                 const netBalance = category.balance;
                                 const percentCorrect = category.percentCorrect;
                                 const pctBar = Math.max(0, Math.min(100, percentCorrect));
+                                const categoryAvgMax = hasValidFiniteNumber(category.maxScore)
+                                    ? Number(category.maxScore)
+                                    : maxScore;
+                                const categoryAvgMin = hasValidFiniteNumber(category.minScore)
+                                    ? Number(category.minScore)
+                                    : minScore;
+                                const averageUnit = categoryAvgMax === 100 && categoryAvgMin === 0 ? '%' : ' pts';
 
                                 const currentTrend = category.currentTrend || 'stable';
                                 const trendValue = category.trendValue || 0;
@@ -238,6 +245,20 @@ const PerformanceTable = ({ categories = [], maxScore = 100, minScore = 0 }) => 
                                                     <span className="text-[10px] text-slate-500 font-medium tracking-tight">
                                                         {resolveCategorySubtitle(category)}
                                                     </span>
+                                                    {Number.isFinite(Number(category.simuladoStats?.averagePerExam)) &&
+                                                        Number.isFinite(Number(category.simuladoStats?.averagePerQuestion)) &&
+                                                        (Array.isArray(category.simuladoStats?.history)
+                                                            ? category.simuladoStats.history.length > 0
+                                                            : Object.keys(category.simuladoStats?.history || {}).length > 0) && (
+                                                            <span className="mt-1 flex flex-wrap gap-x-2 text-[9px] text-slate-400">
+                                                                <span title="Média simples dos simulados registrados">
+                                                                    Por simulado: {Number(category.simuladoStats.averagePerExam).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}{averageUnit}
+                                                                </span>
+                                                                <span title="Média ponderada pelo número de questões; não aplica peso subjetivo de dificuldade">
+                                                                    Por questões: {Number(category.simuladoStats.averagePerQuestion).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}{averageUnit}
+                                                                </span>
+                                                            </span>
+                                                        )}
                                                 </div>
                                             </div>
                                         </td>

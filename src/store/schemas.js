@@ -598,7 +598,7 @@ export const sanitizeContest = (data, contestId = '') => {
         : null;
 
       if (reconciledStats) {
-        average = reconciledStats.average;
+        average = reconciledStats.averagePerExam;
       } else if (
         !Number.isFinite(average) ||
         average < catMin ||
@@ -666,6 +666,12 @@ export const sanitizeContest = (data, contestId = '') => {
         simuladoStats: {
           history: cleanHistory,
           average,
+          ...(reconciledStats
+            ? {
+                averagePerExam: reconciledStats.averagePerExam,
+                averagePerQuestion: reconciledStats.averagePerQuestion
+              }
+            : {}),
           lastAttempt,
           trend,
           level: String(level).toUpperCase() === 'MEDIO' ? 'MÉDIO' : String(level).toUpperCase()

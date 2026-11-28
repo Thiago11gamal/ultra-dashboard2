@@ -87,7 +87,7 @@ describe('Data Integrity & Schema Sanitization Audit', () => {
     expect(cat.simuladoStats.lastAttempt).toBe(800);
   });
 
-  it('recomputes all derived stats and weights category averages by question volume', () => {
+  it('recomputes derived stats and stores exam and question-weighted averages separately', () => {
     const rawContest = {
       categories: [
         {
@@ -109,7 +109,9 @@ describe('Data Integrity & Schema Sanitization Audit', () => {
 
     const stats = sanitizeContest(rawContest).categories[0].simuladoStats;
 
-    expect(stats.average).toBe(69.52);
+    expect(stats.average).toBe(65);
+    expect(stats.averagePerExam).toBe(65);
+    expect(stats.averagePerQuestion).toBe(69.52);
     expect(stats.lastAttempt).toBe(70);
     expect(stats.trend).toBe('up');
     expect(stats.level).toBe('MÉDIO');

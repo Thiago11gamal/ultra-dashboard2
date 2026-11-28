@@ -1,5 +1,5 @@
 import { computeCategoryStats } from '../engine/stats.js';
-import { getSafeScore, isPhantomZeroTimeAttempt } from './scoreHelper.js';
+import { extractTopicsTotals, getSafeScore, getSyntheticTotal, isPhantomZeroTimeAttempt } from './scoreHelper.js';
 import { computeEffectiveScoreRatio } from './measurement.js';
 import { getDateKey, normalizeDate, toDateMs } from './dateHelper.js';
 import { normalize, aliases, isSubjectMatch } from './normalization.js';
@@ -229,6 +229,32 @@ export function computeCategorySimuladoStats(
     ? computeCategoryStats(finalHistory, weight, 60, maxScore, minScore)
     : null;
 
+  let scoreSum = 0;
+  let scoreCount = 0;
+  let questionWeightedScoreSum = 0;
+  let questionWeight = 0;
+  finalHistory.forEach((entry) => {
+    if (!entry || entry.valid === false || entry.validated === false) return;
+    const score = getSafeScore(entry, maxScore, minScore);
+    if (!Number.isFinite(score)) return;
+
+    scoreSum += score;
+    scoreCount += 1;
+    const rawTotal = Number(entry.compTotal ?? entry.total ?? entry.questoes ?? entry.totalQuestoes ?? entry.questions);
+    const topicsTotal = entry.topics != null
+      ? extractTopicsTotals(entry, maxScore, minScore).total
+      : 0;
+    const total = Number.isFinite(rawTotal) && rawTotal > 0
+      ? rawTotal
+      : (topicsTotal > 0 ? topicsTotal : getSyntheticTotal(maxScore));
+    questionWeightedScoreSum += score * total;
+    questionWeight += total;
+  });
+  const averagePerExam = scoreCount > 0 ? Number((scoreSum / scoreCount).toFixed(2)) : 0;
+  const averagePerQuestion = questionWeight > 0
+    ? Number((questionWeightedScoreSum / questionWeight).toFixed(2))
+    : 0;
+
   const lastEntry = finalHistory.length > 0 ? finalHistory[finalHistory.length - 1] : null;
   const lastScoreRaw = lastEntry ? getSafeScore(lastEntry, maxScore, minScore) : NaN;
   let lastAttempt = minScore;
@@ -247,10 +273,18 @@ export function computeCategorySimuladoStats(
   return {
     ...(category?.simuladoStats && typeof category.simuladoStats === 'object' ? category.simuladoStats : {}),
     history: finalHistory,
-    average: statsResult ? Number((statsResult.mean || 0).toFixed(2)) : 0,
+    average: averagePerExam,
+    averagePerExam,
+    averagePerQuestion,
     trend: statsResult?.trend || 'stable',
     lastAttempt,
-    level: statsResult?.level || 'BAIXO'
+    level: scoreCount > 0
+      ? (averagePerExam >= minScore + 0.7 * range
+        ? 'ALTO'
+        : averagePerExam >= minScore + 0.4 * range
+          ? 'MÉDIO'
+          : 'BAIXO')
+      : 'BAIXO'
   };
 }
 

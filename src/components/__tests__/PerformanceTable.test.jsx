@@ -58,6 +58,29 @@ describe('PerformanceTable rendering contracts', () => {
         expect(html).toContain('Tendência recente:');
     });
 
+    it('labels per-simulado and question-weighted averages separately', () => {
+        const html = renderToStaticMarkup(
+            <PerformanceTable
+                categories={[
+                    {
+                        id: 'cat-averages',
+                        name: 'Direito',
+                        maxScore: 100,
+                        minScore: 0,
+                        simuladoStats: {
+                            history: [{ date: '2026-05-01', score: 65, total: 10 }],
+                            averagePerExam: 65,
+                            averagePerQuestion: 69.52
+                        }
+                    }
+                ]}
+            />
+        );
+
+        expect(html).toContain('Por simulado: 65%');
+        expect(html).toContain('Por questões: 69,5%');
+    });
+
     it('handles categories with custom scales correctly', () => {
         const categories = [
             {
