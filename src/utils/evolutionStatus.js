@@ -369,7 +369,10 @@ export function computeEvolutionStatuses({
           : Object.values(cat?.simuladoStats?.history || {});
         const hasHistory = hist.some((h) => h && h.valid !== false && h.validated !== false && h.source !== 'manual-error-notebook');
         const hasBayes = safeNum(cat?.bayesianStats?.mean, null) != null;
-        const avgVal = safeNum(cat?.simuladoStats?.average, null);
+        const avgVal = safeNum(
+          cat?.simuladoStats?.averagePerExam ?? cat?.simuladoStats?.average,
+          null
+        );
         const stored = hasBayes
           ? safeNum(cat.bayesianStats.mean, null)
           : (hasHistory || (avgVal != null && avgVal > 0) ? avgVal : null);

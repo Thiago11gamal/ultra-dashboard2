@@ -186,8 +186,9 @@ export const DisciplinaCard = React.memo(function DisciplinaCard({
     }
 
     let statsVal = metrics ? metrics[`stats_${cat.id}`] : null;
-    if (!hasValidNumber(statsVal) && hasValidNumber(cat?.simuladoStats?.average)) {
-        statsVal = normalizeStoredFallback(cat.simuladoStats.average, safeMin, safeMax, safeRange);
+    const averagePerExam = cat?.simuladoStats?.averagePerExam ?? cat?.simuladoStats?.average;
+    if (!hasValidNumber(statsVal) && hasValidNumber(averagePerExam)) {
+        statsVal = normalizeStoredFallback(averagePerExam, safeMin, safeMax, safeRange);
     }
 
     let bayVal = metrics ? metrics[`bay_${cat.id}`] : null;

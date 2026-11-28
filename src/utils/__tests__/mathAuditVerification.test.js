@@ -596,6 +596,13 @@ describe('Auditoria Matemática - Fixes Cirúrgicos Verificados', () => {
     const shiftedScale = getMasterySignal({ simuladoStats: { average: 60 }, maxScore: 100, minScore: 20 });
     expect(shiftedScale.accuracy).toBeCloseTo(0.5, 6);
 
+    const dualAverage = getMasterySignal({
+      simuladoStats: { averagePerExam: 65, averagePerQuestion: 69.52 },
+      maxScore: 100,
+      minScore: 0
+    });
+    expect(dualAverage.accuracy).toBeCloseTo(0.6952, 6);
+
     const legacyBayesian = getMasterySignal({ bayesianStats: { mean: 0.6 }, maxScore: 100, minScore: 0 });
     expect(legacyBayesian.accuracy).toBeCloseTo(0.6, 6);
 

@@ -137,6 +137,8 @@ export function getMasterySignal(entity, fallbackEntity = null, options = {}) {
 
   const accuracyRaw =
     bayesObj?.mean ??
+    entity?.simuladoStats?.averagePerQuestion ??
+    fallbackEntity?.simuladoStats?.averagePerQuestion ??
     entity?.simuladoStats?.average ??
     fallbackEntity?.simuladoStats?.average ??
     null;
